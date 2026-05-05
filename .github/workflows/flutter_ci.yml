@@ -12,7 +12,9 @@ on:
       - main
 
 jobs:
-  build:
+
+  # job 1: analyze (jalan di semua branch)
+  analyze:
     runs-on: ubuntu-latest
 
     defaults:
@@ -34,14 +36,33 @@ jobs:
       - name: Analyze code
         run: flutter analyze
 
-      # Build hanya untuk dev & PR ke main
+  # job 2: build (hanya dev & PR main)
+  build:
+    runs-on: ubuntu-latest
+    needs: analyze # hanya jalan jika analyze tidak ada error
+
+    if: github.ref == 'refs/heads/dev' || github.base_ref == 'main'
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+
+      - name: Install dependencies
+        run: flutter pub get
+
       - name: Build APK (debug)
-        if: github.ref == 'refs/heads/dev' || github.base_ref == 'main'
         run: flutter build apk --debug
 
-      # Upload artifact hanya saat build
       - name: Upload APK Artifact
-        if: github.ref == 'refs/heads/dev' || github.base_ref == 'main'
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
