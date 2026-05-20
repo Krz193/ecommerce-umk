@@ -72,6 +72,22 @@ serve(async (req) => {
         console.log("Webhook payload:", body,);
 
         /**
+         * Required webhook payload validation
+         *
+         * Prevent malformed or incomplete
+         * webhook payloads from entering
+         * transactional lifecycle flow.
+         */
+        if (!order_id || !transaction_id || !status_code || !gross_amount || !signature_key) {
+            return new Response(JSON.stringify({error: "Invalid payload"}), {
+                status: 400,
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            },);
+        }
+
+        /**
          * Generate webhook signature
          */
         const generatedSignature = await generateSignature(
@@ -82,32 +98,21 @@ serve(async (req) => {
         );
 
         /**
-         * TEMPORARY SIGNATURE BYPASS
+         * Verify Midtrans webhook signature
          *
-         * Re-enable before production rollout.
+         * Reject spoofed or tampered
+         * webhook payloads before
+         * transactional mutation flow.
          */
-        /*
-        if (
-            generatedSignature !==
-            signature_key
-        ) {
-            return new Response(
-                JSON.stringify({
-                    error:
-                        "Invalid signature",
-                }),
-                {
-                    status: 401,
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                },
-            );
+        if (generatedSignature !== signature_key) {
+            return new Response(JSON.stringify({error: "Invalid signature"}), {
+                status: 401,
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            },);
         }
-        */
 
-        console.warn("Skipping signature verification temporarily",);
         console.log("Signature verified",);
 
         /**
@@ -248,14 +253,11 @@ serve(async (req) => {
                 }
 
                 if (product.stock < item.quantity) {
-                    console.warn(
-                        "Insufficient stock during webhook settlement",
-                        {
-                            product_id: product.id,
-                            current_stock: product.stock,
-                            requested_quantity: item.quantity,
-                        },
-                    );
+                    console.warn("Insufficient stock during webhook settlement", {
+                        product_id: product.id,
+                        current_stock: product.stock,
+                        requested_quantity: item.quantity
+                    },);
 
                     continue;
                 }
@@ -345,7 +347,7 @@ serve(async (req) => {
             )
             .update({
                 status: orderStatus,
-                
+
                 payment_status: orderPaymentStatus,
 
                 paid_at: paymentStatus === "paid"
