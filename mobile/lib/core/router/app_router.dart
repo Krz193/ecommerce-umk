@@ -3,6 +3,7 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/router/router_refresh_stream.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/home/home_page.dart';
+import 'package:mobile/features/products/product_detail_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -42,6 +43,19 @@ final appRouter = GoRouter(
       path: '/home',
       builder: (context, state) =>
           const HomePage(),
+    ),
+
+    GoRoute(
+      path: '/products/:id',
+
+      builder: (context, state) {
+        final productId =
+            state.pathParameters['id']!;
+
+        return ProductDetailPage(
+          productId: productId,
+        );
+      },
     ),
   ],
 );
