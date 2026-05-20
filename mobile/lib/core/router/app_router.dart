@@ -9,18 +9,14 @@ import 'package:mobile/features/cart/cart_page.dart';
 final appRouter = GoRouter(
   initialLocation: '/login',
 
-  refreshListenable: RouterRefreshStream(
-    supabase.auth.onAuthStateChange,
-  ),
+  refreshListenable: RouterRefreshStream(supabase.auth.onAuthStateChange),
 
   redirect: (context, state) {
-    final session =
-        supabase.auth.currentSession;
+    final session = supabase.auth.currentSession;
 
     final isLoggedIn = session != null;
 
-    final isLoginRoute =
-        state.matchedLocation == '/login';
+    final isLoginRoute = state.matchedLocation == '/login';
 
     if (!isLoggedIn && !isLoginRoute) {
       return '/login';
@@ -34,36 +30,20 @@ final appRouter = GoRouter(
   },
 
   routes: [
-    GoRoute(
-      path: '/login',
-      builder: (context, state) =>
-          const LoginPage(),
-    ),
+    GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
 
-    GoRoute(
-      path: '/home',
-      builder: (context, state) =>
-          const HomePage(),
-    ),
+    GoRoute(path: '/home', builder: (context, state) => const HomePage()),
 
     GoRoute(
       path: '/products/:id',
 
       builder: (context, state) {
-        final productId =
-            state.pathParameters['id']!;
+        final productId = state.pathParameters['id']!;
 
-        return ProductDetailPage(
-          productId: productId,
-        );
+        return ProductDetailPage(productId: productId);
       },
     ),
 
-    GoRoute(
-      path: '/cart',
-
-      builder: (context, state) =>
-          const CartPage(),
-    ),
+    GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
   ],
 );

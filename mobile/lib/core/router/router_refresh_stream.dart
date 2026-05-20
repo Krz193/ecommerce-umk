@@ -4,13 +4,10 @@ import 'package:flutter/foundation.dart';
 
 class RouterRefreshStream extends ChangeNotifier {
   RouterRefreshStream(Stream<dynamic> stream) {
-    _subscription = stream.asBroadcastStream().listen(
-      (_) => notifyListeners(),
-    );
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
   }
 
-  late final StreamSubscription<dynamic>
-  _subscription;
+  late final StreamSubscription<dynamic> _subscription;
 
   @override
   void dispose() {

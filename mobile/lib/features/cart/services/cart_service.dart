@@ -5,13 +5,10 @@ class CartService {
     required String productId,
     required String storeId,
   }) async {
-    final user =
-        supabase.auth.currentUser;
+    final user = supabase.auth.currentUser;
 
     if (user == null) {
-      throw Exception(
-        'User not logged in',
-      );
+      throw Exception('User not logged in');
     }
 
     /*
@@ -20,13 +17,12 @@ class CartService {
     |--------------------------------------------------------------------------
     */
 
-    final existingCart =
-        await supabase
-            .from('carts')
-            .select()
-            .eq('user_id', user.id)
-            .eq('store_id', storeId)
-            .maybeSingle();
+    final existingCart = await supabase
+        .from('carts')
+        .select()
+        .eq('user_id', user.id)
+        .eq('store_id', storeId)
+        .maybeSingle();
 
     Map<String, dynamic>? cart = existingCart;
 
@@ -37,13 +33,10 @@ class CartService {
     */
 
     cart ??= await supabase
-      .from('carts')
-      .insert({
-        'user_id': user.id,
-        'store_id': storeId,
-      })
-      .select()
-      .single();
+        .from('carts')
+        .insert({'user_id': user.id, 'store_id': storeId})
+        .select()
+        .single();
 
     /*
     |--------------------------------------------------------------------------
@@ -51,13 +44,12 @@ class CartService {
     |--------------------------------------------------------------------------
     */
 
-    final existingCartItem =
-        await supabase
-            .from('cart_items')
-            .select()
-            .eq('cart_id', cart['id'])
-            .eq('product_id', productId)
-            .maybeSingle();
+    final existingCartItem = await supabase
+        .from('cart_items')
+        .select()
+        .eq('cart_id', cart['id'])
+        .eq('product_id', productId)
+        .maybeSingle();
 
     /*
     |--------------------------------------------------------------------------
@@ -68,16 +60,8 @@ class CartService {
     if (existingCartItem != null) {
       await supabase
           .from('cart_items')
-          .update({
-            'quantity':
-                existingCartItem[
-                        'quantity'] +
-                    1,
-          })
-          .eq(
-            'id',
-            existingCartItem['id'],
-          );
+          .update({'quantity': existingCartItem['quantity'] + 1})
+          .eq('id', existingCartItem['id']);
 
       return;
     }
@@ -88,13 +72,11 @@ class CartService {
     |--------------------------------------------------------------------------
     */
 
-    await supabase
-        .from('cart_items')
-        .insert({
-          'cart_id': cart['id'],
-          'product_id': productId,
-          'quantity': 1,
-        });
+    await supabase.from('cart_items').insert({
+      'cart_id': cart['id'],
+      'product_id': productId,
+      'quantity': 1,
+    });
   }
 
   Future<void> updateCartQuantity({
@@ -108,9 +90,7 @@ class CartService {
     */
 
     if (quantity <= 0) {
-      await removeCartItem(
-        cartItemId: cartItemId,
-      );
+      await removeCartItem(cartItemId: cartItemId);
 
       return;
     }
@@ -123,24 +103,11 @@ class CartService {
 
     await supabase
         .from('cart_items')
-        .update({
-          'quantity': quantity,
-        })
-        .eq(
-          'id',
-          cartItemId,
-        );
+        .update({'quantity': quantity})
+        .eq('id', cartItemId);
   }
 
-  Future<void> removeCartItem({
-    required String cartItemId,
-  }) async {
-    await supabase
-        .from('cart_items')
-        .delete()
-        .eq(
-          'id',
-          cartItemId,
-        );
+  Future<void> removeCartItem({required String cartItemId}) async {
+    await supabase.from('cart_items').delete().eq('id', cartItemId);
   }
 }

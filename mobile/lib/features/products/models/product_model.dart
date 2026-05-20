@@ -23,18 +23,18 @@ class ProductModel {
     required this.storeId,
   });
 
-  factory ProductModel.fromJson(Map<String, dynamic> json,) {
+  factory ProductModel.fromJson(Map<String, dynamic> json) {
     return ProductModel(
-      id : json['id'],
-      name : json['name'],
+      id: json['id'],
+      name: json['name'],
 
-      price : (json['price'] as num).toInt(),
+      price: (json['price'] as num).toInt(),
 
-      stock : (json['stock'] as num).toInt(),
+      stock: (json['stock'] as num).toInt(),
 
-      status : json['status'],
+      status: json['status'],
 
-      description : json['description'],
+      description: json['description'],
 
       storeId: json['store_id'],
     );

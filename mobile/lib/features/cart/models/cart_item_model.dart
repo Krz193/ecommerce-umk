@@ -20,33 +20,23 @@ class CartItemModel {
     required this.productStock,
   });
 
-  int get subtotal =>
-      productPrice * quantity;
+  int get subtotal => productPrice * quantity;
 
-  factory CartItemModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final product =
-        json['product'];
+  factory CartItemModel.fromJson(Map<String, dynamic> json) {
+    final product = json['product'];
 
     return CartItemModel(
       id: json['id'],
 
-      quantity:
-          (json['quantity'] as num)
-              .toInt(),
+      quantity: (json['quantity'] as num).toInt(),
 
       productId: product['id'],
 
       productName: product['name'],
 
-      productPrice:
-          (product['price'] as num)
-              .toInt(),
+      productPrice: (product['price'] as num).toInt(),
 
-      productStock:
-          (product['stock'] as num)
-              .toInt(),
+      productStock: (product['stock'] as num).toInt(),
     );
   }
 }
