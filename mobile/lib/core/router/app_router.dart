@@ -4,6 +4,7 @@ import 'package:mobile/core/router/router_refresh_stream.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/products/product_detail_page.dart';
+import 'package:mobile/features/cart/cart_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -56,6 +57,13 @@ final appRouter = GoRouter(
           productId: productId,
         );
       },
+    ),
+
+    GoRoute(
+      path: '/cart',
+
+      builder: (context, state) =>
+          const CartPage(),
     ),
   ],
 );
