@@ -199,19 +199,24 @@ serve(async (req) => {
 
         let orderPaymentStatus = payment.order.payment_status;
 
+        let orderStatus = payment.order.status;
+
         if (body.transaction_status === "settlement") {
             paymentStatus = "paid";
             orderPaymentStatus = "paid";
+            orderStatus = "processing";
         }
 
         if (body.transaction_status === "expire") {
             paymentStatus = "expired";
             orderPaymentStatus = "expired";
+            orderStatus = "cancelled";
         }
 
         if (body.transaction_status === "cancel") {
             paymentStatus = "failed";
             orderPaymentStatus = "failed";
+            orderStatus = "cancelled";
         }
 
         /**
@@ -339,6 +344,8 @@ serve(async (req) => {
                 "orders"
             )
             .update({
+                status: orderStatus,
+                
                 payment_status: orderPaymentStatus,
 
                 paid_at: paymentStatus === "paid"
