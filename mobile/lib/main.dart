@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/router/app_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'pages/product_page.dart';
+import 'package:mobile/core/theme/app_theme.dart';
 
-const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const supabaseKey = String.fromEnvironment('SUPABASE_KEY');
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseKey,
+  await dotenv.load(
+    fileName: '.env',
   );
 
-  runApp(const MyApp());
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
+
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -21,8 +25,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: ProductPage(),
+    return MaterialApp.router(
+      title: 'Marketplace UMK',
+      debugShowCheckedModeBanner: false,
+      routerConfig: appRouter,
+      theme: AppTheme.lightTheme,
     );
   }
 }

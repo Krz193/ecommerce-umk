@@ -72,6 +72,22 @@ serve(async (req) => {
         console.log("Webhook payload:", body,);
 
         /**
+         * Required webhook payload validation
+         *
+         * Prevent malformed or incomplete
+         * webhook payloads from entering
+         * transactional lifecycle flow.
+         */
+        if (!order_id || !transaction_id || !status_code || !gross_amount || !signature_key) {
+            return new Response(JSON.stringify({error: "Invalid payload"}), {
+                status: 400,
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            },);
+        }
+
+        /**
          * Generate webhook signature
          */
         const generatedSignature = await generateSignature(
@@ -82,32 +98,21 @@ serve(async (req) => {
         );
 
         /**
-         * TEMPORARY SIGNATURE BYPASS
+         * Verify Midtrans webhook signature
          *
-         * Re-enable before production rollout.
+         * Reject spoofed or tampered
+         * webhook payloads before
+         * transactional mutation flow.
          */
-        /*
-        if (
-            generatedSignature !==
-            signature_key
-        ) {
-            return new Response(
-                JSON.stringify({
-                    error:
-                        "Invalid signature",
-                }),
-                {
-                    status: 401,
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                },
-            );
+        if (generatedSignature !== signature_key) {
+            return new Response(JSON.stringify({error: "Invalid signature"}), {
+                status: 401,
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            },);
         }
-        */
 
-        console.warn("Skipping signature verification temporarily",);
         console.log("Signature verified",);
 
         /**
@@ -127,10 +132,11 @@ serve(async (req) => {
             .single();
 
         console.log("Webhook payment:", payment,);
+        if (paymentError) {
+            console.error("Webhook payment error:", paymentError,);
+        }
 
-        console.error("Webhook payment error:", paymentError,);
-
-        if (paymentError || !payment) {
+        if (!payment) {
             return new Response(JSON.stringify({error: "Payment not found"}), {
                 status: 404,
                 headers: {
@@ -178,10 +184,11 @@ serve(async (req) => {
             .eq("order_id", payment.order.id,);
 
         console.log("Webhook order items:", orderItems,);
+        if (orderItemsError) {
+            console.error("Webhook order items error:", orderItemsError,);
+        }
 
-        console.error("Webhook order items error:", orderItemsError,);
-
-        if (orderItemsError || !orderItems || orderItems.length === 0) {
+        if (!orderItems || orderItems.length === 0) {
             return new Response(JSON.stringify({error: "Order items not found"}), {
                 status: 404,
                 headers: {
@@ -197,19 +204,24 @@ serve(async (req) => {
 
         let orderPaymentStatus = payment.order.payment_status;
 
+        let orderStatus = payment.order.status;
+
         if (body.transaction_status === "settlement") {
             paymentStatus = "paid";
             orderPaymentStatus = "paid";
+            orderStatus = "processing";
         }
 
         if (body.transaction_status === "expire") {
             paymentStatus = "expired";
             orderPaymentStatus = "expired";
+            orderStatus = "cancelled";
         }
 
         if (body.transaction_status === "cancel") {
             paymentStatus = "failed";
             orderPaymentStatus = "failed";
+            orderStatus = "cancelled";
         }
 
         /**
@@ -232,10 +244,21 @@ serve(async (req) => {
                     .single();
 
                 console.log("Webhook product:", product,);
+                if (productError) {
+                    console.error("Webhook product error:", productError,);
+                }
 
-                console.error("Webhook product error:", productError,);
+                if (!product) {
+                    continue;
+                }
 
-                if (productError || !product) {
+                if (product.stock < item.quantity) {
+                    console.warn("Insufficient stock during webhook settlement", {
+                        product_id: product.id,
+                        current_stock: product.stock,
+                        requested_quantity: item.quantity
+                    },);
+
                     continue;
                 }
 
@@ -252,7 +275,41 @@ serve(async (req) => {
 
                 console.log("Updated product stock:", updatedProduct,);
 
-                console.error("Updated product stock error:", updatedProductError,);
+                if (updatedProductError) {
+                    console.error("Updated product stock error:", updatedProductError,);
+                }
+            }
+
+            /**
+             * Cleanup cart items
+             *
+             * Cart container survives.
+             * Only purchased cart_items
+             * are removed after settlement.
+             */
+            const {data: cart, error: cartError} = await supabase
+                .from("carts")
+                .select(`
+                    id
+                `)
+                .eq("user_id", payment.order.user_id,)
+                .eq("store_id", payment.order.store_id,)
+                .single();
+
+            console.log("Webhook cart:", cart,);
+            if (cartError) {
+                console.error("Webhook cart error:", cartError,);
+            }
+
+            if (cart) {
+                const {error: deleteCartItemsError} = await supabase
+                    .from("cart_items")
+                    .delete()
+                    .eq("cart_id", cart.id,);
+
+                if (deleteCartItemsError) {
+                    console.error("Delete cart items error:", deleteCartItemsError,);
+                }
             }
         }
 
@@ -277,8 +334,9 @@ serve(async (req) => {
             .single();
 
         console.log("Updated webhook payment:", updatedPayment,);
-
-        console.error("Updated webhook payment error:", updatedPaymentError,);
+        if (updatedPaymentError) {
+            console.error("Updated webhook payment error:", updatedPaymentError,);
+        }
 
         /**
          * Update order payment state
@@ -288,6 +346,8 @@ serve(async (req) => {
                 "orders"
             )
             .update({
+                status: orderStatus,
+
                 payment_status: orderPaymentStatus,
 
                 paid_at: paymentStatus === "paid"
@@ -299,8 +359,9 @@ serve(async (req) => {
             .single();
 
         console.log("Updated webhook order:", updatedOrder,);
-
-        console.error("Updated webhook order error:", updatedOrderError,);
+        if (updatedOrderError) {
+            console.error("Updated webhook order error:", updatedOrderError,);
+        }
 
         /**
          * Webhook success response
