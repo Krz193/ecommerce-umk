@@ -1,0 +1,121 @@
+name: Flutter CI/CD
+
+on:
+  push:
+    branches:
+      - dev
+      - feature/**
+
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+
+  # job 1: analyze (jalan di semua branch)
+  analyze:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create .env
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+
+      - name: Analyze code
+        run: flutter analyze
+
+  # job 2: build (hanya dev & PR main)
+  build:
+    runs-on: ubuntu-latest
+    needs: analyze # hanya jalan jika analyze tidak ada error
+
+    if: github.ref == 'refs/heads/dev' || github.base_ref == 'main'
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create .env
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+
+      - name: Build APK (debug)
+        run: flutter build apk --debug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+
+  distribute:
+    runs-on: ubuntu-latest
+
+    needs: build
+
+    if: github.ref == 'refs/heads/dev'
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create .env
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Upload to Firebase App Distribution
+        run: |
+          firebase appdistribution:distribute \
+          build/app/outputs/flutter-apk/app-release.apk \
+          --app ${{ secrets.FIREBASE_APP_ID }}
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
