@@ -1,0 +1,81 @@
+name: Flutter CD
+
+on:
+  workflow_run:
+    workflows:
+      - Flutter CI
+
+    types:
+      - completed
+
+jobs:
+
+  # =========================================================
+  # Distribute Release APK
+  # Run only if Flutter CI succeeds
+  # =========================================================
+  distribute:
+    runs-on: ubuntu-latest
+
+    # Only continue if:
+    # - CI succeeded
+    # - branch is dev
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev'
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      # Clone repository
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Install Flutter SDK
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.7"
+          cache: true
+
+      # Cache pub dependencies
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+
+      # Create .env from GitHub Secrets
+      - name: Create .env
+        run: |
+          printf "SUPABASE_URL=${{ secrets.SUPABASE_URL }}\n" > .env
+          printf "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}\n" >> .env
+
+      # Install dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Build release APK
+      # github.run_number = automatic build number
+      - name: Build release APK
+        run: |
+          flutter build apk \
+          --release \
+          --build-number=${{ github.run_number }}
+
+      # Install Firebase CLI
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      # Upload APK to Firebase App Distribution
+      - name: Upload to Firebase App Distribution
+        run: |
+          firebase appdistribution:distribute \
+          build/app/outputs/flutter-apk/app-release.apk \
+          --app ${{ secrets.FIREBASE_APP_ID }} \
+          --groups "tester" \
+          --release-notes "${{ github.event.workflow_run.head_commit.message }}"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
