@@ -71,7 +71,6 @@ jobs:
 
     needs:
       - analyze
-      - test
 
     # Only run on:
     # - dev branch push
