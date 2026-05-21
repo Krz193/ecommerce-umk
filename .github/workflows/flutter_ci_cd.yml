@@ -35,6 +35,9 @@ jobs:
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
 
+      - name: Debug .env
+        run: cat .env
+        
       - name: Install dependencies
         run: flutter pub get
 
