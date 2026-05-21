@@ -20,8 +20,7 @@ jobs:
     # Only continue if:
     # - CI succeeded
     # - branch is dev
-    if: |
-      github.event.workflow_run.conclusion == 'success'
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     defaults:
       run:
