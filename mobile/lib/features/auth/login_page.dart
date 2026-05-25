@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'providers/auth_provider.dart';
 
-import '../../core/config/supabase_provider.dart';
-
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final emailController = TextEditingController();
 
   final passwordController = TextEditingController();
+
+  
 
   bool isLoading = false;
 
@@ -23,10 +25,13 @@ class _LoginPageState extends State<LoginPage> {
         isLoading = true;
       });
 
-      await supabase.auth.signInWithPassword(
+      final authService = ref.read(authServiceProvider);
+
+      await authService.signIn(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
+
     } on AuthException catch (error) {
       if (!mounted) return;
 
@@ -46,6 +51,13 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     }
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   @override
