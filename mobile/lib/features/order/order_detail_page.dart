@@ -228,6 +228,8 @@ class OrderDetailPage extends ConsumerWidget {
               ...order.items.map(
                 (item) {
 
+                  debugPrint(item.productThumbnail);
+
                   return Container(
                     margin:
                         const EdgeInsets.only(
@@ -256,6 +258,23 @@ class OrderDetailPage extends ConsumerWidget {
                               .start,
 
                       children: [
+                        if (item.productThumbnail != null)
+                          ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(12),
+
+                            child: Image.network(
+                              item.productThumbnail!,
+
+                              height: 160,
+                              width: double.infinity,
+
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+
+                        if (item.productThumbnail != null)
+                          const SizedBox(height: 12),
 
                         Text(
                           item.productName,

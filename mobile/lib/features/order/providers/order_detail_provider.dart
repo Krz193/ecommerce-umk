@@ -29,7 +29,8 @@ final orderDetailProvider = FutureProvider.family<
             product_name,
             product_price,
             quantity,
-            subtotal
+            subtotal,
+            product_thumbnail
           )
           ''',
         )

@@ -11,12 +11,15 @@ class OrderItemModel {
 
   final int subtotal;
 
+  final String? productThumbnail;
+
   OrderItemModel({
     required this.id,
     required this.productName,
     required this.productPrice,
     required this.quantity,
     required this.subtotal,
+    this.productThumbnail,
   });
 
   factory OrderItemModel.fromJson(
@@ -37,6 +40,9 @@ class OrderItemModel {
 
       subtotal:
           json['subtotal'],
+
+      productThumbnail:
+          json['product_thumbnail'],
     );
   }
 }
