@@ -5,6 +5,8 @@ import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/product/product_detail_page.dart';
 import 'package:mobile/features/cart/cart_page.dart';
+import 'package:mobile/features/order/orders_page.dart';
+import 'package:mobile/features/order/order_detail_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -45,5 +47,40 @@ final appRouter = GoRouter(
     ),
 
     GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
+
+    GoRoute(
+      path: '/orders',
+      builder: (context, state) {
+        return const OrdersPage();
+      },
+    ),
+
+    GoRoute(
+      path: '/orders',
+
+      builder: (
+        context,
+        state,
+      ) {
+        return const OrdersPage();
+      },
+    ),
+
+    GoRoute(
+      path: '/orders/:id',
+
+      builder: (
+        context,
+        state,
+      ) {
+
+        final orderId =
+            state.pathParameters['id']!;
+
+        return OrderDetailPage(
+          orderId: orderId,
+        );
+      },
+    ),
   ],
 );

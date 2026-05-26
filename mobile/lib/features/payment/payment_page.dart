@@ -7,7 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 
-import 'providers/payment_provider.dart';
+import 'package:mobile/features/payment/providers/payment_provider.dart';
+import 'package:mobile/features/cart/services/cart_service.dart';
+import 'package:mobile/features/cart/providers/cart_provider.dart';
+import 'package:mobile/features/product/providers/product_provider.dart';
+
+import 'package:go_router/go_router.dart';
 
 class PaymentPage extends ConsumerStatefulWidget {
   final Map<String, dynamic> order;
@@ -35,18 +40,20 @@ class _PaymentPageState
 
   late String transactionStatus;
 
+  final cartService = CartService();
+
   Color getStatusColor() {
     switch (transactionStatus) {
-      case 'settlement':
+      case 'paid':
         return Colors.green;
 
       case 'pending':
         return Colors.orange;
 
-      case 'expire':
+      case 'expired':
         return Colors.red;
 
-      case 'cancel':
+      case 'failed':
         return Colors.red;
 
       default:
@@ -56,17 +63,17 @@ class _PaymentPageState
 
   String getStatusLabel() {
     switch (transactionStatus) {
-      case 'settlement':
+      case 'paid':
         return 'Paid';
 
       case 'pending':
         return 'Waiting Payment';
 
-      case 'expire':
+      case 'expired':
         return 'Expired';
 
-      case 'cancel':
-        return 'Cancelled';
+      case 'failed':
+        return 'Failed';
 
       default:
         return transactionStatus;
@@ -84,7 +91,7 @@ class _PaymentPageState
       );
 
       final status =
-          result['transaction_status'];
+          result['payment_status'];
 
       if (!mounted) return;
 
@@ -92,16 +99,43 @@ class _PaymentPageState
         transactionStatus = status;
       });
 
-      if (status == 'settlement') {
+      if (
+        status == 'paid' ||
+        status == 'expired' ||
+        status == 'failed'
+      ) {
+
         pollingTimer?.cancel();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Payment success',
+        if (status == 'paid') {
+          final cartState =
+              ref.read(cartProvider);
+
+          final carts =
+              cartState.asData?.value;
+
+          if (carts != null &&
+              carts.isNotEmpty) {
+
+            await cartService.clearCart(
+              cartId: carts.first.id,
+            );
+
+            ref.invalidate(cartProvider);
+          }
+
+          ref.invalidate(productsProvider);
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Payment success',
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (error) {
       debugPrint(error.toString());
@@ -112,7 +146,8 @@ class _PaymentPageState
   void initState() {
     super.initState();
 
-    transactionStatus = widget.payment['status'];
+    transactionStatus =
+        widget.payment['status'];
 
     pollingTimer = Timer.periodic(
       const Duration(seconds: 10),
@@ -131,6 +166,7 @@ class _PaymentPageState
 
   @override
   Widget build(BuildContext context) {
+
     final vaNumber =
         widget.midtrans['permata_va_number'];
 
@@ -147,18 +183,22 @@ class _PaymentPageState
               CrossAxisAlignment.start,
 
           children: [
+
             Text(
               getStatusLabel(),
+
               style: const TextStyle(
                 fontSize: 24,
-                fontWeight: FontWeight.bold,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
 
             const SizedBox(height: 12),
 
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 6,
               ),
@@ -168,7 +208,9 @@ class _PaymentPageState
                     .withValues(alpha: 0.15),
 
                 borderRadius:
-                    BorderRadius.circular(999),
+                    BorderRadius.circular(
+                  999,
+                ),
               ),
 
               child: Text(
@@ -176,113 +218,280 @@ class _PaymentPageState
 
                 style: TextStyle(
                   color: getStatusColor(),
-                  fontWeight: FontWeight.bold,
+
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            Container(
-              width: double.infinity,
+            transactionStatus ==
+                    'paid'
 
-              padding: const EdgeInsets.all(16),
+                ? Container(
+                    width:
+                        double.infinity,
 
-              decoration: BoxDecoration(
-                color: Colors.white,
-
-                borderRadius:
-                    BorderRadius.circular(16),
-              ),
-
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                children: [
-                  Text(
-                    'Order: ${widget.order['order_number']}',
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Text(
-                    'Total: ${CurrencyFormatter.format(widget.order['total_amount'])}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                    padding:
+                        const EdgeInsets.all(
+                      24,
                     ),
-                  ),
 
-                  const SizedBox(height: 12),
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          Colors.white,
 
-                  const Text('Payment Method'),
-
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    'Permata Virtual Account',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
+                      borderRadius:
+                          BorderRadius.circular(
+                        16,
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 16),
+                    child: Column(
+                      children: [
 
-                  const Text('VA Number'),
+                        const Icon(
+                          Icons
+                              .check_circle,
 
-                  const SizedBox(height: 8),
+                          color:
+                              Colors.green,
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          vaNumber,
-                          style: const TextStyle(
-                            fontSize: 20,
+                          size: 72,
+                        ),
+
+                        const SizedBox(
+                          height: 16,
+                        ),
+
+                        const Text(
+                          'Payment Successful',
+
+                          style:
+                              TextStyle(
+                            fontSize:
+                                20,
+
                             fontWeight:
-                                FontWeight.bold,
+                                FontWeight
+                                    .bold,
                           ),
                         ),
-                      ),
 
-                      IconButton(
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            ClipboardData(
-                              text: vaNumber,
+                        const SizedBox(
+                          height: 8,
+                        ),
+
+                        Text(
+                          'Order ${widget.order['order_number']} has been paid.',
+
+                          textAlign:
+                              TextAlign
+                                  .center,
+                        ),
+
+                        const SizedBox(
+                          height: 24,
+                        ),
+
+                        SizedBox(
+                          width:
+                              double
+                                  .infinity,
+
+                          child:
+                              ElevatedButton(
+                            onPressed:
+                                () {
+
+                              context.go('/home');
+                            },
+
+                            child:
+                                const Text(
+                              'Back to Home',
                             ),
-                          );
+                          ),
+                        ),
 
-                          if (!context.mounted) {
-                            return;
-                          }
+                        const SizedBox(
+                          height: 12,
+                        ),
 
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'VA copied',
+                        SizedBox(
+                          width:
+                              double
+                                  .infinity,
+
+                          child:
+                              OutlinedButton(
+                            onPressed: () {
+
+                              context.push(
+                                '/orders/${widget.order['id']}',
+                              );
+                            },
+
+                            child:
+                                const Text(
+                              'View Orders',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+
+                : Container(
+                    width:
+                        double.infinity,
+
+                    padding:
+                        const EdgeInsets.all(
+                      16,
+                    ),
+
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          Colors.white,
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        16,
+                      ),
+                    ),
+
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+
+                      children: [
+
+                        Text(
+                          'Order: ${widget.order['order_number']}',
+                        ),
+
+                        const SizedBox(
+                          height: 12,
+                        ),
+
+                        Text(
+                          'Total: ${CurrencyFormatter.format(widget.order['total_amount'])}',
+
+                          style:
+                              const TextStyle(
+                            fontWeight:
+                                FontWeight
+                                    .bold,
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 12,
+                        ),
+
+                        const Text(
+                          'Payment Method',
+                        ),
+
+                        const SizedBox(
+                          height: 8,
+                        ),
+
+                        const Text(
+                          'Permata Virtual Account',
+
+                          style:
+                              TextStyle(
+                            fontWeight:
+                                FontWeight
+                                    .bold,
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 16,
+                        ),
+
+                        const Text(
+                          'VA Number',
+                        ),
+
+                        const SizedBox(
+                          height: 8,
+                        ),
+
+                        Row(
+                          children: [
+
+                            Expanded(
+                              child:
+                                  SelectableText(
+                                vaNumber,
+
+                                style:
+                                    const TextStyle(
+                                  fontSize:
+                                      20,
+
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
+                                ),
                               ),
                             ),
-                          );
-                        },
 
-                        icon: const Icon(
-                          Icons.copy,
+                            IconButton(
+                              onPressed:
+                                  () async {
+
+                                await Clipboard.setData(
+                                  ClipboardData(
+                                    text:
+                                        vaNumber,
+                                  ),
+                                );
+
+                                if (!context
+                                    .mounted) {
+                                  return;
+                                }
+
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).showSnackBar(
+                                  const SnackBar(
+                                    content:
+                                        Text(
+                                      'VA copied',
+                                    ),
+                                  ),
+                                );
+                              },
+
+                              icon:
+                                  const Icon(
+                                Icons.copy,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
 
-                  const SizedBox(height: 16),
+                        const SizedBox(
+                          height: 16,
+                        ),
 
-                  Text(
-                    'Expired: ${DateFormatter.formatDateTime(widget.payment['expired_at'])}',
+                        Text(
+                          'Expired: ${DateFormatter.formatDateTime(widget.payment['expired_at'])}',
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

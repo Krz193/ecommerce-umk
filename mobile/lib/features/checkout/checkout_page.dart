@@ -71,9 +71,29 @@ class _CheckoutPageState
     } catch (error) {
       if (!mounted) return;
 
+      final errorMessage =
+          error.toString();
+
+      if (
+        errorMessage.contains(
+          'pending payment',
+        )
+      ) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You still have pending payment',
+            ),
+          ),
+        );
+
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString()),
+          content: Text(errorMessage),
         ),
       );
     } finally {

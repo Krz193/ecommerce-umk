@@ -1,6 +1,5 @@
 import {serve} from "https://deno.land/std@0.224.0/http/server.ts";
 import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
-import {MIDTRANS_BASE_URL, MIDTRANS_SERVER_KEY} from "./midtrans.ts";
 import {createMidtransTransaction} from "./midtrans.ts";
 
 serve(async (req) => {
@@ -100,6 +99,40 @@ serve(async (req) => {
                     "Content-Type": "application/json"
                 }
             },);
+        }
+
+        // Prevent duplicate pending checkout
+        const {
+            data: existingPendingOrder,
+        } = await supabase
+            .from("orders")
+            .select(`
+                id,
+                order_number,
+                payment_status,
+                status
+            `)
+            .eq("user_id", user.id)
+            .eq("payment_status", "pending")
+            .order("created_at", {
+                ascending: false,
+            })
+            .limit(1)
+            .maybeSingle();
+
+        if (existingPendingOrder) {
+            return new Response(
+                JSON.stringify({
+                    error: "You still have pending payment",
+                    order_id: existingPendingOrder.id,
+                }),
+                {
+                    status: 400,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                },
+            );
         }
 
         // Fetch cart items
@@ -320,6 +353,11 @@ serve(async (req) => {
         console.error("Order items error:", orderItemsError,);
 
         if (orderItemsError) {
+            await supabase
+                .from("orders")
+                .delete()
+                .eq("id", order.id);
+
             return new Response(JSON.stringify({error: "Failed to create order items"}), {
                 status: 500,
                 headers: {
@@ -347,6 +385,30 @@ serve(async (req) => {
 
         console.log("Payment:", payment);
         console.error("Payment error:", paymentError,);
+
+        if (paymentError || !payment) {
+            await supabase
+                .from("order_items")
+                .delete()
+                .eq("order_id", order.id);
+
+            await supabase
+                .from("orders")
+                .delete()
+                .eq("id", order.id);
+
+            return new Response(
+                JSON.stringify({
+                    error: "Failed to create payment",
+                }),
+                {
+                    status: 500,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                },
+            );
+        }
 
         const paymentPayload = {
             payment_type: "bank_transfer",
@@ -376,55 +438,108 @@ serve(async (req) => {
         console.log("Midtrans response:", midtransResult);
 
         if (!midtransResult.ok) {
+
+            await supabase
+                .from("payments")
+                .update({
+                    status: "failed",
+                })
+                .eq("id", payment.id);
+
+            await supabase
+                .from("orders")
+                .update({
+                    status: "cancelled",
+                    payment_status: "failed",
+                })
+                .eq("id", order.id);
+
             return new Response(
-                JSON.stringify({error: "Failed to create Midtrans transaction", midtrans: midtransResult.data}),
+                JSON.stringify({
+                    error: "Failed to create Midtrans transaction",
+                    midtrans: midtransResult.data,
+                }),
                 {
                     status: 500,
                     headers: {
-                        "Content-Type": "application/json"
-                    }
-                }
+                        "Content-Type": "application/json",
+                    },
+                },
             );
         }
 
-        const {transaction_id, expiry_time} = midtransResult.data;
+        const {
+            transaction_id,
+            expiry_time,
+        } = midtransResult.data;
 
-        const {data: updatedPayment, error: paymentUpdateError} = await supabase
-            .from(
-                "payments"
-            )
-            .update(
-                {provider_transaction_id: transaction_id, raw_response: midtransResult.data, expired_at: expiry_time}
-            )
+        const {
+            data: updatedPayment,
+            error: paymentUpdateError,
+        } = await supabase
+            .from("payments")
+            .update({
+                provider_transaction_id: transaction_id,
+                raw_response: midtransResult.data,
+                expired_at: expiry_time,
+            })
             .eq("id", payment.id)
             .select()
             .single();
 
-        console.log("Updated payment:", updatedPayment);
-        console.error("Payment update error:", paymentUpdateError);
+        console.log(
+            "Updated payment:",
+            updatedPayment,
+        );
 
-        if (paymentError || !payment) {
-            return new Response(JSON.stringify({error: "Failed to create payment"}), {
-                status: 500,
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            },);
+        console.error(
+            "Payment update error:",
+            paymentUpdateError,
+        );
+
+        if (paymentUpdateError || !updatedPayment) {
+
+            await supabase
+                .from("payments")
+                .update({
+                    status: "failed",
+                })
+                .eq("id", payment.id);
+
+            await supabase
+                .from("orders")
+                .update({
+                    status: "cancelled",
+                    payment_status: "failed",
+                })
+                .eq("id", order.id);
+
+            return new Response(
+                JSON.stringify({
+                    error: "Failed to update payment transaction",
+                }),
+                {
+                    status: 500,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                },
+            );
         }
 
-        // Temporary success response return new Response(JSON.stringify({     success:
-        // true,     message: "Checkout validation passed",     user_id: user.id,
-        // cart_id,     address_id,     total_items: cartItems.length }), {     status:
-        // 200,     headers: {         "Content-Type": "application/json"     } },);
-
         return new Response(
-            JSON.stringify({success: true, order, payment: updatedPayment, midtrans: midtransResult.data}),
+            JSON.stringify({
+                success: true,
+                order,
+                payment: updatedPayment,
+                midtrans: midtransResult.data,
+            }),
             {
                 status: 200,
                 headers: {
-                    "Content-Type": "application/json"
-                }
-            }
+                    "Content-Type": "application/json",
+                },
+            },
         );
 
     } catch (error) {
