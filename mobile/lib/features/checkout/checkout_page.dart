@@ -4,6 +4,7 @@ import 'package:mobile/features/checkout/providers/checkout_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/address/providers/address_provider.dart';
+import 'package:mobile/features/payment/payment_page.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({super.key});
@@ -57,10 +58,13 @@ class _CheckoutPageState
 
       debugPrint(result.toString());
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result['message'] ?? 'Checkout success',
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentPage(
+            order: result['order'],
+            payment: result['payment'],
+            midtrans: result['midtrans'],
           ),
         ),
       );
