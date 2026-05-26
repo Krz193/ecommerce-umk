@@ -16,7 +16,6 @@ on:
       - main
 
 jobs:
-
   # =========================================================
   # Analyze
   # Check code quality using flutter analyze
