@@ -175,6 +175,9 @@ class OrderDetailPage extends ConsumerWidget {
 
                                   'order_number':
                                       order.orderNumber,
+
+                                  'total_amount':
+                                      order.totalAmount,
                                 },
 
                                 'payment': {

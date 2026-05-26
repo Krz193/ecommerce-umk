@@ -161,12 +161,16 @@ serve(async (req) => {
                 id,
                 quantity,
                 product:products (
-                id,
-                name,
-                price,
-                stock,
-                status,
-                store_id
+                    id,
+                    name,
+                    price,
+                    stock,
+                    status,
+                    store_id,
+                    product_images (
+                        image_url,
+                        sort_order
+                    )
                 )
             `
             )
@@ -344,17 +348,31 @@ serve(async (req) => {
         }
 
         // Create order items snapshot
-        const orderItemsPayload = cartItems.map((item) => ({
-            order_id: order.id,
+        const orderItemsPayload =
+            cartItems.map((item) => {
 
-            product_id: item.product.id,
-            product_name: item.product.name,
-            product_price: item.product.price,
+                const thumbnail =
+                    item.product.product_images
+                        ?.sort(
+                            (a, b) =>
+                                a.sort_order -
+                                b.sort_order,
+                        )?.[0]
+                        ?.image_url ?? null;
 
-            quantity: item.quantity,
-
-            subtotal: Number(item.product.price) * item.quantity
-        }));
+                return {
+                    order_id: order.id,
+                    product_id: item.product.id,
+                    product_name: item.product.name,
+                    product_price: item.product.price,
+                    quantity: item.quantity,
+                    subtotal:
+                        Number(
+                            item.product.price,
+                        ) * item.quantity,
+                    product_thumbnail: thumbnail,
+                };
+            });
 
         console.log("Order items payload:", orderItemsPayload,);
 
