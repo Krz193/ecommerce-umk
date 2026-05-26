@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/core/config/supabase_provider.dart';
-import 'package:mobile/features/products/models/product_model.dart';
+import 'package:mobile/features/product/models/product_model.dart';
 
 final productsProvider = FutureProvider<List<ProductModel>>((ref) async {
   final response = await supabase

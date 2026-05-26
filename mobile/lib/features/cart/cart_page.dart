@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/features/cart/services/cart_service.dart';
+import 'package:mobile/features/checkout/checkout_page.dart';
 
 class CartPage extends ConsumerWidget {
   const CartPage({super.key});
@@ -14,10 +15,32 @@ class CartPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Cart')),
 
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const CheckoutPage(),
+            ),
+          );
+        },
+        label: const Text('Checkout'),
+        icon: const Icon(Icons.shopping_cart_checkout),
+      ),
+
       body: ref
           .watch(cartProvider)
           .when(
-            data: (items) {
+            data: (carts) {
+              if (carts.isEmpty) {
+                return const Center(
+                  child: Text('Cart is empty'),
+                );
+              }
+
+              final cart = carts.first;
+              final items = cart.items;
+
               if (items.isEmpty) {
                 return const Center(child: Text('Cart is empty'));
               }

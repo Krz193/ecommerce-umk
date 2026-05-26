@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 
 import 'package:mobile/features/cart/models/cart_item_model.dart';
+import 'package:mobile/features/cart/models/cart_model.dart';
 
-final cartProvider = FutureProvider<List<CartItemModel>>((ref) async {
+final cartProvider =
+    FutureProvider<List<CartModel>>((ref) async {
   final user = supabase.auth.currentUser;
 
   if (user == null) {
@@ -13,29 +15,43 @@ final cartProvider = FutureProvider<List<CartItemModel>>((ref) async {
 
   final carts = await supabase
       .from('carts')
-      .select('id')
+      .select()
       .eq('user_id', user.id);
 
   if (carts.isEmpty) {
     return [];
   }
 
-  final cartIds = carts.map<String>((cart) => cart['id'] as String).toList();
+  final List<CartModel> result = [];
 
-  final response = await supabase
-      .from('cart_items')
-      .select('''
-            *,
-            product:products (
-              id,
-              name,
-              price,
-              stock
-            )
-          ''')
-      .inFilter('cart_id', cartIds);
+  for (final cart in carts) {
+    final cartItems = await supabase
+        .from('cart_items')
+        .select('''
+          *,
+          product:products (
+            id,
+            name,
+            price,
+            stock
+          )
+        ''')
+        .eq('cart_id', cart['id']);
 
-  return response
-      .map<CartItemModel>((json) => CartItemModel.fromJson(json))
-      .toList();
+    final items = cartItems
+        .map<CartItemModel>(
+          (json) => CartItemModel.fromJson(json),
+        )
+        .toList();
+
+    result.add(
+      CartModel(
+        id: cart['id'],
+        storeId: cart['store_id'],
+        items: items,
+      ),
+    );
+  }
+
+  return result;
 });
