@@ -17,11 +17,7 @@ class CheckoutService {
     );
 
     if (response.status != 200) {
-      throw Exception(
-        response.data is Map
-            ? response.data['error'] ?? 'Checkout failed'
-            : 'Checkout failed',
-      );
+      throw response.data;
     }
 
     return response.data;

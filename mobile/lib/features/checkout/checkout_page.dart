@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/features/checkout/providers/checkout_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/address/providers/address_provider.dart';
 import 'package:mobile/features/payment/payment_page.dart';
+
+import 'package:go_router/go_router.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({super.key});
@@ -69,31 +72,74 @@ class _CheckoutPageState
         ),
       );
     } catch (error) {
+
       if (!mounted) return;
 
-      final errorMessage =
-          error.toString();
+      if (error is FunctionException) {
 
-      if (
-        errorMessage.contains(
-          'pending payment',
-        )
-      ) {
+        final details =
+            error.details;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'You still have pending payment',
-            ),
-          ),
-        );
+        if (
+          details is Map &&
+          details['error']
+              .toString()
+              .contains(
+                'pending payment',
+              )
+        ) {
 
-        return;
+          final orderId =
+              details['order_id'];
+
+          await showDialog(
+            context: context,
+
+            builder: (context) {
+
+              return AlertDialog(
+                title: const Text(
+                  'Pending Payment',
+                ),
+
+                content: const Text(
+                  'You still have pending payment. You will be redirected to continue payment.',
+                ),
+
+                actions: [
+
+                  TextButton(
+                    onPressed: () {
+
+                      Navigator.pop(
+                        context,
+                      );
+                    },
+
+                    child: const Text(
+                      'OK',
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (!mounted) return;
+
+          context.push(
+            '/orders/$orderId',
+          );
+
+          return;
+        }
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(errorMessage),
+          content: Text(
+            error.toString(),
+          ),
         ),
       );
     } finally {

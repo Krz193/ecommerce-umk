@@ -11,6 +11,8 @@ import 'package:mobile/features/payment/providers/payment_provider.dart';
 import 'package:mobile/features/cart/services/cart_service.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
+import 'package:mobile/features/order/providers/order_detail_provider.dart';
+import 'package:mobile/features/order/providers/orders_provider.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -106,6 +108,13 @@ class _PaymentPageState
       ) {
 
         pollingTimer?.cancel();
+
+        ref.invalidate(ordersProvider);
+        ref.invalidate(
+          orderDetailProvider(
+            widget.order['id'],
+          ),
+        );
 
         if (status == 'paid') {
           final cartState =
