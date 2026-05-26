@@ -1,10 +1,14 @@
 name: Flutter CI/CD Test
 
+run-name: >
+  CI/CD on ${{ github.ref_name }}
+
 on:
   push:
     branches:
       - dev
-      - feature/debug
+      - feature/*
+      - feature/**
 
 jobs:
   test:
