@@ -1,0 +1,20 @@
+name: Test Workflow
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Print branch
+        run: echo "Running on branch ${{ github.ref_name }}"
+
+      - name: Print success
+        run: echo "GitHub Actions is working"
