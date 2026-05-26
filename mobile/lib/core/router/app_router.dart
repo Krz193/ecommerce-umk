@@ -7,6 +7,7 @@ import 'package:mobile/features/product/product_detail_page.dart';
 import 'package:mobile/features/cart/cart_page.dart';
 import 'package:mobile/features/order/orders_page.dart';
 import 'package:mobile/features/order/order_detail_page.dart';
+import 'package:mobile/features/payment/payment_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -56,17 +57,6 @@ final appRouter = GoRouter(
     ),
 
     GoRoute(
-      path: '/orders',
-
-      builder: (
-        context,
-        state,
-      ) {
-        return const OrdersPage();
-      },
-    ),
-
-    GoRoute(
       path: '/orders/:id',
 
       builder: (
@@ -79,6 +69,23 @@ final appRouter = GoRouter(
 
         return OrderDetailPage(
           orderId: orderId,
+        );
+      },
+    ),
+
+    GoRoute(
+      path: '/payment',
+
+      builder: (context, state) {
+
+        final extra =
+            state.extra
+                as Map<String, dynamic>;
+
+        return PaymentPage(
+          order: extra['order'],
+          payment: extra['payment'],
+          midtrans: extra['midtrans'],
         );
       },
     ),

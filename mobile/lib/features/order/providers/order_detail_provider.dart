@@ -17,6 +17,13 @@ final orderDetailProvider = FutureProvider.family<
         .select(
           '''
           *,
+          payment:payments (
+            id,
+            status,
+            expired_at,
+            provider_transaction_id,
+            raw_response
+          ),
           order_items (
             id,
             product_name,

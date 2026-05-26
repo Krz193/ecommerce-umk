@@ -1,3 +1,5 @@
+import 'package:mobile/features/order/models/order_payment_model.dart';
+
 class OrderItemModel {
   final String id;
 
@@ -52,6 +54,8 @@ class OrderDetailModel {
 
   final List<OrderItemModel> items;
 
+  final OrderPaymentModel? payment;
+
   OrderDetailModel({
     required this.id,
     required this.orderNumber,
@@ -59,6 +63,7 @@ class OrderDetailModel {
     required this.paymentStatus,
     required this.createdAt,
     required this.items,
+    required this.payment,
   });
 
   factory OrderDetailModel.fromJson(
@@ -90,6 +95,13 @@ class OrderDetailModel {
                 ),
               )
               .toList(),
+
+      payment:
+        json['payment'] != null
+            ? OrderPaymentModel.fromJson(
+                json['payment'],
+              )
+            : null,
     );
   }
 }

@@ -6,6 +6,8 @@ import 'package:mobile/core/utils/date_formatter.dart';
 
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
 
+import 'package:go_router/go_router.dart';
+
 class OrderDetailPage extends ConsumerWidget {
   final String orderId;
 
@@ -148,6 +150,56 @@ class OrderDetailPage extends ConsumerWidget {
                         ),
                       ),
                     ),
+
+                    if (
+                      order.paymentStatus == 'pending' &&
+                      order.payment != null
+                    ) ...[
+
+                      const SizedBox(
+                        height: 16,
+                      ),
+
+                      SizedBox(
+                        width: double.infinity,
+
+                        child: ElevatedButton(
+                          onPressed: () {
+
+                            context.push(
+                              '/payment',
+
+                              extra: {
+                                'order': {
+                                  'id': order.id,
+
+                                  'order_number':
+                                      order.orderNumber,
+                                },
+
+                                'payment': {
+                                  'id':
+                                      order.payment!.id,
+
+                                  'status':
+                                      order.payment!.status,
+
+                                  'expired_at':
+                                      order.payment!.expiredAt,
+                                },
+
+                                'midtrans':
+                                    order.payment!.rawResponse,
+                              },
+                            );
+                          },
+
+                          child: const Text(
+                            'Continue Payment',
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

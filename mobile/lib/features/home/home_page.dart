@@ -24,6 +24,17 @@ class HomePage extends ConsumerWidget {
 
             icon: const Icon(Icons.shopping_cart),
           ),
+
+          IconButton(
+            onPressed: () {
+              context.push('/orders');
+            },
+
+            icon: const Icon(
+              Icons.receipt_long,
+            ),
+          ),
+
           IconButton(
             onPressed: () async {
               await logout();

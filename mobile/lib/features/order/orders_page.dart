@@ -8,14 +8,36 @@ import 'package:mobile/core/utils/date_formatter.dart';
 
 import 'package:mobile/features/order/providers/orders_provider.dart';
 
-class OrdersPage extends ConsumerWidget {
+class OrdersPage
+    extends ConsumerStatefulWidget {
+
   const OrdersPage({
     super.key,
   });
 
+  @override
+  ConsumerState<OrdersPage>
+  createState() =>
+      _OrdersPageState();
+}
+
+class _OrdersPageState
+    extends ConsumerState<OrdersPage> {
+
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() {
+      ref.invalidate(
+        ordersProvider,
+      );
+    });
+  }
+
   Color getStatusColor(
     String status,
-  ) {
+  ){
     switch (status) {
       case 'paid':
         return Colors.green;
@@ -37,7 +59,6 @@ class OrdersPage extends ConsumerWidget {
   @override
   Widget build(
     BuildContext context,
-    WidgetRef ref,
   ) {
 
     final ordersAsync =
