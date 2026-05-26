@@ -1,0 +1,19 @@
+name: Flutter CI/CD Test
+
+run-name: >
+  CI/CD on ${{ github.ref_name }}
+
+on:
+  push:
+    branches:
+      - dev
+      - feature/*
+      - feature/**
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hello
+        run: echo "workflow works"
