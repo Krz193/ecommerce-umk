@@ -101,35 +101,51 @@ serve(async (req) => {
             },);
         }
 
-        // Prevent duplicate pending checkout
+        // Prevent duplicate pending payment
+        const now =
+            new Date().toISOString();
+
         const {
-            data: existingPendingOrder,
+            data: existingPendingPayment,
         } = await supabase
-            .from("orders")
+            .from('payments')
             .select(`
                 id,
-                order_number,
-                payment_status,
-                status
+                order_id,
+                status,
+                expired_at,
+                orders (
+                    id
+                )
             `)
-            .eq("user_id", user.id)
-            .eq("payment_status", "pending")
-            .order("created_at", {
+            .eq('status', 'pending')
+            .gt('expired_at', now)
+            .order('created_at', {
                 ascending: false,
             })
             .limit(1)
             .maybeSingle();
 
-        if (existingPendingOrder) {
+        if (
+            existingPendingPayment &&
+            existingPendingPayment.orders
+        ) {
+
             return new Response(
                 JSON.stringify({
-                    error: "You still have pending payment",
-                    order_id: existingPendingOrder.id,
+                    error:
+                        "You still have pending payment",
+
+                    order_id:
+                        existingPendingPayment
+                            .orders
+                            .id,
                 }),
                 {
                     status: 400,
                     headers: {
-                        "Content-Type": "application/json",
+                        "Content-Type":
+                            "application/json",
                     },
                 },
             );
