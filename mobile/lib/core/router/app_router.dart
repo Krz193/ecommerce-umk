@@ -3,7 +3,7 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/router/router_refresh_stream.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/home/home_page.dart';
-import 'package:mobile/features/products/product_detail_page.dart';
+import 'package:mobile/features/product/product_detail_page.dart';
 import 'package:mobile/features/cart/cart_page.dart';
 
 final appRouter = GoRouter(

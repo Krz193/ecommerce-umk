@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
-import 'package:mobile/features/products/providers/products_provider.dart';
+import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class HomePage extends ConsumerWidget {
