@@ -21,8 +21,8 @@ final appRouter = GoRouter(
     final isLoggedIn = session != null;
 
     final isAuthRoute =
-      state.matchedLocation == '/login' ||
-      state.matchedLocation == '/register';
+        state.matchedLocation == '/login' ||
+        state.matchedLocation == '/register';
 
     if (!isLoggedIn && !isAuthRoute) {
       return '/login';

@@ -99,9 +99,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 context.go('/register');
               },
 
-              child: const Text(
-                'Don\'t have account? Register',
-              ),
+              child: const Text('Don\'t have account? Register'),
             ),
           ],
         ),

@@ -9,33 +9,24 @@ class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
   @override
-  ConsumerState<RegisterPage> createState() =>
-      _RegisterPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState
-    extends ConsumerState<RegisterPage> {
+class _RegisterPageState extends ConsumerState<RegisterPage> {
+  final formKey = GlobalKey<FormState>();
 
-  final formKey =
-      GlobalKey<FormState>();
+  final fullNameController = TextEditingController();
 
-  final fullNameController =
-      TextEditingController();
+  final usernameController = TextEditingController();
 
-  final usernameController =
-      TextEditingController();
+  final emailController = TextEditingController();
 
-  final emailController =
-      TextEditingController();
-
-  final passwordController =
-      TextEditingController();
+  final passwordController = TextEditingController();
 
   bool isLoading = false;
 
   @override
   void dispose() {
-
     fullNameController.dispose();
 
     usernameController.dispose();
@@ -48,36 +39,25 @@ class _RegisterPageState
   }
 
   Future<void> handleRegister() async {
-
-    if (
-      !formKey.currentState!.validate()
-    ) {
+    if (!formKey.currentState!.validate()) {
       return;
     }
 
     try {
-
       setState(() {
         isLoading = true;
       });
 
-      final authService =
-          ref.read(
-            authServiceProvider,
-          );
+      final authService = ref.read(authServiceProvider);
 
       await authService.signUp(
-        email:
-            emailController.text.trim(),
+        email: emailController.text.trim(),
 
-        password:
-            passwordController.text,
+        password: passwordController.text,
 
-        fullName:
-            fullNameController.text.trim(),
+        fullName: fullNameController.text.trim(),
 
-        username:
-            usernameController.text.trim(),
+        username: usernameController.text.trim(),
       );
 
       if (!mounted) {
@@ -86,36 +66,19 @@ class _RegisterPageState
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Register success',
-          ),
-        ),
-      );
+      ).showSnackBar(const SnackBar(content: Text('Register success')));
 
       context.go('/home');
-
     } catch (error) {
-
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.toString(),
-          ),
-        ),
-      );
-
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
-
       if (mounted) {
-
         setState(() {
           isLoading = false;
         });
@@ -125,186 +88,116 @@ class _RegisterPageState
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(),
 
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding:
-                const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
 
             child: Form(
               key: formKey,
 
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment
-                        .stretch,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
 
                 children: [
-
                   const Text(
                     'Create Account',
 
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
 
-                  const SizedBox(
-                    height: 32,
-                  ),
+                  const SizedBox(height: 32),
 
                   TextFormField(
-                    controller:
-                        fullNameController,
+                    controller: fullNameController,
 
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          'Full Name',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Full Name'),
 
                     validator: (value) {
-
-                      if (
-                        value == null ||
-                        value.isEmpty
-                      ) {
-                        return
-                            'Full name required';
+                      if (value == null || value.isEmpty) {
+                        return 'Full name required';
                       }
 
                       return null;
                     },
                   ),
 
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
 
                   TextFormField(
-                    controller:
-                        usernameController,
+                    controller: usernameController,
 
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          'Username',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Username'),
 
                     validator: (value) {
-
-                      if (
-                        value == null ||
-                        value.isEmpty
-                      ) {
-                        return
-                            'Username required';
+                      if (value == null || value.isEmpty) {
+                        return 'Username required';
                       }
 
                       return null;
                     },
                   ),
 
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
 
                   TextFormField(
-                    controller:
-                        emailController,
+                    controller: emailController,
 
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          'Email',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Email'),
 
                     validator: (value) {
-
-                      if (
-                        value == null ||
-                        value.isEmpty
-                      ) {
-                        return
-                            'Email required';
+                      if (value == null || value.isEmpty) {
+                        return 'Email required';
                       }
 
                       return null;
                     },
                   ),
 
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
 
                   TextFormField(
-                    controller:
-                        passwordController,
+                    controller: passwordController,
 
                     obscureText: true,
 
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          'Password',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Password'),
 
                     validator: (value) {
-
-                      if (
-                        value == null ||
-                        value.length < 6
-                      ) {
-                        return
-                            'Minimum 6 characters';
+                      if (value == null || value.length < 6) {
+                        return 'Minimum 6 characters';
                       }
 
                       return null;
                     },
                   ),
 
-                  const SizedBox(
-                    height: 24,
-                  ),
+                  const SizedBox(height: 24),
 
                   ElevatedButton(
-                    onPressed:
-                        isLoading
-                            ? null
-                            : handleRegister,
+                    onPressed: isLoading ? null : handleRegister,
 
-                    child:
-                        isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
 
-                                child:
-                                    CircularProgressIndicator(),
-                              )
-                            : const Text(
-                                'Register',
-                              ),
+                            child: CircularProgressIndicator(),
+                          )
+                        : const Text('Register'),
                   ),
 
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
 
                   TextButton(
                     onPressed: () {
                       context.go('/login');
                     },
 
-                    child: const Text(
-                      'Already have account? Login',
-                    ),
+                    child: const Text('Already have account? Login'),
                   ),
                 ],
               ),

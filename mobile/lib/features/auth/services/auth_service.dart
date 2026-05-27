@@ -28,16 +28,12 @@ class AuthService {
     required String fullName,
     required String username,
   }) async {
-
     return await _supabase.auth.signUp(
       email: email,
 
       password: password,
 
-      data: {
-        'full_name': fullName,
-        'username': username,
-      },
+      data: {'full_name': fullName, 'username': username},
     );
   }
 
