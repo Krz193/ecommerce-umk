@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,14 +17,65 @@ class OrdersPage extends ConsumerStatefulWidget {
   ConsumerState<OrdersPage> createState() => _OrdersPageState();
 }
 
-class _OrdersPageState extends ConsumerState<OrdersPage> {
+class _OrdersPageState extends ConsumerState<OrdersPage>
+    with WidgetsBindingObserver {
+  Timer? refreshTimer;
+  DateTime? lastResumeRefresh;
+
+  bool hasPendingOrders(List<dynamic> orders) {
+    return orders.any((order) => order.paymentStatus == 'pending');
+  }
+
+  void startPolling() {
+    refreshTimer?.cancel();
+
+    refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      debugPrint('refreshing orders page');
+
+      ref.invalidate(ordersProvider);
+    });
+  }
+
+  void stopPolling() {
+    refreshTimer?.cancel();
+  }
+
   @override
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
+
     Future.microtask(() {
       ref.invalidate(ordersProvider);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
+    stopPolling();
+
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      final now = DateTime.now();
+
+      if (lastResumeRefresh != null &&
+          now.difference(lastResumeRefresh!).inSeconds < 3) {
+        return;
+      }
+
+      lastResumeRefresh = now;
+
+      debugPrint('app resumed -> refresh orders');
+
+      ref.invalidate(ordersProvider);
+    }
   }
 
   Color getStatusColor(String status) {
@@ -53,6 +106,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
 
       body: ordersAsync.when(
         data: (orders) {
+          if (hasPendingOrders(orders)) {
+            startPolling();
+          } else {
+            stopPolling();
+          }
+
           if (orders.isEmpty) {
             return const Center(child: Text('No orders yet'));
           }

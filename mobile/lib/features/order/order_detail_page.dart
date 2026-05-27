@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,10 +10,19 @@ import 'package:mobile/features/order/providers/order_detail_provider.dart';
 
 import 'package:go_router/go_router.dart';
 
-class OrderDetailPage extends ConsumerWidget {
+class OrderDetailPage extends ConsumerStatefulWidget {
   final String orderId;
 
   const OrderDetailPage({super.key, required this.orderId});
+
+  @override
+  ConsumerState<OrderDetailPage> createState() => _OrderDetailPageState();
+}
+
+class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
+    with WidgetsBindingObserver {
+  Timer? refreshTimer;
+  DateTime? lastResumeRefresh;
 
   Color getStatusColor(String status) {
     switch (status) {
@@ -32,76 +43,109 @@ class OrderDetailPage extends ConsumerWidget {
     }
   }
 
-  List<Map<String, dynamic>> buildTimeline(
-  dynamic order,
-) {
-
-  final timeline =
-      <Map<String, dynamic>>[];
-
-  timeline.add({
-    'title': 'Order Created',
-    'date': order.createdAt,
-    'completed': true,
-  });
-
-  if (
-    order.paymentStatus == 'pending'
-  ) {
+  List<Map<String, dynamic>> buildTimeline(dynamic order) {
+    final timeline = <Map<String, dynamic>>[];
 
     timeline.add({
-      'title': 'Waiting Payment',
-      'date': null,
-      'completed': false,
-    });
-  }
-
-  if (
-    order.paymentStatus == 'paid'
-  ) {
-
-    timeline.add({
-      'title': 'Payment Success',
-      'date': null,
+      'title': 'Order Created',
+      'date': order.createdAt,
       'completed': true,
     });
 
-    timeline.add({
-      'title': 'Order Confirmed',
-      'date': null,
-      'completed': false,
-    });
+    if (order.paymentStatus == 'pending') {
+      timeline.add({
+        'title': 'Waiting Payment',
+        'date': null,
+        'completed': false,
+      });
+    }
 
-    timeline.add({
-      'title': 'Shipped',
-      'date': null,
-      'completed': false,
-    });
+    if (order.paymentStatus == 'paid') {
+      timeline.add({
+        'title': 'Payment Success',
+        'date': null,
+        'completed': true,
+      });
 
-    timeline.add({
-      'title': 'Completed',
-      'date': null,
-      'completed': false,
+      timeline.add({
+        'title': 'Order Confirmed',
+        'date': null,
+        'completed': false,
+      });
+
+      timeline.add({'title': 'Shipped', 'date': null, 'completed': false});
+
+      timeline.add({'title': 'Completed', 'date': null, 'completed': false});
+    }
+
+    if (order.paymentStatus == 'expired') {
+      timeline.add({
+        'title': 'Payment Expired',
+        'date': order.payment?.expiredAt,
+        'completed': true,
+      });
+    }
+
+    return timeline;
+  }
+
+  bool isFinalStatus(String status) {
+    return status == 'paid' || status == 'expired' || status == 'failed';
+  }
+
+  void startPolling() {
+    refreshTimer?.cancel();
+
+    refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      debugPrint('refreshing order detail');
+
+      ref.invalidate(orderDetailProvider(widget.orderId));
     });
   }
 
-  if (
-    order.paymentStatus == 'expired'
-  ) {
-
-    timeline.add({
-      'title': 'Payment Expired',
-      'date': order.payment?.expiredAt,
-      'completed': true,
-    });
+  void stopPolling() {
+    refreshTimer?.cancel();
   }
-
-  return timeline;
-}
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final orderAsync = ref.watch(orderDetailProvider(orderId));
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    startPolling();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
+    stopPolling();
+
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      final now = DateTime.now();
+
+      if (lastResumeRefresh != null &&
+          now.difference(lastResumeRefresh!).inSeconds < 3) {
+        return;
+      }
+
+      lastResumeRefresh = now;
+
+      debugPrint('app resumed -> refresh order detail');
+
+      ref.invalidate(orderDetailProvider(widget.orderId));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orderAsync = ref.watch(orderDetailProvider(widget.orderId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Order Detail')),
@@ -109,6 +153,10 @@ class OrderDetailPage extends ConsumerWidget {
       body: orderAsync.when(
         data: (order) {
           final timeline = buildTimeline(order);
+
+          if (isFinalStatus(order.paymentStatus)) {
+            stopPolling();
+          }
 
           return ListView(
             padding: const EdgeInsets.all(24),
@@ -219,142 +267,102 @@ class OrderDetailPage extends ConsumerWidget {
 
               const SizedBox(height: 24),
 
-const Text(
-  'Timeline',
+              const Text(
+                'Timeline',
 
-  style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
-  ),
-),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
 
-const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-Container(
-  padding: const EdgeInsets.all(16),
+              Container(
+                padding: const EdgeInsets.all(16),
 
-  decoration: BoxDecoration(
-    color: Colors.white,
+                decoration: BoxDecoration(
+                  color: Colors.white,
 
-    borderRadius:
-        BorderRadius.circular(16),
-  ),
-
-  child: Column(
-    children:
-        timeline.asMap().entries.map(
-      (entry) {
-
-        final index =
-            entry.key;
-
-        final item =
-            entry.value;
-
-        final isLast =
-            index ==
-            timeline.length - 1;
-
-        return Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-
-          children: [
-
-            Column(
-              children: [
-
-                Container(
-                  width: 14,
-                  height: 14,
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        item['completed']
-                            ? Colors.black
-                            : Colors.grey,
-
-                    shape:
-                        BoxShape.circle,
-                  ),
-                ),
-
-                if (!isLast)
-                  Container(
-                    width: 2,
-                    height: 64,
-
-                    color:
-                        Colors.grey.shade300,
-                  ),
-              ],
-            ),
-
-            const SizedBox(width: 16),
-
-            Expanded(
-              child: Padding(
-                padding:
-                    const EdgeInsets.only(
-                  bottom: 24,
+                  borderRadius: BorderRadius.circular(16),
                 ),
 
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  children: timeline.asMap().entries.map((entry) {
+                    final index = entry.key;
 
-                  children: [
+                    final item = entry.value;
 
-                    Text(
-                      item['title'],
+                    final isLast = index == timeline.length - 1;
 
-                      style:
-                          const TextStyle(
-                        fontWeight:
-                            FontWeight
-                                .bold,
-                      ),
-                    ),
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
 
-                    if (
-                      item['date'] != null
-                    ) ...[
+                      children: [
+                        Column(
+                          children: [
+                            Container(
+                              width: 14,
+                              height: 14,
 
-                      const SizedBox(
-                        height: 4,
-                      ),
+                              decoration: BoxDecoration(
+                                color: item['completed']
+                                    ? Colors.black
+                                    : Colors.grey,
 
-                      Text(
-                        DateFormatter
-                            .formatDateTime(
-                          item['date']
-                              .toString(),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+
+                            if (!isLast)
+                              Container(
+                                width: 2,
+                                height: 64,
+
+                                color: Colors.grey.shade300,
+                              ),
+                          ],
                         ),
 
-                        style:
-                            TextStyle(
-                          color:
-                              Colors
-                                  .grey
-                                  .shade600,
+                        const SizedBox(width: 16),
 
-                          fontSize:
-                              12,
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+
+                              children: [
+                                Text(
+                                  item['title'],
+
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+
+                                if (item['date'] != null) ...[
+                                  const SizedBox(height: 4),
+
+                                  Text(
+                                    DateFormatter.formatDateTime(
+                                      item['date'].toString(),
+                                    ),
+
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
+                      ],
+                    );
+                  }).toList(),
                 ),
               ),
-            ),
-          ],
-        );
-      },
-    ).toList(),
-  ),
-),
 
               const Text(
                 'Items',
@@ -365,8 +373,6 @@ Container(
               const SizedBox(height: 16),
 
               ...order.items.map((item) {
-                debugPrint(item.productThumbnail);
-
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
 
