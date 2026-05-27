@@ -83,8 +83,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   }
 
   void updateRemainingTime() {
-    final expiredAt = DateTime.parse(widget.payment['expired_at']).toUtc();
-    final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+    final expiredAt = DateTime.parse(widget.payment['expired_at']).toLocal();
+    final now = DateTime.now();
     final difference = expiredAt.difference(now);
 
     if (!mounted) return;
@@ -96,8 +96,15 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
       if (isExpired && transactionStatus == 'pending') {
         transactionStatus = 'expired';
+
+        paymentPollingTimer?.cancel();
+        countdownTimer?.cancel();
       }
     });
+
+    // debugPrint("now: $now");
+    // debugPrint("exp: $expiredAt");
+    // debugPrint("remaining: $remainingTime");
   }
 
   String formatRemainingTime() {
