@@ -32,6 +32,73 @@ class OrderDetailPage extends ConsumerWidget {
     }
   }
 
+  List<Map<String, dynamic>> buildTimeline(
+  dynamic order,
+) {
+
+  final timeline =
+      <Map<String, dynamic>>[];
+
+  timeline.add({
+    'title': 'Order Created',
+    'date': order.createdAt,
+    'completed': true,
+  });
+
+  if (
+    order.paymentStatus == 'pending'
+  ) {
+
+    timeline.add({
+      'title': 'Waiting Payment',
+      'date': null,
+      'completed': false,
+    });
+  }
+
+  if (
+    order.paymentStatus == 'paid'
+  ) {
+
+    timeline.add({
+      'title': 'Payment Success',
+      'date': null,
+      'completed': true,
+    });
+
+    timeline.add({
+      'title': 'Order Confirmed',
+      'date': null,
+      'completed': false,
+    });
+
+    timeline.add({
+      'title': 'Shipped',
+      'date': null,
+      'completed': false,
+    });
+
+    timeline.add({
+      'title': 'Completed',
+      'date': null,
+      'completed': false,
+    });
+  }
+
+  if (
+    order.paymentStatus == 'expired'
+  ) {
+
+    timeline.add({
+      'title': 'Payment Expired',
+      'date': order.payment?.expiredAt,
+      'completed': true,
+    });
+  }
+
+  return timeline;
+}
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orderAsync = ref.watch(orderDetailProvider(orderId));
@@ -41,6 +108,8 @@ class OrderDetailPage extends ConsumerWidget {
 
       body: orderAsync.when(
         data: (order) {
+          final timeline = buildTimeline(order);
+
           return ListView(
             padding: const EdgeInsets.all(24),
 
@@ -147,6 +216,145 @@ class OrderDetailPage extends ConsumerWidget {
               ),
 
               const SizedBox(height: 24),
+
+              const SizedBox(height: 24),
+
+const Text(
+  'Timeline',
+
+  style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+  ),
+),
+
+const SizedBox(height: 16),
+
+Container(
+  padding: const EdgeInsets.all(16),
+
+  decoration: BoxDecoration(
+    color: Colors.white,
+
+    borderRadius:
+        BorderRadius.circular(16),
+  ),
+
+  child: Column(
+    children:
+        timeline.asMap().entries.map(
+      (entry) {
+
+        final index =
+            entry.key;
+
+        final item =
+            entry.value;
+
+        final isLast =
+            index ==
+            timeline.length - 1;
+
+        return Row(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
+          children: [
+
+            Column(
+              children: [
+
+                Container(
+                  width: 14,
+                  height: 14,
+
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        item['completed']
+                            ? Colors.black
+                            : Colors.grey,
+
+                    shape:
+                        BoxShape.circle,
+                  ),
+                ),
+
+                if (!isLast)
+                  Container(
+                    width: 2,
+                    height: 64,
+
+                    color:
+                        Colors.grey.shade300,
+                  ),
+              ],
+            ),
+
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom: 24,
+                ),
+
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+
+                  children: [
+
+                    Text(
+                      item['title'],
+
+                      style:
+                          const TextStyle(
+                        fontWeight:
+                            FontWeight
+                                .bold,
+                      ),
+                    ),
+
+                    if (
+                      item['date'] != null
+                    ) ...[
+
+                      const SizedBox(
+                        height: 4,
+                      ),
+
+                      Text(
+                        DateFormatter
+                            .formatDateTime(
+                          item['date']
+                              .toString(),
+                        ),
+
+                        style:
+                            TextStyle(
+                          color:
+                              Colors
+                                  .grey
+                                  .shade600,
+
+                          fontSize:
+                              12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ).toList(),
+  ),
+),
 
               const Text(
                 'Items',

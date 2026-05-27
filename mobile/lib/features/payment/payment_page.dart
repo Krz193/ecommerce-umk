@@ -35,7 +35,8 @@ class PaymentPage extends ConsumerStatefulWidget {
 }
 
 class _PaymentPageState extends ConsumerState<PaymentPage> {
-  Timer? pollingTimer;
+  Timer? countdownTimer;
+  Timer? paymentPollingTimer;
 
   late String transactionStatus;
 
@@ -82,10 +83,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   }
 
   void updateRemainingTime() {
-    final expiredAt = DateTime.parse(widget.payment['expired_at']);
-
+    final expiredAt = DateTime.parse(widget.payment['expired_at']).toUtc();
     final now = DateTime.now().toUtc().add(const Duration(hours: 7));
-
     final difference = expiredAt.difference(now);
 
     if (!mounted) return;
@@ -113,7 +112,52 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         '${seconds.toString().padLeft(2, '0')}';
   }
 
+  Widget buildPaymentInstructions() {
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.all(16),
+
+      decoration: BoxDecoration(
+        color: Colors.white,
+
+        borderRadius: BorderRadius.circular(16),
+      ),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: const [
+          Text(
+            'Payment Instructions',
+
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+
+          SizedBox(height: 16),
+
+          Text('1. Open your banking app or ATM.'),
+
+          SizedBox(height: 8),
+
+          Text('2. Choose Virtual Account payment.'),
+
+          SizedBox(height: 8),
+
+          Text('3. Enter the VA number above.'),
+
+          SizedBox(height: 8),
+
+          Text('4. Complete payment before expiry time.'),
+        ],
+      ),
+    );
+  }
+
   Future<void> checkPaymentStatus() async {
+    if (transactionStatus == 'expired') {
+      return;
+    }
     try {
       final paymentService = ref.read(paymentServiceProvider);
 
@@ -130,7 +174,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       });
 
       if (status == 'paid' || status == 'expired' || status == 'failed') {
-        pollingTimer?.cancel();
+        countdownTimer?.cancel();
+
+        paymentPollingTimer?.cancel();
 
         ref.invalidate(ordersProvider);
         ref.invalidate(orderDetailProvider(widget.order['id']));
@@ -168,18 +214,22 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
     updateRemainingTime();
 
-    pollingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    countdownTimer = Timer.periodic(const Duration(seconds: 1), (context) {
       updateRemainingTime();
+    });
 
-      if (DateTime.now().second % 10 == 0) {
-        checkPaymentStatus();
-      }
+    paymentPollingTimer = Timer.periodic(const Duration(seconds: 5), (context) {
+      debugPrint('checking payment status');
+
+      checkPaymentStatus();
     });
   }
 
   @override
   void dispose() {
-    pollingTimer?.cancel();
+    countdownTimer?.cancel();
+
+    paymentPollingTimer?.cancel();
 
     super.dispose();
   }
@@ -191,7 +241,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Payment')),
 
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
 
         child: Column(
@@ -257,7 +307,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
                           style: TextStyle(
                             fontSize: 20,
-
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -300,7 +349,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                       ],
                     ),
                   )
-                : Container(
+                : transactionStatus == 'pending'
+                ? Container(
                     width: double.infinity,
 
                     padding: const EdgeInsets.all(16),
@@ -351,7 +401,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
                                 style: const TextStyle(
                                   fontSize: 20,
-
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -408,8 +457,68 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
                         const SizedBox(height: 16),
 
+                        buildPaymentInstructions(),
+
+                        const SizedBox(height: 16),
+
                         Text(
                           'Expired: ${DateFormatter.formatDateTime(widget.payment['expired_at'])} WIB (UTC+7)',
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    width: double.infinity,
+
+                    padding: const EdgeInsets.all(24),
+
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.access_time_filled,
+
+                          color: Colors.red,
+
+                          size: 72,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        const Text(
+                          'Payment Expired',
+
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        const Text(
+                          'This payment session has expired.',
+
+                          textAlign: TextAlign.center,
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          width: double.infinity,
+
+                          child: ElevatedButton(
+                            onPressed: () {
+                              context.go('/cart');
+                            },
+
+                            child: const Text('Back to Cart'),
+                          ),
                         ),
                       ],
                     ),
