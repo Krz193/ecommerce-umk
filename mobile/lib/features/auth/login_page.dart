@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/auth_provider.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -14,8 +15,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final emailController = TextEditingController();
 
   final passwordController = TextEditingController();
-
-  
 
   bool isLoading = false;
 
@@ -31,7 +30,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-
     } on AuthException catch (error) {
       if (!mounted) return;
 
@@ -92,6 +90,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ? const CircularProgressIndicator()
                     : const Text('Login'),
               ),
+            ),
+
+            const SizedBox(height: 16),
+
+            TextButton(
+              onPressed: () {
+                context.go('/register');
+              },
+
+              child: const Text('Don\'t have account? Register'),
             ),
           ],
         ),

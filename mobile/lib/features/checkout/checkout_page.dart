@@ -13,13 +13,10 @@ class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({super.key});
 
   @override
-  ConsumerState<CheckoutPage> createState() =>
-      _CheckoutPageState();
+  ConsumerState<CheckoutPage> createState() => _CheckoutPageState();
 }
 
-class _CheckoutPageState
-    extends ConsumerState<CheckoutPage> {
-
+class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool isLoading = false;
 
   Future<void> handleCheckout() async {
@@ -28,8 +25,7 @@ class _CheckoutPageState
         isLoading = true;
       });
 
-      final checkoutService =
-          ref.read(checkoutServiceProvider);
+      final checkoutService = ref.read(checkoutServiceProvider);
 
       final cartState = ref.read(cartProvider);
       final carts = cartState.asData?.value;
@@ -40,13 +36,11 @@ class _CheckoutPageState
 
       final cart = carts.first;
 
-      final addresses =
-          ref.read(addressProvider).asData?.value;
+      final addresses = ref.read(addressProvider).asData?.value;
 
-      final selectedAddress =
-          addresses != null && addresses.isNotEmpty
-              ? addresses.first
-              : null;
+      final selectedAddress = addresses != null && addresses.isNotEmpty
+          ? addresses.first
+          : null;
 
       if (selectedAddress == null) {
         throw Exception('No address selected');
@@ -72,53 +66,33 @@ class _CheckoutPageState
         ),
       );
     } catch (error) {
-
       if (!mounted) return;
 
       if (error is FunctionException) {
+        final details = error.details;
 
-        final details =
-            error.details;
-
-        if (
-          details is Map &&
-          details['error']
-              .toString()
-              .contains(
-                'pending payment',
-              )
-        ) {
-
-          final orderId =
-              details['order_id'];
+        if (details is Map &&
+            details['error'].toString().contains('pending payment')) {
+          final orderId = details['order_id'];
 
           await showDialog(
             context: context,
 
             builder: (context) {
-
               return AlertDialog(
-                title: const Text(
-                  'Pending Payment',
-                ),
+                title: const Text('Pending Payment'),
 
                 content: const Text(
                   'You still have pending payment. You will be redirected to continue payment.',
                 ),
 
                 actions: [
-
                   TextButton(
                     onPressed: () {
-
-                      Navigator.pop(
-                        context,
-                      );
+                      Navigator.pop(context);
                     },
 
-                    child: const Text(
-                      'OK',
-                    ),
+                    child: const Text('OK'),
                   ),
                 ],
               );
@@ -127,21 +101,15 @@ class _CheckoutPageState
 
           if (!mounted) return;
 
-          context.push(
-            '/orders/$orderId',
-          );
+          context.push('/orders/$orderId');
 
           return;
         }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.toString(),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) {
         setState(() {
@@ -155,79 +123,69 @@ class _CheckoutPageState
   Widget build(BuildContext context) {
     final addressState = ref.watch(addressProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Checkout'),
-      ),
+      appBar: AppBar(title: const Text('Checkout')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Order Summary',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 24),
 
-            ref.watch(cartProvider).when(
-              data: (carts) {
-                if (carts.isEmpty) {
-                  return const Text('Cart is empty');
-                }
+            ref
+                .watch(cartProvider)
+                .when(
+                  data: (carts) {
+                    if (carts.isEmpty) {
+                      return const Text('Cart is empty');
+                    }
 
-                final cart = carts.first;
-                final total = cart.subtotal;
-                final totalItems = cart.totalItems;
+                    final cart = carts.first;
+                    final total = cart.subtotal;
+                    final totalItems = cart.totalItems;
 
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(16),
-                    color: Colors.white,
-                  ),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // distinct item
+                          // Text('Items: ${items.length}'),
 
-                      // distinct item
-                      // Text('Items: ${items.length}'),
+                          // quantity
+                          Text('Items: $totalItems'),
 
-                      // quantity
-                      Text('Items: $totalItems'),
+                          const SizedBox(height: 8),
 
-                      const SizedBox(height: 8),
+                          Text('Subtotal: ${CurrencyFormatter.format(total)}'),
+                        ],
+                      ),
+                    );
+                  },
 
-                      Text('Subtotal: ${CurrencyFormatter.format(total)}'),
-                    ],
-                  ),
-                );
-              },
+                  error: (error, stackTrace) {
+                    return Text(error.toString());
+                  },
 
-              error: (error, stackTrace) {
-                return Text(error.toString());
-              },
-
-              loading: () {
-                return const CircularProgressIndicator();
-              },
-            ),
+                  loading: () {
+                    return const CircularProgressIndicator();
+                  },
+                ),
 
             const SizedBox(height: 24),
 
             const Text(
               'Shipping Address',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 12),
@@ -239,13 +197,10 @@ class _CheckoutPageState
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16),
                       color: Colors.white,
                     ),
-                    child: const Text(
-                      'No address selected',
-                    ),
+                    child: const Text('No address selected'),
                   );
                 }
 
@@ -255,19 +210,15 @@ class _CheckoutPageState
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(16),
                     color: Colors.white,
                   ),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         address.recipientName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
 
                       const SizedBox(height: 8),
@@ -296,16 +247,12 @@ class _CheckoutPageState
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    isLoading ? null : handleCheckout,
+                onPressed: isLoading ? null : handleCheckout,
                 child: isLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text('Checkout'),
               ),

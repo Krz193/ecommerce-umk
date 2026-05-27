@@ -20,9 +20,7 @@ class OrderModel {
     required this.createdAt,
   });
 
-  factory OrderModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
       id: json['id'],
 
@@ -30,16 +28,11 @@ class OrderModel {
 
       status: json['status'],
 
-      paymentStatus:
-          json['payment_status'],
+      paymentStatus: json['payment_status'],
 
-      totalAmount:
-          (json['total_amount'] as num)
-              .toInt(),
+      totalAmount: (json['total_amount'] as num).toInt(),
 
-      createdAt: DateTime.parse(
-        json['created_at'],
-      ),
+      createdAt: DateTime.parse(json['created_at']),
     );
   }
 }

@@ -10,10 +10,7 @@ class CheckoutService {
   }) async {
     final response = await _supabase.functions.invoke(
       'checkout',
-      body: {
-        'cart_id': cartId,
-        'address_id': addressId,
-      },
+      body: {'cart_id': cartId, 'address_id': addressId},
     );
 
     if (response.status != 200) {

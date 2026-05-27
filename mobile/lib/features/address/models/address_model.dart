@@ -13,9 +13,7 @@ class AddressModel {
     required this.isDefault,
   });
 
-  factory AddressModel.fromMap(
-    Map<String, dynamic> map,
-  ) {
+  factory AddressModel.fromMap(Map<String, dynamic> map) {
     return AddressModel(
       id: map['id'],
       recipientName: map['recipient_name'],

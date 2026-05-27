@@ -30,9 +30,7 @@ class HomePage extends ConsumerWidget {
               context.push('/orders');
             },
 
-            icon: const Icon(
-              Icons.receipt_long,
-            ),
+            icon: const Icon(Icons.receipt_long),
           ),
 
           IconButton(
@@ -56,7 +54,8 @@ class HomePage extends ConsumerWidget {
 
                 itemCount: products.length,
 
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
 
                 itemBuilder: (context, index) {
                   final product = products[index];

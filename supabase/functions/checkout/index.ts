@@ -444,12 +444,49 @@ serve(async (req) => {
             );
         }
 
+        const formatter =
+            new Intl.DateTimeFormat(
+                'sv-SE',
+                {
+                    timeZone:
+                        'Asia/Jakarta',
+
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+
+                    hour12: false,
+                },
+            );
+
+        const formatted =
+            formatter
+                .format(new Date())
+                .replace(',', '');
+
+        const formattedOrderTime =
+            `${formatted} +0700`;
+
+        console.log("midtrans payload order time:", formattedOrderTime);
+
         const paymentPayload = {
             payment_type: "bank_transfer",
 
             transaction_details: {
                 order_id: order.order_number,
                 gross_amount: Number(order.total_amount)
+            },
+
+            custom_expiry: {
+                order_time: formattedOrderTime,
+
+                expiry_duration: 30,
+
+                unit: 'minute',
             },
 
             customer_details: {
@@ -465,7 +502,13 @@ serve(async (req) => {
             }))
         };
 
-        console.log("Midtrans payload:", paymentPayload);
+        console.log(
+            JSON.stringify(
+                paymentPayload,
+                null,
+                2,
+            ),
+        );
 
         const midtransResult = await createMidtransTransaction(paymentPayload);
 
@@ -507,6 +550,11 @@ serve(async (req) => {
             expiry_time,
         } = midtransResult.data;
 
+        const expiredAtUtc =
+            new Date(
+                `${expiry_time} +0700`
+            ).toISOString();
+
         const {
             data: updatedPayment,
             error: paymentUpdateError,
@@ -515,7 +563,7 @@ serve(async (req) => {
             .update({
                 provider_transaction_id: transaction_id,
                 raw_response: midtransResult.data,
-                expired_at: expiry_time,
+                expired_at: expiredAtUtc,
             })
             .eq("id", payment.id)
             .select()

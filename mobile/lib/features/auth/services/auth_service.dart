@@ -25,10 +25,15 @@ class AuthService {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    required String fullName,
+    required String username,
   }) async {
     return await _supabase.auth.signUp(
       email: email,
+
       password: password,
+
+      data: {'full_name': fullName, 'username': username},
     );
   }
 
@@ -38,6 +43,5 @@ class AuthService {
   }
 
   // Auth state changes
-  Stream<AuthState> get authStateChanges =>
-      _supabase.auth.onAuthStateChange;
+  Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 }

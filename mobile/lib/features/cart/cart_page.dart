@@ -15,27 +15,83 @@ class CartPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Cart')),
 
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const CheckoutPage(),
-            ),
-          );
-        },
-        label: const Text('Checkout'),
-        icon: const Icon(Icons.shopping_cart_checkout),
-      ),
+      bottomNavigationBar: ref
+          .watch(cartProvider)
+          .maybeWhen(
+            data: (carts) {
+              if (carts.isEmpty || carts.first.items.isEmpty) {
+                return null;
+              }
+
+              final total = carts.first.items.fold<int>(
+                0,
+                (total, item) => total + item.subtotal,
+              );
+
+              return Container(
+                padding: const EdgeInsets.all(24),
+
+                decoration: const BoxDecoration(color: Colors.white),
+
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+
+                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                      children: [
+                        const Text('Total'),
+
+                        const SizedBox(height: 4),
+
+                        Text(
+                          'Rp $total',
+
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(
+                      width: 160,
+                      height: 48,
+
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+
+                            MaterialPageRoute(
+                              builder: (_) => const CheckoutPage(),
+                            ),
+                          );
+                        },
+
+                        icon: const Icon(Icons.shopping_cart_checkout),
+
+                        label: const Text('Checkout'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+
+            orElse: () => null,
+          ),
 
       body: ref
           .watch(cartProvider)
           .when(
             data: (carts) {
               if (carts.isEmpty) {
-                return const Center(
-                  child: Text('Cart is empty'),
-                );
+                return const Center(child: Text('Cart is empty'));
               }
 
               final cart = carts.first;
@@ -45,11 +101,6 @@ class CartPage extends ConsumerWidget {
                 return const Center(child: Text('Cart is empty'));
               }
 
-              final total = items.fold<int>(
-                0,
-                (total, item) => total + item.subtotal,
-              );
-
               return Column(
                 children: [
                   Expanded(
@@ -58,7 +109,8 @@ class CartPage extends ConsumerWidget {
 
                       itemCount: items.length,
 
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
 
                       itemBuilder: (context, index) {
                         final item = items[index];
@@ -92,6 +144,7 @@ class CartPage extends ConsumerWidget {
                               const SizedBox(height: 12),
 
                               Row(
+                                mainAxisSize: MainAxisSize.max,
                                 children: [
                                   IconButton(
                                     onPressed: () async {
@@ -132,26 +185,6 @@ class CartPage extends ConsumerWidget {
                           ),
                         );
                       },
-                    ),
-                  ),
-
-                  Container(
-                    padding: const EdgeInsets.all(24),
-
-                    decoration: const BoxDecoration(color: Colors.white),
-
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-                      children: [
-                        const Text('Total'),
-
-                        Text(
-                          'Rp $total',
-
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
                     ),
                   ),
                 ],
