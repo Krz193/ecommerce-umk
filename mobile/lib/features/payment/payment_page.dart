@@ -42,6 +42,8 @@ class _PaymentPageState
 
   late String transactionStatus;
 
+  Duration remainingTime = Duration.zero;
+
   final cartService = CartService();
 
   Color getStatusColor() {
@@ -80,6 +82,51 @@ class _PaymentPageState
       default:
         return transactionStatus;
     }
+  }
+
+  void updateRemainingTime() {
+    final expiredAt =
+        DateTime.parse(
+            widget.payment['expired_at'],
+        );
+
+    final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+
+    final difference =
+        expiredAt.difference(now);
+
+    if (!mounted) return;
+
+    final isExpired =
+        difference.isNegative;
+
+    setState(() {
+        remainingTime =
+            isExpired
+                ? Duration.zero
+                : difference;
+
+        if (isExpired &&
+            transactionStatus == 'pending') {
+                transactionStatus = 'expired';
+        }
+    });
+}
+
+  String formatRemainingTime() {
+    final hours =
+        remainingTime.inHours;
+
+    final minutes =
+        remainingTime.inMinutes % 60;
+
+    final seconds =
+        remainingTime.inSeconds % 60;
+
+    return
+        '${hours.toString().padLeft(2, '0')}:'
+        '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
   }
 
   Future<void> checkPaymentStatus() async {
@@ -158,10 +205,19 @@ class _PaymentPageState
     transactionStatus =
         widget.payment['status'];
 
+    updateRemainingTime();
+
     pollingTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 1),
       (_) {
-        checkPaymentStatus();
+
+        updateRemainingTime();
+
+        if (
+          DateTime.now().second % 10 == 0
+        ) {
+          checkPaymentStatus();
+        }
       },
     );
   }
@@ -491,12 +547,45 @@ class _PaymentPageState
                           ],
                         ),
 
-                        const SizedBox(
-                          height: 16,
+                        Container(
+                          width: double.infinity,
+
+                          padding: const EdgeInsets.all(16),
+
+                          decoration: BoxDecoration(
+                            color: Colors.orange
+                                .withValues(alpha: 0.1),
+
+                            borderRadius:
+                                BorderRadius.circular(12),
+                          ),
+
+                          child: Column(
+                            children: [
+
+                              const Text(
+                                'Complete payment before',
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              Text(
+                                formatRemainingTime(),
+
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight:
+                                      FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
 
+                        const SizedBox(height: 16),
+
                         Text(
-                          'Expired: ${DateFormatter.formatDateTime(widget.payment['expired_at'])}',
+                          'Expired: ${DateFormatter.formatDateTime(widget.payment['expired_at'])} WIB (UTC+7)',
                         ),
                       ],
                     ),

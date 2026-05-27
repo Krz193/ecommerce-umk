@@ -444,12 +444,33 @@ serve(async (req) => {
             );
         }
 
+        const nowTime = new Date();
+        const jakartaTime = new Date(
+            nowTime.getTime() + (7 * 60 * 60 * 1000)
+        );
+
+        const formattedOrderTime =
+            jakartaTime
+                .toISOString()
+                    .replace('T', ' ')
+                    .replace(/\.\d{3}Z$/, ' +0700');
+
+        console.log("midtrans payload order time:", formattedOrderTime);
+
         const paymentPayload = {
             payment_type: "bank_transfer",
 
             transaction_details: {
                 order_id: order.order_number,
                 gross_amount: Number(order.total_amount)
+            },
+
+            custom_expiry: {
+                order_time: formattedOrderTime,
+
+                expiry_duration: 60,
+
+                unit: 'minute',
             },
 
             customer_details: {
@@ -465,7 +486,13 @@ serve(async (req) => {
             }))
         };
 
-        console.log("Midtrans payload:", paymentPayload);
+        console.log(
+            JSON.stringify(
+                paymentPayload,
+                null,
+                2,
+            ),
+        );
 
         const midtransResult = await createMidtransTransaction(paymentPayload);
 
