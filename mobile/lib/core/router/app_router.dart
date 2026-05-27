@@ -8,6 +8,7 @@ import 'package:mobile/features/cart/cart_page.dart';
 import 'package:mobile/features/order/orders_page.dart';
 import 'package:mobile/features/order/order_detail_page.dart';
 import 'package:mobile/features/payment/payment_page.dart';
+import 'package:mobile/features/auth/register_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -19,13 +20,15 @@ final appRouter = GoRouter(
 
     final isLoggedIn = session != null;
 
-    final isLoginRoute = state.matchedLocation == '/login';
+    final isAuthRoute =
+      state.matchedLocation == '/login' ||
+      state.matchedLocation == '/register';
 
-    if (!isLoggedIn && !isLoginRoute) {
+    if (!isLoggedIn && !isAuthRoute) {
       return '/login';
     }
 
-    if (isLoggedIn && isLoginRoute) {
+    if (isLoggedIn && isAuthRoute) {
       return '/home';
     }
 
@@ -34,6 +37,14 @@ final appRouter = GoRouter(
 
   routes: [
     GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
+
+    GoRoute(
+      path: '/register',
+
+      builder: (context, state) {
+        return const RegisterPage();
+      },
+    ),
 
     GoRoute(path: '/home', builder: (context, state) => const HomePage()),
 
