@@ -111,18 +111,9 @@ class CartService {
     await supabase.from('cart_items').delete().eq('id', cartItemId);
   }
 
-  Future<void> clearCart({
-    required String cartId,
-  }) async {
+  Future<void> clearCart({required String cartId}) async {
+    await supabase.from('cart_items').delete().eq('cart_id', cartId);
 
-    await supabase
-        .from('cart_items')
-        .delete()
-        .eq('cart_id', cartId);
-
-    await supabase
-        .from('carts')
-        .delete()
-        .eq('id', cartId);
+    await supabase.from('carts').delete().eq('id', cartId);
   }
 }

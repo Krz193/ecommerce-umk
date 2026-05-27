@@ -5,18 +5,14 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/features/cart/models/cart_item_model.dart';
 import 'package:mobile/features/cart/models/cart_model.dart';
 
-final cartProvider =
-    FutureProvider<List<CartModel>>((ref) async {
+final cartProvider = FutureProvider<List<CartModel>>((ref) async {
   final user = supabase.auth.currentUser;
 
   if (user == null) {
     return [];
   }
 
-  final carts = await supabase
-      .from('carts')
-      .select()
-      .eq('user_id', user.id);
+  final carts = await supabase.from('carts').select().eq('user_id', user.id);
 
   if (carts.isEmpty) {
     return [];
@@ -39,17 +35,11 @@ final cartProvider =
         .eq('cart_id', cart['id']);
 
     final items = cartItems
-        .map<CartItemModel>(
-          (json) => CartItemModel.fromJson(json),
-        )
+        .map<CartItemModel>((json) => CartItemModel.fromJson(json))
         .toList();
 
     result.add(
-      CartModel(
-        id: cart['id'],
-        storeId: cart['store_id'],
-        items: items,
-      ),
+      CartModel(id: cart['id'], storeId: cart['store_id'], items: items),
     );
   }
 

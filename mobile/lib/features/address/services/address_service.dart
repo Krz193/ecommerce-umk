@@ -5,15 +5,11 @@ class AddressService {
   Future<List<AddressModel>> getAddresses() async {
     final response = await supabase
         .from('addresses')
-        .select(
-          'id, recipient_name, recipient_phone, full_address, is_default',
-        )
+        .select('id, recipient_name, recipient_phone, full_address, is_default')
         .order('is_default', ascending: false);
 
     return response
-        .map<AddressModel>(
-          (item) => AddressModel.fromMap(item),
-        )
+        .map<AddressModel>((item) => AddressModel.fromMap(item))
         .toList();
   }
 }

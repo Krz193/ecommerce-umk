@@ -59,17 +59,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/orders/:id',
 
-      builder: (
-        context,
-        state,
-      ) {
+      builder: (context, state) {
+        final orderId = state.pathParameters['id']!;
 
-        final orderId =
-            state.pathParameters['id']!;
-
-        return OrderDetailPage(
-          orderId: orderId,
-        );
+        return OrderDetailPage(orderId: orderId);
       },
     ),
 
@@ -77,10 +70,7 @@ final appRouter = GoRouter(
       path: '/payment',
 
       builder: (context, state) {
-
-        final extra =
-            state.extra
-                as Map<String, dynamic>;
+        final extra = state.extra as Map<String, dynamic>;
 
         return PaymentPage(
           order: extra['order'],

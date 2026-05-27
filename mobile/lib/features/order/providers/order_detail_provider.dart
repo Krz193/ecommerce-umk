@@ -4,18 +4,13 @@ import 'package:mobile/core/config/supabase_provider.dart';
 
 import 'package:mobile/features/order/models/order_detail_model.dart';
 
-final orderDetailProvider = FutureProvider.family<
-    OrderDetailModel,
-    String>(
-  (
-    ref,
-    orderId,
-  ) async {
-
-    final response = await supabase
-        .from('orders')
-        .select(
-          '''
+final orderDetailProvider = FutureProvider.family<OrderDetailModel, String>((
+  ref,
+  orderId,
+) async {
+  final response = await supabase
+      .from('orders')
+      .select('''
           *,
           payment:payments (
             id,
@@ -32,13 +27,9 @@ final orderDetailProvider = FutureProvider.family<
             subtotal,
             product_thumbnail
           )
-          ''',
-        )
-        .eq('id', orderId)
-        .single();
+          ''')
+      .eq('id', orderId)
+      .single();
 
-    return OrderDetailModel.fromJson(
-      response,
-    );
-  },
-);
+  return OrderDetailModel.fromJson(response);
+});

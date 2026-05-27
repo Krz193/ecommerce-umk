@@ -22,27 +22,19 @@ class OrderItemModel {
     this.productThumbnail,
   });
 
-  factory OrderItemModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
-
+  factory OrderItemModel.fromJson(Map<String, dynamic> json) {
     return OrderItemModel(
       id: json['id'],
 
-      productName:
-          json['product_name'],
+      productName: json['product_name'],
 
-      productPrice:
-          json['product_price'],
+      productPrice: json['product_price'],
 
-      quantity:
-          json['quantity'],
+      quantity: json['quantity'],
 
-      subtotal:
-          json['subtotal'],
+      subtotal: json['subtotal'],
 
-      productThumbnail:
-          json['product_thumbnail'],
+      productThumbnail: json['product_thumbnail'],
     );
   }
 }
@@ -72,42 +64,25 @@ class OrderDetailModel {
     required this.payment,
   });
 
-  factory OrderDetailModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
-
+  factory OrderDetailModel.fromJson(Map<String, dynamic> json) {
     return OrderDetailModel(
       id: json['id'],
 
-      orderNumber:
-          json['order_number'],
+      orderNumber: json['order_number'],
 
-      totalAmount:
-          json['total_amount'],
+      totalAmount: json['total_amount'],
 
-      paymentStatus:
-          json['payment_status'],
+      paymentStatus: json['payment_status'],
 
-      createdAt: DateTime.parse(
-        json['created_at'],
-      ),
+      createdAt: DateTime.parse(json['created_at']),
 
-      items:
-          (json['order_items'] as List)
-              .map(
-                (item) =>
-                    OrderItemModel.fromJson(
-                  item,
-                ),
-              )
-              .toList(),
+      items: (json['order_items'] as List)
+          .map((item) => OrderItemModel.fromJson(item))
+          .toList(),
 
-      payment:
-        json['payment'] != null
-            ? OrderPaymentModel.fromJson(
-                json['payment'],
-              )
-            : null,
+      payment: json['payment'] != null
+          ? OrderPaymentModel.fromJson(json['payment'])
+          : null,
     );
   }
 }

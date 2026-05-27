@@ -11,14 +11,9 @@ import 'package:go_router/go_router.dart';
 class OrderDetailPage extends ConsumerWidget {
   final String orderId;
 
-  const OrderDetailPage({
-    super.key,
-    required this.orderId,
-  });
+  const OrderDetailPage({super.key, required this.orderId});
 
-  Color getStatusColor(
-    String status,
-  ) {
+  Color getStatusColor(String status) {
     switch (status) {
       case 'paid':
         return Colors.green;
@@ -38,88 +33,54 @@ class OrderDetailPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(
-    BuildContext context,
-    WidgetRef ref,
-  ) {
-
-    final orderAsync =
-        ref.watch(
-      orderDetailProvider(orderId),
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orderAsync = ref.watch(orderDetailProvider(orderId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Order Detail',
-        ),
-      ),
+      appBar: AppBar(title: const Text('Order Detail')),
 
       body: orderAsync.when(
         data: (order) {
-
           return ListView(
             padding: const EdgeInsets.all(24),
 
             children: [
-
               Container(
                 padding: const EdgeInsets.all(16),
 
                 decoration: BoxDecoration(
                   color: Colors.white,
 
-                  borderRadius:
-                      BorderRadius.circular(
-                    16,
-                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
 
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
-
                     Text(
                       order.orderNumber,
 
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 12,
-                    ),
+                    const SizedBox(height: 12),
+
+                    Text(CurrencyFormatter.format(order.totalAmount)),
+
+                    const SizedBox(height: 8),
 
                     Text(
-                      CurrencyFormatter.format(
-                        order.totalAmount,
-                      ),
+                      DateFormatter.formatDateTime(order.createdAt.toString()),
                     ),
 
-                    const SizedBox(
-                      height: 8,
-                    ),
-
-                    Text(
-                      DateFormatter
-                          .formatDateTime(
-                        order.createdAt
-                            .toString(),
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height: 12,
-                    ),
+                    const SizedBox(height: 12),
 
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 6,
                       ),
@@ -127,45 +88,31 @@ class OrderDetailPage extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: getStatusColor(
                           order.paymentStatus,
-                        ).withValues(
-                          alpha: 0.15,
-                        ),
+                        ).withValues(alpha: 0.15),
 
-                        borderRadius:
-                            BorderRadius.circular(
-                          999,
-                        ),
+                        borderRadius: BorderRadius.circular(999),
                       ),
 
                       child: Text(
                         order.paymentStatus,
 
                         style: TextStyle(
-                          color: getStatusColor(
-                            order.paymentStatus,
-                          ),
+                          color: getStatusColor(order.paymentStatus),
 
-                          fontWeight:
-                              FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
 
-                    if (
-                      order.paymentStatus == 'pending' &&
-                      order.payment != null
-                    ) ...[
-
-                      const SizedBox(
-                        height: 16,
-                      ),
+                    if (order.paymentStatus == 'pending' &&
+                        order.payment != null) ...[
+                      const SizedBox(height: 16),
 
                       SizedBox(
                         width: double.infinity,
 
                         child: ElevatedButton(
                           onPressed: () {
-
                             context.push(
                               '/payment',
 
@@ -173,33 +120,25 @@ class OrderDetailPage extends ConsumerWidget {
                                 'order': {
                                   'id': order.id,
 
-                                  'order_number':
-                                      order.orderNumber,
+                                  'order_number': order.orderNumber,
 
-                                  'total_amount':
-                                      order.totalAmount,
+                                  'total_amount': order.totalAmount,
                                 },
 
                                 'payment': {
-                                  'id':
-                                      order.payment!.id,
+                                  'id': order.payment!.id,
 
-                                  'status':
-                                      order.payment!.status,
+                                  'status': order.payment!.status,
 
-                                  'expired_at':
-                                      order.payment!.expiredAt,
+                                  'expired_at': order.payment!.expiredAt,
                                 },
 
-                                'midtrans':
-                                    order.payment!.rawResponse,
+                                'midtrans': order.payment!.rawResponse,
                               },
                             );
                           },
 
-                          child: const Text(
-                            'Continue Payment',
-                          ),
+                          child: const Text('Continue Payment'),
                         ),
                       ),
                     ],
@@ -207,139 +146,84 @@ class OrderDetailPage extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(
-                height: 24,
-              ),
+              const SizedBox(height: 24),
 
               const Text(
                 'Items',
 
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight:
-                      FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
-              const SizedBox(
-                height: 16,
-              ),
+              const SizedBox(height: 16),
 
-              ...order.items.map(
-                (item) {
+              ...order.items.map((item) {
+                debugPrint(item.productThumbnail);
 
-                  debugPrint(item.productThumbnail);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
 
-                  return Container(
-                    margin:
-                        const EdgeInsets.only(
-                      bottom: 16,
-                    ),
+                  padding: const EdgeInsets.all(16),
 
-                    padding:
-                        const EdgeInsets.all(
-                      16,
-                    ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
 
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
 
-                      borderRadius:
-                          BorderRadius.circular(
-                        16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                    children: [
+                      if (item.productThumbnail != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+
+                          child: Image.network(
+                            item.productThumbnail!,
+
+                            height: 160,
+                            width: double.infinity,
+
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+
+                      if (item.productThumbnail != null)
+                        const SizedBox(height: 12),
+
+                      Text(
+                        item.productName,
+
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    ),
 
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
+                      const SizedBox(height: 8),
 
-                      children: [
-                        if (item.productThumbnail != null)
-                          ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(12),
+                      Text(CurrencyFormatter.format(item.productPrice)),
 
-                            child: Image.network(
-                              item.productThumbnail!,
+                      const SizedBox(height: 8),
 
-                              height: 160,
-                              width: double.infinity,
+                      Text('Quantity: ${item.quantity}'),
 
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                      const SizedBox(height: 8),
 
-                        if (item.productThumbnail != null)
-                          const SizedBox(height: 12),
-
-                        Text(
-                          item.productName,
-
-                          style:
-                              const TextStyle(
-                            fontWeight:
-                                FontWeight
-                                    .bold,
-                          ),
-                        ),
-
-                        const SizedBox(
-                          height: 8,
-                        ),
-
-                        Text(
-                          CurrencyFormatter
-                              .format(
-                            item.productPrice,
-                          ),
-                        ),
-
-                        const SizedBox(
-                          height: 8,
-                        ),
-
-                        Text(
-                          'Quantity: ${item.quantity}',
-                        ),
-
-                        const SizedBox(
-                          height: 8,
-                        ),
-
-                        Text(
-                          'Subtotal: ${CurrencyFormatter.format(item.subtotal)}',
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      Text(
+                        'Subtotal: ${CurrencyFormatter.format(item.subtotal)}',
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ],
           );
         },
 
-        error: (
-          error,
-          stackTrace,
-        ) {
-
-          return Center(
-            child: Text(
-              error.toString(),
-            ),
-          );
+        error: (error, stackTrace) {
+          return Center(child: Text(error.toString()));
         },
 
         loading: () {
-
-          return const Center(
-            child:
-                CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         },
       ),
     );

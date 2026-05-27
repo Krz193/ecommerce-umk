@@ -15,8 +15,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   final passwordController = TextEditingController();
 
-  
-
   bool isLoading = false;
 
   Future<void> login() async {
@@ -31,7 +29,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-
     } on AuthException catch (error) {
       if (!mounted) return;
 

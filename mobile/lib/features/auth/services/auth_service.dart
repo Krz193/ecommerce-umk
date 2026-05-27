@@ -26,10 +26,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    return await _supabase.auth.signUp(
-      email: email,
-      password: password,
-    );
+    return await _supabase.auth.signUp(email: email, password: password);
   }
 
   // Logout
@@ -38,6 +35,5 @@ class AuthService {
   }
 
   // Auth state changes
-  Stream<AuthState> get authStateChanges =>
-      _supabase.auth.onAuthStateChange;
+  Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 }

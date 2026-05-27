@@ -7,23 +7,13 @@ class CartModel {
 
   final List<CartItemModel> items;
 
-  CartModel({
-    required this.id,
-    required this.storeId,
-    required this.items,
-  });
+  CartModel({required this.id, required this.storeId, required this.items});
 
   int get totalItems {
-    return items.fold(
-      0,
-      (total, item) => total + item.quantity,
-    );
+    return items.fold(0, (total, item) => total + item.quantity);
   }
 
   int get subtotal {
-    return items.fold(
-      0,
-      (total, item) => total + item.subtotal,
-    );
+    return items.fold(0, (total, item) => total + item.subtotal);
   }
 }

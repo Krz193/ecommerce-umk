@@ -19,9 +19,7 @@ class CartPage extends ConsumerWidget {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const CheckoutPage(),
-            ),
+            MaterialPageRoute(builder: (_) => const CheckoutPage()),
           );
         },
         label: const Text('Checkout'),
@@ -33,9 +31,7 @@ class CartPage extends ConsumerWidget {
           .when(
             data: (carts) {
               if (carts.isEmpty) {
-                return const Center(
-                  child: Text('Cart is empty'),
-                );
+                return const Center(child: Text('Cart is empty'));
               }
 
               final cart = carts.first;
@@ -58,7 +54,8 @@ class CartPage extends ConsumerWidget {
 
                       itemCount: items.length,
 
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
 
                       itemBuilder: (context, index) {
                         final item = items[index];
