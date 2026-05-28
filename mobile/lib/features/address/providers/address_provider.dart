@@ -6,7 +6,9 @@ final addressServiceProvider = Provider<AddressService>((ref) {
   return AddressService();
 });
 
-final addressProvider = FutureProvider<List<AddressModel>>((ref) async {
+final addressProvider = FutureProvider.autoDispose<List<AddressModel>>((
+  ref,
+) async {
   final addressService = ref.read(addressServiceProvider);
 
   return addressService.getAddresses();

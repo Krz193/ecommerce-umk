@@ -4,13 +4,17 @@ import 'package:mobile/core/config/supabase_provider.dart';
 
 import 'package:mobile/features/order/models/order_detail_model.dart';
 
-final orderDetailProvider = FutureProvider.family<OrderDetailModel, String>((
-  ref,
-  orderId,
-) async {
-  final response = await supabase
-      .from('orders')
-      .select('''
+final orderDetailProvider = FutureProvider.autoDispose
+    .family<OrderDetailModel, String>((ref, orderId) async {
+      final user = supabase.auth.currentUser;
+
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+
+      final response = await supabase
+          .from('orders')
+          .select('''
           *,
           payment:payments (
             id,
@@ -28,8 +32,10 @@ final orderDetailProvider = FutureProvider.family<OrderDetailModel, String>((
             product_thumbnail
           )
           ''')
-      .eq('id', orderId)
-      .single();
 
-  return OrderDetailModel.fromJson(response);
-});
+          .eq('id', orderId)
+          .eq('user_id', user.id)
+          .single();
+
+      return OrderDetailModel.fromJson(response);
+    });

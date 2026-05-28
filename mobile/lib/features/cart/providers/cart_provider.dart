@@ -5,7 +5,7 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/features/cart/models/cart_item_model.dart';
 import 'package:mobile/features/cart/models/cart_model.dart';
 
-final cartProvider = FutureProvider<List<CartModel>>((ref) async {
+final cartProvider = FutureProvider.autoDispose<List<CartModel>>((ref) async {
   final user = supabase.auth.currentUser;
 
   if (user == null) {

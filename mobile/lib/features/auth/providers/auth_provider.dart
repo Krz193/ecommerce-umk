@@ -15,5 +15,9 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
 
 // Current user
 final currentUserProvider = Provider<User?>((ref) {
+  // Make this provider reactive to auth state changes so consumers
+  // don't hold a stale User after sign-out/sign-in.
+  ref.watch(authStateProvider);
+
   return supabase.auth.currentUser;
 });
