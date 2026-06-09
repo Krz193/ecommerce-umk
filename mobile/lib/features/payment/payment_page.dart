@@ -8,7 +8,6 @@ import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 
 import 'package:mobile/features/payment/providers/payment_provider.dart';
-import 'package:mobile/features/cart/services/cart_service.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
@@ -41,8 +40,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   late String transactionStatus;
 
   Duration remainingTime = Duration.zero;
-
-  final cartService = CartService();
 
   Color getStatusColor() {
     switch (transactionStatus) {
@@ -189,16 +186,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         ref.invalidate(orderDetailProvider(widget.order['id']));
 
         if (status == 'paid') {
-          final cartState = ref.read(cartProvider);
-
-          final carts = cartState.asData?.value;
-
-          if (carts != null && carts.isNotEmpty) {
-            await cartService.clearCart(cartId: carts.first.id);
-
-            ref.invalidate(cartProvider);
-          }
-
+          ref.invalidate(cartProvider);
           ref.invalidate(productsProvider);
 
           if (!mounted) return;

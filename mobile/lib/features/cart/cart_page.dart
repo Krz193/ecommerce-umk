@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/features/cart/services/cart_service.dart';
 import 'package:mobile/features/checkout/checkout_page.dart';
@@ -28,57 +29,95 @@ class CartPage extends ConsumerWidget {
                 (total, item) => total + item.subtotal,
               );
 
-              return Container(
-                padding: const EdgeInsets.all(24),
+              return SafeArea(
+                top: false,
 
-                decoration: const BoxDecoration(color: Colors.white),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
 
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  decoration: const BoxDecoration(color: Colors.white),
 
-                  children: [
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final totalLabel = Column(
+                        mainAxisSize: MainAxisSize.min,
 
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
 
-                      children: [
-                        const Text('Total'),
+                        children: [
+                          const Text('Total'),
 
-                        const SizedBox(height: 4),
+                          const SizedBox(height: 4),
 
-                        Text(
-                          'Rp $total',
+                          Text(
+                            CurrencyFormatter.format(total),
 
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                            maxLines: 1,
 
-                    SizedBox(
-                      width: 160,
-                      height: 48,
+                            overflow: TextOverflow.ellipsis,
 
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-
-                            MaterialPageRoute(
-                              builder: (_) => const CheckoutPage(),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                          );
-                        },
+                          ),
+                        ],
+                      );
 
-                        icon: const Icon(Icons.shopping_cart_checkout),
+                      final checkoutButton = SizedBox(
+                        height: 48,
 
-                        label: const Text('Checkout'),
-                      ),
-                    ),
-                  ],
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+
+                              MaterialPageRoute(
+                                builder: (_) => const CheckoutPage(),
+                              ),
+                            );
+                          },
+
+                          icon: const Icon(Icons.shopping_cart_checkout),
+
+                          label: const Text('Checkout'),
+                        ),
+                      );
+
+                      if (constraints.maxWidth < 340) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+
+                          children: [
+                            totalLabel,
+
+                            const SizedBox(height: 12),
+
+                            checkoutButton,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: totalLabel),
+
+                          const SizedBox(width: 12),
+
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minWidth: 144,
+                              maxWidth: 172,
+                            ),
+
+                            child: checkoutButton,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               );
             },

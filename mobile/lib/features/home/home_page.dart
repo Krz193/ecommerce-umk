@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/features/cart/widgets/cart_action_button.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,13 +18,7 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
-          IconButton(
-            onPressed: () {
-              context.push('/cart');
-            },
-
-            icon: const Icon(Icons.shopping_cart),
-          ),
+          const CartActionButton(),
 
           IconButton(
             onPressed: () {

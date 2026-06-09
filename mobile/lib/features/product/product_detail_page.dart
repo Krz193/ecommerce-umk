@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/product/providers/product_detail_provider.dart';
 import 'package:mobile/features/cart/services/cart_service.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
+import 'package:mobile/features/cart/widgets/cart_action_button.dart';
 
 class ProductDetailPage extends ConsumerWidget {
   final String productId;
@@ -14,7 +15,16 @@ class ProductDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Product Detail')),
+      appBar: AppBar(
+        title: const Text('Product Detail'),
+
+        actions: [
+          const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: CartActionButton(),
+          ),
+        ],
+      ),
 
       body: ref
           .watch(productDetailProvider(productId))
