@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/features/auth/models/app_user_model.dart';
 import 'package:mobile/features/auth/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -20,4 +21,12 @@ final currentUserProvider = Provider<User?>((ref) {
   ref.watch(authStateProvider);
 
   return supabase.auth.currentUser;
+});
+
+final appUserProvider = FutureProvider.autoDispose<AppUserModel?>((ref) async {
+  ref.watch(authStateProvider);
+
+  final authService = ref.read(authServiceProvider);
+
+  return authService.getAppUser();
 });

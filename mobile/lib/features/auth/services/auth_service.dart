@@ -1,4 +1,5 @@
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/features/auth/models/app_user_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -9,6 +10,28 @@ class AuthService {
 
   // Current user
   User? get currentUser => _supabase.auth.currentUser;
+
+  Future<AppUserModel?> getAppUser() async {
+    final user = currentUser;
+
+    if (user == null) {
+      return null;
+    }
+
+    final response = await _supabase
+        .from('users')
+        .select('id, full_name, username, phone, avatar_url, role')
+        .eq('id', user.id)
+        .single();
+
+    return AppUserModel.fromMap(response);
+  }
+
+  Future<AppUserModel> becomeSeller() async {
+    final response = await _supabase.rpc('become_seller');
+
+    return AppUserModel.fromMap(Map<String, dynamic>.from(response));
+  }
 
   // Login
   Future<AuthResponse> signIn({
