@@ -103,13 +103,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     if (order.paymentStatus == 'paid') {
       timeline.add({
         'title': 'Payment Success',
-        'date': null,
+        'date': order.paidAt,
         'completed': true,
       });
 
       timeline.add({
         'title': 'Processing',
-        'date': null,
+        'date': order.paidAt,
         'completed': [
           'processing',
           'shipped',

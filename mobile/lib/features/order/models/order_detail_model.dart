@@ -52,6 +52,8 @@ class OrderDetailModel {
 
   final DateTime createdAt;
 
+  final DateTime? paidAt;
+
   final DateTime? shippedAt;
 
   final DateTime? completedAt;
@@ -71,6 +73,7 @@ class OrderDetailModel {
     required this.totalAmount,
     required this.paymentStatus,
     required this.createdAt,
+    required this.paidAt,
     required this.shippedAt,
     required this.completedAt,
     required this.shippingProvider,
@@ -92,6 +95,8 @@ class OrderDetailModel {
       paymentStatus: json['payment_status'],
 
       createdAt: DateTime.parse(json['created_at']),
+
+      paidAt: json['paid_at'] != null ? DateTime.parse(json['paid_at']) : null,
 
       shippedAt: json['shipped_at'] != null
           ? DateTime.parse(json['shipped_at'])
