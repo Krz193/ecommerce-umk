@@ -32,7 +32,6 @@ final orderDetailProvider = FutureProvider.autoDispose
             product_thumbnail
           )
           ''')
-
           .eq('id', orderId)
           .eq('user_id', user.id)
           .single();

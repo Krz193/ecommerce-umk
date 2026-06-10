@@ -44,11 +44,21 @@ class OrderDetailModel {
 
   final String orderNumber;
 
+  final String status;
+
   final int totalAmount;
 
   final String paymentStatus;
 
   final DateTime createdAt;
+
+  final DateTime? shippedAt;
+
+  final DateTime? completedAt;
+
+  final String? shippingProvider;
+
+  final String? trackingNumber;
 
   final List<OrderItemModel> items;
 
@@ -57,9 +67,14 @@ class OrderDetailModel {
   OrderDetailModel({
     required this.id,
     required this.orderNumber,
+    required this.status,
     required this.totalAmount,
     required this.paymentStatus,
     required this.createdAt,
+    required this.shippedAt,
+    required this.completedAt,
+    required this.shippingProvider,
+    required this.trackingNumber,
     required this.items,
     required this.payment,
   });
@@ -70,11 +85,25 @@ class OrderDetailModel {
 
       orderNumber: json['order_number'],
 
+      status: json['status'],
+
       totalAmount: json['total_amount'],
 
       paymentStatus: json['payment_status'],
 
       createdAt: DateTime.parse(json['created_at']),
+
+      shippedAt: json['shipped_at'] != null
+          ? DateTime.parse(json['shipped_at'])
+          : null,
+
+      completedAt: json['completed_at'] != null
+          ? DateTime.parse(json['completed_at'])
+          : null,
+
+      shippingProvider: json['shipping_provider'],
+
+      trackingNumber: json['tracking_number'],
 
       items: (json['order_items'] as List)
           .map((item) => OrderItemModel.fromJson(item))

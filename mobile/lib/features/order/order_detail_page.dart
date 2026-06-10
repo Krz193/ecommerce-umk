@@ -7,6 +7,8 @@ import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
+import 'package:mobile/features/order/providers/order_status_provider.dart';
+import 'package:mobile/features/order/providers/orders_provider.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -23,6 +25,44 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     with WidgetsBindingObserver {
   Timer? refreshTimer;
   DateTime? lastResumeRefresh;
+  bool isUpdating = false;
+
+  Future<void> confirmReceived() async {
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      final service = ref.read(orderStatusServiceProvider);
+
+      await service.confirmReceived(orderId: widget.orderId);
+
+      if (!mounted) {
+        return;
+      }
+
+      ref.invalidate(ordersProvider);
+      ref.invalidate(orderDetailProvider(widget.orderId));
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Order completed')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdating = false;
+        });
+      }
+    }
+  }
 
   Color getStatusColor(String status) {
     switch (status) {
@@ -68,14 +108,26 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       });
 
       timeline.add({
-        'title': 'Order Confirmed',
+        'title': 'Processing',
         'date': null,
-        'completed': false,
+        'completed': [
+          'processing',
+          'shipped',
+          'completed',
+        ].contains(order.status),
       });
 
-      timeline.add({'title': 'Shipped', 'date': null, 'completed': false});
+      timeline.add({
+        'title': 'Shipped',
+        'date': order.shippedAt,
+        'completed': ['shipped', 'completed'].contains(order.status),
+      });
 
-      timeline.add({'title': 'Completed', 'date': null, 'completed': false});
+      timeline.add({
+        'title': 'Completed',
+        'date': order.completedAt,
+        'completed': order.status == 'completed',
+      });
     }
 
     if (order.paymentStatus == 'expired') {
@@ -256,6 +308,33 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                           },
 
                           child: const Text('Continue Payment'),
+                        ),
+                      ),
+                    ],
+
+                    if (order.shippingProvider != null ||
+                        order.trackingNumber != null) ...[
+                      const SizedBox(height: 16),
+                      Text('Courier: ${order.shippingProvider ?? '-'}'),
+                      const SizedBox(height: 8),
+                      Text('Tracking Number: ${order.trackingNumber ?? '-'}'),
+                    ],
+
+                    if (order.status == 'shipped') ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isUpdating ? null : confirmReceived,
+                          child: isUpdating
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Confirm Received'),
                         ),
                       ),
                     ],
