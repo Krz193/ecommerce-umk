@@ -22,18 +22,16 @@ Update dokumen ini secara berkala selama development berlangsung.
 
 ## Current Phase
 
-Buyer Core Flow Stabilization Before Seller Onboarding
+Seller Operational Order Foundation
 
 ---
 
 ## Current Focus
 
-* Flutter buyer flow stabilization
-* auth/session handling
-* stale state prevention
-* cart and checkout UX polish
-* order/payment synchronization
-* preparation before seller onboarding
+* seller order management foundation
+* shipment proof capture
+* buyer order completion confirmation
+* operational lifecycle authorization boundary
 
 ---
 
@@ -54,6 +52,11 @@ Buyer Core Flow Stabilization Before Seller Onboarding
 | Auth UI                        | ✅ Completed   |
 | Auth Profile Sync              | ✅ Completed   |
 | Role Foundation                | ✅ Completed   |
+| Seller Role Transition         | ✅ Completed   |
+| Seller Create Store Flow       | ✅ Completed   |
+| Seller Store Dashboard         | ✅ Completed   |
+| Seller Product Management      | ✅ Completed   |
+| Seller Order Management        | ⏳ In Progress |
 | Store System Foundation        | ✅ Completed   |
 | Product System Foundation      | ✅ Completed   |
 | Cart System Foundation         | ✅ Completed   |
@@ -149,7 +152,18 @@ Buyer Core Flow Stabilization Before Seller Onboarding
 * authenticated operational order mutation implemented
 * lifecycle transition guard implemented
 * operational order RLS implemented
+* seller order detail RLS for order items/payments prepared
+* shipment fields prepared on orders
+* seller shipment transition requires shipping provider and tracking number
+* buyer-only completed transition foundation implemented
 * role column implemented on `users`
+* buyer-to-seller role transition RPC implemented and database-validated
+* generic profile update restricted from role mutation
+* store onboarding insert/update grants and policies prepared
+* one-store-per-owner constraint prepared
+* store onboarding REST insert validated with authenticated seller token
+* Flutter analyzer passed for seller create store flow
+* seller create store flow validated in app
 * auth profile trigger implemented
 * default development address trigger implemented
 * store assistant unique constraint fixed for multi-assistant support
@@ -201,8 +215,9 @@ Buyer Core Flow Stabilization Before Seller Onboarding
 
 ## Current Active Work
 
-* buyer flow UI/UX polish
-* preparation for seller onboarding
+* seller order management foundation
+* seller shipment proof UX validation
+* buyer confirm received UX validation
 
 ---
 
@@ -215,7 +230,7 @@ Buyer Core Flow Stabilization Before Seller Onboarding
 * transaction audit improvements
 * webhook signature hardening
 * seller settlement lifecycle
-* shipment lifecycle preparation
+* shipment lifecycle integration with shipping API
 * refund-required edge-case handling
 * production replacement for development default address trigger
 * address CRUD-ready flow
@@ -255,6 +270,7 @@ Buyer Core Flow Stabilization Before Seller Onboarding
 * stock management
 * order processing
 * order status progression actions
+* shipment proof display
 
 ### Assistant Features
 
@@ -362,6 +378,7 @@ Buyer Core Flow Stabilization Before Seller Onboarding
 * do not place auth reset logic inside individual login/logout buttons
 * centralized auth state listener is preferred
 * current centralized auth-state listener already invalidates cart/orders/address/current user providers
+* current centralized auth-state listener also invalidates app profile role provider
 * current cart/orders/order detail/address providers already use explicit user scoping
 * release-build account switching validated on physical device
 
@@ -439,7 +456,8 @@ Pending Payment
 → Cart Cleanup
 → Idempotency Protection
 → Processing Order
-→ Shipped Order
+→ Seller Ships Order With Courier/Tracking Number
+→ Buyer Confirms Received
 → Completed Order
 
 Important implementation note:
@@ -478,6 +496,28 @@ Users currently implement:
 * role column
 * auth-triggered profile creation
 * default role as `buyer`
+* buyer-to-seller transition through `public.become_seller()`
+* first buyer role transition call returns `role = seller`
+* repeat role transition call fails with `Only buyer accounts can become sellers`
+* generic profile update cannot update `role`
+* seller onboarding route creates pending store for current user
+* seller onboarding flow calls role transition before store insert for buyer accounts
+* direct store insert returns pending store row for authenticated seller
+* app create store flow changes role to `seller` and creates `pending` store
+* duplicate slug/store errors are mapped to user-facing messages
+* Flutter analyzer passed after duplicate error UX hardening
+* duplicate slug/store error UX validated in app
+* store slug hidden from end-user UX and generated internally
+* seller store dashboard foundation implemented
+* Flutter analyzer passed for hidden slug/dashboard changes
+* seller store dashboard validated in app
+* seller product management foundation validated
+* seller products create as `draft`
+* seller product list shows own draft products
+* public product list remains published-only
+* seller product edit/publish flow validated
+* seller product edit/publish invalidates public product listing cache
+* duplicate seller product name UX validated
 
 ### Addresses
 
@@ -503,6 +543,10 @@ Orders currently implement:
 * server-side pricing authority
 * user-owned order access
 * store-owner/assistant operational access foundation
+* seller order management list/detail foundation
+* seller ship-order transition through `update-order-status`
+* buyer confirm-received transition through `update-order-status`
+* shipment provider and tracking number fields
 
 ### Order Items
 
@@ -662,6 +706,11 @@ Do not fix this by:
 * create_auth_profile_trigger
 * add_default_address_on_signup
 * fix_default_address_trigger
+* add_become_seller_rpc
+* prepare_store_onboarding
+* prepare_seller_product_management
+* prepare_seller_order_management
+* add_order_shipment_fields
 
 ---
 
@@ -669,8 +718,10 @@ Do not fix this by:
 
 ## Next Step
 
-1. commit buyer/auth/session stabilization
-2. start seller onboarding
+1. apply and validate shipment-field migration
+2. deploy and validate `update-order-status` edge function
+3. validate seller `Ship Order` with courier/tracking number
+4. validate buyer `Confirm Received`
 
 ---
 
@@ -683,6 +734,26 @@ No backend blocker currently.
 Current frontend blocker:
 
 No buyer/auth/session blocker currently.
+
+Current seller onboarding blocker:
+
+No seller onboarding blocker currently.
+
+Current seller dashboard blocker:
+
+No seller dashboard blocker currently.
+
+Current seller product blocker:
+
+No seller product foundation blocker currently.
+
+Current seller product edit/publish blocker:
+
+No seller product edit/publish blocker currently.
+
+Current seller order blocker:
+
+Awaiting manual validation after migration push and edge function deploy.
 
 ---
 
@@ -753,5 +824,22 @@ Project sudah memiliki:
 * validated cart footer release-build layout
 * validated full buyer flow with fresh account
 * ready to commit buyer/auth/session stabilization
+* validated seller onboarding role transition foundation
+* added app profile role provider for Flutter
+* implemented create store flow foundation
+* prepared store onboarding RLS/grant migration
+* validated store onboarding REST insert with authenticated seller token
+* validated seller create store flow in app
+* implemented duplicate slug/store error UX hardening
+* validated duplicate slug/store error UX in app
+* implemented hidden slug create-store UX
+* implemented seller store dashboard foundation
+* validated seller store dashboard in app
+* implemented and validated seller product list/create foundation
+* implemented and validated seller product edit/publish flow
+* implemented seller order list/detail foundation
+* implemented seller `Ship Order` action with courier/tracking input
+* implemented buyer `Confirm Received` action
+* updated `update-order-status` to separate seller shipping and buyer completion authorization
 
 Implementation harus melanjutkan fondasi yang sudah ada.

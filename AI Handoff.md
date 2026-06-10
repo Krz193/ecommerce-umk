@@ -49,10 +49,16 @@ Project saat ini sudah memiliki:
 * release-build account switching validation passed
 * release-build cart footer layout validation passed
 * full buyer flow fresh account validation passed
+* seller onboarding step 1 validated: buyer-to-seller role transition foundation
+* seller onboarding step 2 validated: create store flow foundation
+* seller product management foundation validated
+* seller order management foundation implemented
+* shipment proof capture implemented for seller ship order
+* buyer confirm received foundation implemented
 
 Core buyer transactional commerce flow sudah berjalan end-to-end.
 
-Saat ini project berada pada fase stabilisasi buyer flow sebelum masuk ke seller onboarding.
+Saat ini project berada pada fase seller operational order validation.
 
 ---
 
@@ -121,6 +127,12 @@ Implemented:
 * role helper functions
 * store ownership helper foundation
 * multi-assistant unique constraint fix
+* `become_seller()` RPC foundation
+* seller store onboarding grant/policy foundation
+* one-store-per-owner constraint
+* role update restricted away from generic profile update
+* seller order detail RLS for order items/payments
+* shipment fields on orders
 
 Seluruh perubahan schema wajib melalui:
 
@@ -161,6 +173,9 @@ Implemented:
 * centralized auth-state invalidation for user-scoped providers
 * user-scoped provider `autoDispose` hardening for cart/order/address state
 * release-build stale state validation passed
+* seller order list/detail foundation
+* seller `Ship Order` dialog with courier/tracking input
+* buyer `Confirm Received` action on shipped order
 
 ---
 
@@ -348,7 +363,9 @@ Current order statuses:
 Implemented behavior:
 
 * settlement can move order toward processing lifecycle
-* shipped/completed mutation foundation exists
+* seller `processing -> shipped` mutation foundation exists
+* buyer `shipped -> completed` mutation foundation exists
+* seller ship action requires courier and tracking number
 * lifecycle mutation protected by RLS
 * invalid lifecycle transition rejected
 * order status constraint synced with app lifecycle
@@ -356,9 +373,9 @@ Implemented behavior:
 
 Pending:
 
-* seller-side order progression UI
-* seller confirm/process/ship/complete actions
-* seller order management page
+* manual validation of seller ship-order flow after edge function deploy
+* manual validation of buyer confirm-received flow
+* future shipping API integration
 
 ---
 
@@ -461,6 +478,7 @@ Orders saat ini menggunakan:
 * operational lifecycle timestamps
 * user-owned order visibility
 * store owner/assistant operational foundation
+* shipping_provider and tracking_number for manual shipment proof
 
 ---
 
@@ -512,9 +530,53 @@ Current implemented role foundation:
 * seller
 * admin
 
+Current seller onboarding role transition foundation:
+
+* buyer accounts can become seller through `public.become_seller()`
+* first RPC call changes `buyer` to `seller`
+* repeat RPC call fails with `Only buyer accounts can become sellers`
+* generic authenticated profile update is restricted to non-role profile columns
+* Flutter has `appUserProvider` for reading `public.users.role`
+* app-profile provider is invalidated on auth state changes
+
+Current seller create store foundation:
+
+* route `/seller/onboarding`
+* `SellerOnboardingPage` with store name, slug, phone, address, description
+* create flow calls `becomeSeller()` for buyer accounts before inserting store
+* `StoreService.createStore()` inserts pending store owned by current user
+* `myStoreProvider` reads current user's store and is invalidated on auth changes
+* store insert through REST validated with authenticated seller token
+* inserted store returns `status = pending`
+* Flutter analyzer passed for create store flow
+* app end-to-end create store flow validated: role becomes seller, store status pending
+* duplicate slug/store errors mapped to user-facing messages
+* Flutter analyzer passed after duplicate error UX hardening
+* duplicate slug/store UX validated in app
+* store slug hidden from end-user UX and generated internally
+* seller store dashboard foundation implemented
+* Flutter analyzer passed for hidden slug/dashboard changes
+* seller store dashboard validated in app
+* seller product management foundation validated
+* seller products create as `draft`
+* seller product list shows own draft products
+* public product list remains published-only
+* seller product edit/publish flow validated
+* seller product edit/publish invalidates public product listing cache
+* duplicate seller product name UX validated
+* seller order list/detail foundation implemented
+* seller can ship paid processing orders with courier/tracking number
+* seller cannot complete orders
+* buyer can confirm received for shipped orders
+
 Current active UI:
 
-* buyer/customer only
+* buyer/customer UI
+* seller onboarding create-store foundation
+* seller store dashboard foundation
+* seller product list/create product foundation
+* seller product edit/publish foundation
+* seller order list/detail foundation
 
 ---
 
@@ -610,8 +672,11 @@ Validated:
 
 ## Immediate Priority
 
-1. commit buyer/auth/session stabilization
-2. start seller onboarding
+1. push `add_order_shipment_fields` migration
+2. deploy `update-order-status` edge function
+3. run `dart format lib` and `flutter analyze`
+4. validate seller `Ship Order`
+5. validate buyer `Confirm Received`
 
 ---
 
@@ -714,6 +779,9 @@ Project saat ini sudah memiliki:
 * order history/detail UI
 * operational order lifecycle
 * authenticated order mutation
+* seller order management foundation
+* manual shipment proof capture
+* buyer received confirmation foundation
 * transaction-safe architecture
 * RLS-hardened backend
 * buyer core flow foundation
