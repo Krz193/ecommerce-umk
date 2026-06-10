@@ -11,3 +11,6 @@ Thumbs.db
 
 # Env
 .env
+
+# Supabase temp CLI
+supabase/.temp/cli-latest
