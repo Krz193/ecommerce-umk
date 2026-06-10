@@ -40,10 +40,7 @@ class CartActionButton extends ConsumerWidget {
               top: -8,
 
               child: Container(
-                constraints: const BoxConstraints(
-                  minWidth: 18,
-                  minHeight: 18,
-                ),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
 
                 padding: const EdgeInsets.symmetric(horizontal: 5),
 
