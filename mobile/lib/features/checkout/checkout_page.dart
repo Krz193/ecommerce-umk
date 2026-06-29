@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/features/checkout/providers/checkout_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
+import 'package:mobile/features/address/models/address_model.dart';
 import 'package:mobile/features/address/providers/address_provider.dart';
 import 'package:mobile/features/payment/payment_page.dart';
 
@@ -18,6 +19,27 @@ class CheckoutPage extends ConsumerStatefulWidget {
 
 class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool isLoading = false;
+  String? selectedAddressId;
+
+  AddressModel? selectedAddress(List<AddressModel> addresses) {
+    if (addresses.isEmpty) {
+      return null;
+    }
+
+    for (final address in addresses) {
+      if (address.id == selectedAddressId) {
+        return address;
+      }
+    }
+
+    for (final address in addresses) {
+      if (address.isDefault) {
+        return address;
+      }
+    }
+
+    return addresses.first;
+  }
 
   Future<void> handleCheckout() async {
     try {
@@ -38,8 +60,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
       final addresses = ref.read(addressProvider).asData?.value;
 
-      final selectedAddress = addresses != null && addresses.isNotEmpty
-          ? addresses.first
+      final selectedAddress = addresses != null
+          ? this.selectedAddress(addresses)
           : null;
 
       if (selectedAddress == null) {
@@ -190,59 +212,71 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
             const SizedBox(height: 12),
 
-            addressState.when(
-              data: (addresses) {
-                if (addresses.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: Colors.white,
-                    ),
-                    child: const Text('No address selected'),
-                  );
-                }
-
-                final address = addresses.first;
-
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.white,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        address.recipientName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+            Expanded(
+              child: addressState.when(
+                data: (addresses) {
+                  if (addresses.isEmpty) {
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
                       ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text('No address selected'),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: () {
+                              context.push('/addresses/create');
+                            },
+                            child: const Text('Add Address'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-                      const SizedBox(height: 8),
+                  final activeAddress = selectedAddress(addresses);
 
-                      Text(address.phoneNumber),
+                  return ListView.separated(
+                    itemCount: addresses.length + 1,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      if (index == addresses.length) {
+                        return OutlinedButton(
+                          onPressed: () {
+                            context.push('/addresses');
+                          },
+                          child: const Text('Manage Addresses'),
+                        );
+                      }
 
-                      const SizedBox(height: 8),
+                      final address = addresses[index];
 
-                      Text(address.fullAddress),
-                    ],
-                  ),
-                );
-              },
+                      return buildAddressOption(
+                        address: address,
+                        activeAddressId: activeAddress?.id,
+                      );
+                    },
+                  );
+                },
 
-              error: (error, stackTrace) {
-                return Text(error.toString());
-              },
+                error: (error, stackTrace) {
+                  return Text(error.toString());
+                },
 
-              loading: () {
-                return const CircularProgressIndicator();
-              },
+                loading: () {
+                  return const Center(child: CircularProgressIndicator());
+                },
+              ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 16),
 
             SizedBox(
               width: double.infinity,
@@ -255,6 +289,76 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text('Checkout'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildAddressOption({
+    required AddressModel address,
+    required String? activeAddressId,
+  }) {
+    final isSelected = activeAddressId == address.id;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        setState(() {
+          selectedAddressId = address.id;
+        });
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.white,
+          border: Border.all(
+            color: isSelected ? Colors.black : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          address.label?.isNotEmpty == true
+                              ? address.label!
+                              : address.recipientName,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      if (address.isDefault)
+                        const Text(
+                          'Default',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(address.recipientName),
+                  const SizedBox(height: 4),
+                  Text(address.phoneNumber),
+                  const SizedBox(height: 4),
+                  Text('${address.city}, ${address.province}'),
+                  const SizedBox(height: 4),
+                  Text(address.fullAddress),
+                ],
               ),
             ),
           ],
