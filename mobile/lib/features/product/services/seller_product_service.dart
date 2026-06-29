@@ -134,4 +134,34 @@ class SellerProductService {
       throw SellerProductException(error.message);
     }
   }
+
+  Future<ProductModel> updateProductStock({
+    required String productId,
+    required String storeId,
+    required int stock,
+  }) async {
+    if (stock < 0) {
+      throw SellerProductException('Stock cannot be below zero');
+    }
+
+    try {
+      final response = await _supabase
+          .from('products')
+          .update({'stock': stock})
+          .eq('id', productId)
+          .eq('store_id', storeId)
+          .select()
+          .single();
+
+      return ProductModel.fromJson(response);
+    } on PostgrestException catch (error) {
+      if (error.code == '42501') {
+        throw SellerProductException(
+          'Your account is not allowed to update this product',
+        );
+      }
+
+      throw SellerProductException(error.message);
+    }
+  }
 }

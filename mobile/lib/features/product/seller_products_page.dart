@@ -4,14 +4,73 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/product/models/product_model.dart';
+import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:mobile/features/product/providers/seller_product_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
-class SellerProductsPage extends ConsumerWidget {
+class SellerProductsPage extends ConsumerStatefulWidget {
   const SellerProductsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SellerProductsPage> createState() => _SellerProductsPageState();
+}
+
+class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
+  String? updatingProductId;
+
+  Future<void> adjustStock(ProductModel product, int delta) async {
+    final nextStock = product.stock + delta;
+
+    if (nextStock < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Stock cannot be below zero')),
+      );
+
+      return;
+    }
+
+    setState(() {
+      updatingProductId = product.id;
+    });
+
+    try {
+      final sellerProductService = ref.read(sellerProductServiceProvider);
+
+      await sellerProductService.updateProductStock(
+        productId: product.id,
+        storeId: product.storeId,
+        stock: nextStock,
+      );
+
+      ref.invalidate(sellerProductsProvider(product.storeId));
+      ref.invalidate(productsProvider);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Stock updated to $nextStock')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          updatingProductId = null;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final storeAsync = ref.watch(myStoreProvider);
 
     return Scaffold(
@@ -103,7 +162,7 @@ class SellerProductsPage extends ConsumerWidget {
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    return buildProductCard(context, products[index]);
+                    return buildProductCard(products[index]);
                   },
                 ),
               );
@@ -126,7 +185,9 @@ class SellerProductsPage extends ConsumerWidget {
     );
   }
 
-  Widget buildProductCard(BuildContext context, ProductModel product) {
+  Widget buildProductCard(ProductModel product) {
+    final isUpdating = updatingProductId == product.id;
+
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () {
@@ -159,10 +220,68 @@ class SellerProductsPage extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(CurrencyFormatter.format(product.price)),
-            const SizedBox(height: 4),
-            Text('Stock: ${product.stock}'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                buildStockBadge(product.stock),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Reduce stock',
+                  onPressed: isUpdating
+                      ? null
+                      : () {
+                          adjustStock(product, -1);
+                        },
+                  icon: const Icon(Icons.remove_circle_outline),
+                ),
+                SizedBox(
+                  width: 48,
+                  child: Center(
+                    child: isUpdating
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            product.stock.toString(),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Add stock',
+                  onPressed: isUpdating
+                      ? null
+                      : () {
+                          adjustStock(product, 1);
+                        },
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget buildStockBadge(int stock) {
+    final (label, color) = switch (stock) {
+      0 => ('Out of stock', Colors.red),
+      <= 5 => ('Low stock', Colors.orange),
+      _ => ('In stock', Colors.green),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.bold),
       ),
     );
   }

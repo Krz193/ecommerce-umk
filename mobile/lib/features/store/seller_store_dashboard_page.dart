@@ -13,7 +13,20 @@ class SellerStoreDashboardPage extends ConsumerWidget {
     final storeAsync = ref.watch(myStoreProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Store')),
+      appBar: AppBar(
+        title: const Text('My Store'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+              return;
+            }
+
+            context.go('/account');
+          },
+        ),
+      ),
 
       body: storeAsync.when(
         data: (store) {
