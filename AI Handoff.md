@@ -55,10 +55,12 @@ Project saat ini sudah memiliki:
 * seller order management foundation implemented
 * shipment proof capture implemented for seller ship order
 * buyer confirm received foundation implemented
+* seller order management lifecycle manually validated
+* seller quick stock adjustment validated
 
 Core buyer transactional commerce flow sudah berjalan end-to-end.
 
-Saat ini project berada pada fase seller operational order validation.
+Saat ini project berada pada fase customer UX polish foundation.
 
 ---
 
@@ -176,6 +178,14 @@ Implemented:
 * seller order list/detail foundation
 * seller `Ship Order` dialog with courier/tracking input
 * buyer `Confirm Received` action on shipped order
+* seller quick stock adjustment with low/out-of-stock badges
+* seller order status tabs and realtime order search validated
+* buyer address list/create/edit/delete foundation
+* checkout address selection foundation
+* buyer address CRUD and selected checkout address snapshot validated
+* customer bottom navigation validated
+* Account page navigation entry validated
+* cart moved to Home header with badge
 
 ---
 
@@ -373,9 +383,9 @@ Implemented behavior:
 
 Pending:
 
-* manual validation of seller ship-order flow after edge function deploy
-* manual validation of buyer confirm-received flow
 * future shipping API integration
+* product search
+* marketplace/customer UX polish
 
 ---
 
@@ -461,8 +471,11 @@ Addresses saat ini menggunakan:
 Important note:
 
 * default address trigger bersifat sementara
-* address CRUD UI belum dibuat
-* production flow harus mengganti dummy address dengan input alamat user
+* address CRUD UI implemented and validated
+* checkout address selection implemented and validated
+* order detail displays selected shipping snapshot
+* profile phone and address recipient phone are intentionally separate
+* production flow should eventually remove dummy address trigger
 
 ---
 
@@ -568,6 +581,7 @@ Current seller create store foundation:
 * seller can ship paid processing orders with courier/tracking number
 * seller cannot complete orders
 * buyer can confirm received for shipped orders
+* seller order lifecycle A-E validated including final timestamps
 
 Current active UI:
 
@@ -577,6 +591,8 @@ Current active UI:
 * seller product list/create product foundation
 * seller product edit/publish foundation
 * seller order list/detail foundation
+* seller quick stock adjustment foundation
+* seller order filtering/search foundation
 
 ---
 
@@ -672,11 +688,9 @@ Validated:
 
 ## Immediate Priority
 
-1. push `add_order_shipment_fields` migration
-2. deploy `update-order-status` edge function
-3. run `dart format lib` and `flutter analyze`
-4. validate seller `Ship Order`
-5. validate buyer `Confirm Received`
+1. implement product search
+2. improve customer marketplace browsing
+3. keep profile phone and address recipient phone separate; optional address prefill can be added later
 
 ---
 
@@ -782,6 +796,13 @@ Project saat ini sudah memiliki:
 * seller order management foundation
 * manual shipment proof capture
 * buyer received confirmation foundation
+* seller order lifecycle validation
+* seller stock quick adjustment validation
+* seller order filtering/search validation
+* buyer address management foundation
+* buyer address management validation
+* customer navigation validation
+* customer profile edit validation
 * transaction-safe architecture
 * RLS-hardened backend
 * buyer core flow foundation

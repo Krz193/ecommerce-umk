@@ -22,16 +22,29 @@ Update dokumen ini secara berkala selama development berlangsung.
 
 ## Current Phase
 
-Seller Operational Order Foundation
+Customer UX Polish Foundation
 
 ---
 
 ## Current Focus
 
-* seller order management foundation
-* shipment proof capture
-* buyer order completion confirmation
-* operational lifecycle authorization boundary
+* customer account and address experience
+* marketplace navigation and shell polish
+* seller store, product, and order management UX
+* checkout and payment flow refinement
+
+---
+
+## Current Change Context
+
+Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
+
+* Customer experience and navigation: `mobile/lib/core/router/customer_shell.dart`, `mobile/lib/features/home/home_page.dart`, `mobile/lib/features/account/`
+* Address management and checkout address flow: `mobile/lib/features/address/`, `mobile/lib/features/checkout/checkout_page.dart`
+* Seller store and product operations: `mobile/lib/features/store/seller_store_dashboard_page.dart`, `mobile/lib/features/product/seller_products_page.dart`, `mobile/lib/features/product/services/seller_product_service.dart`
+* Order and payment experience: `mobile/lib/features/order/`, `mobile/lib/features/payment/payment_page.dart`
+* Auth and profile integration: `mobile/lib/features/auth/services/auth_service.dart`, `mobile/lib/core/router/app_router.dart`
+* Backend support for address writes: `supabase/migrations/20260611000100_grant_authenticated_address_writes.sql`
 
 ---
 
@@ -56,11 +69,13 @@ Seller Operational Order Foundation
 | Seller Create Store Flow       | ✅ Completed   |
 | Seller Store Dashboard         | ✅ Completed   |
 | Seller Product Management      | ✅ Completed   |
-| Seller Order Management        | ⏳ In Progress |
+| Seller Stock Management        | ✅ Completed   |
+| Seller Order Management        | ✅ Completed   |
 | Store System Foundation        | ✅ Completed   |
 | Product System Foundation      | ✅ Completed   |
 | Cart System Foundation         | ✅ Completed   |
 | Cart UI                        | ⏳ In Progress |
+| Address CRUD UI                | ✅ Completed   |
 | Checkout Flow                  | ✅ Completed   |
 | Order System Foundation        | ✅ Completed   |
 | Order History UI               | ✅ Completed   |
@@ -83,7 +98,7 @@ Seller Operational Order Foundation
 | Flutter App Architecture       | ⏳ In Progress |
 | Flutter Design System          | ⏳ Pending     |
 | Customer App UI                | ⏳ In Progress |
-| Seller Operational UI          | ⏳ Pending     |
+| Seller Operational UI          | ⏳ In Progress |
 | Assistant Operational UI       | ⏳ Pending     |
 | State Management Structure     | ⏳ In Progress |
 | Supabase Client Integration    | ✅ Completed   |
@@ -156,6 +171,7 @@ Seller Operational Order Foundation
 * shipment fields prepared on orders
 * seller shipment transition requires shipping provider and tracking number
 * buyer-only completed transition foundation implemented
+* seller order management lifecycle manually validated
 * role column implemented on `users`
 * buyer-to-seller role transition RPC implemented and database-validated
 * generic profile update restricted from role mutation
@@ -215,9 +231,10 @@ Seller Operational Order Foundation
 
 ## Current Active Work
 
-* seller order management foundation
-* seller shipment proof UX validation
-* buyer confirm received UX validation
+* customer account and address experience polish
+* seller store and product management UX refinement
+* order and payment flow polish
+* navigation shell and marketplace entry refinement
 
 ---
 
@@ -250,7 +267,7 @@ Seller Operational Order Foundation
 
 ### Customer Features
 
-* address CRUD UI
+* product search
 * profile page
 * product search
 * product filtering
@@ -421,6 +438,7 @@ Known notes:
 * future production flow should replace dummy address with real address input
 * user deletion cleanup is not automated yet
 * account switching requires provider invalidation to avoid stale data
+* profile phone and address recipient phone are intentionally separate
 
 ---
 
@@ -518,6 +536,13 @@ Users currently implement:
 * seller product edit/publish flow validated
 * seller product edit/publish invalidates public product listing cache
 * duplicate seller product name UX validated
+* seller quick stock adjustment validated
+* stock cannot go below zero validation passed
+* low/out-of-stock badges validated
+* seller order flow A-E validated: paid processing order, seller ship, no seller complete, buyer confirm received, final timestamps visible
+* seller order status tabs validated
+* seller order realtime search validated
+* seller filtered order detail navigation validated
 
 ### Addresses
 
@@ -529,8 +554,10 @@ Addresses currently implement:
 
 Production note:
 
-* address CRUD UI is still pending
-* dummy address trigger should be replaced later with real user input flow
+* address CRUD UI implemented and validated
+* checkout address selection implemented and validated
+* order shipping snapshot display implemented and validated
+* dummy address trigger remains only as temporary development fallback
 
 ### Orders
 
@@ -718,10 +745,10 @@ Do not fix this by:
 
 ## Next Step
 
-1. apply and validate shipment-field migration
-2. deploy and validate `update-order-status` edge function
-3. validate seller `Ship Order` with courier/tracking number
-4. validate buyer `Confirm Received`
+1. implement profile edit page
+2. validate full name and phone update
+3. keep role immutable from profile edit
+4. profile phone and address recipient phone remain separate; address create may later prefill from profile
 
 ---
 
@@ -753,7 +780,7 @@ No seller product edit/publish blocker currently.
 
 Current seller order blocker:
 
-Awaiting manual validation after migration push and edge function deploy.
+No seller order blocker currently.
 
 ---
 
@@ -841,5 +868,18 @@ Project sudah memiliki:
 * implemented seller `Ship Order` action with courier/tracking input
 * implemented buyer `Confirm Received` action
 * updated `update-order-status` to separate seller shipping and buyer completion authorization
+* validated seller order lifecycle A-E including final buyer/seller state
+* implemented and validated seller quick stock adjustment
+* implemented and validated seller order status tabs and realtime order search
+* implemented buyer address list/create/edit/delete foundation
+* implemented checkout address selection foundation
+* validated buyer address list/create/edit/delete flow
+* validated selected checkout address snapshot on order detail
+* implemented and validated customer bottom navigation
+* implemented and validated Account page navigation entry
+* moved Cart to Home header with badge
+* removed seller shortcut from Home
+* implemented and validated customer profile edit
+* confirmed profile phone and address recipient phone separation as intended
 
 Implementation harus melanjutkan fondasi yang sudah ada.
