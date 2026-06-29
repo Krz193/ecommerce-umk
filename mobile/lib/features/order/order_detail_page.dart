@@ -344,6 +344,44 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
 
               const SizedBox(height: 24),
 
+              const Text(
+                'Shipping Address',
+
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 16),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+
+                decoration: BoxDecoration(
+                  color: Colors.white,
+
+                  borderRadius: BorderRadius.circular(16),
+                ),
+
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+                    Text(
+                      order.shippingName,
+
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(order.shippingPhone),
+
+                    const SizedBox(height: 8),
+
+                    Text(order.shippingAddress),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               const Text(

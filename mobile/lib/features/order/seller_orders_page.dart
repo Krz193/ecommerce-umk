@@ -8,11 +8,40 @@ import 'package:mobile/features/order/models/order_model.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
-class SellerOrdersPage extends ConsumerWidget {
+class SellerOrdersPage extends ConsumerStatefulWidget {
   const SellerOrdersPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SellerOrdersPage> createState() => _SellerOrdersPageState();
+}
+
+class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
+  final searchController = TextEditingController();
+
+  String searchQuery = '';
+
+  final tabs = const [
+    _OrderStatusTab(label: 'All', status: null),
+    _OrderStatusTab(label: 'Processing', status: 'processing'),
+    _OrderStatusTab(label: 'Shipped', status: 'shipped'),
+    _OrderStatusTab(label: 'Completed', status: 'completed'),
+  ];
+
+  @override
+  void dispose() {
+    searchController.dispose();
+
+    super.dispose();
+  }
+
+  void updateSearch(String value) {
+    setState(() {
+      searchQuery = value.trim().toLowerCase();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final storeAsync = ref.watch(myStoreProvider);
 
     return Scaffold(
@@ -52,18 +81,43 @@ class SellerOrdersPage extends ConsumerWidget {
                 return const Center(child: Text('No store orders yet'));
               }
 
-              return RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(sellerOrdersProvider(store.id));
-                },
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: orders.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    return buildOrderCard(context, orders[index]);
-                  },
+              return DefaultTabController(
+                length: tabs.length,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: TextField(
+                        controller: searchController,
+                        onChanged: updateSearch,
+                        textInputAction: TextInputAction.search,
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          labelText: 'Search order number',
+                        ),
+                      ),
+                    ),
+                    TabBar(
+                      isScrollable: true,
+                      tabs: tabs.map((tab) {
+                        return Tab(
+                          text: '${tab.label} (${countOrders(orders, tab)})',
+                        );
+                      }).toList(),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: tabs.map((tab) {
+                          final filteredOrders = filterOrders(orders, tab);
+
+                          return buildOrderList(
+                            storeId: store.id,
+                            orders: filteredOrders,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
@@ -80,6 +134,61 @@ class SellerOrdersPage extends ConsumerWidget {
         },
         loading: () {
           return const Center(child: CircularProgressIndicator());
+        },
+      ),
+    );
+  }
+
+  int countOrders(List<OrderModel> orders, _OrderStatusTab tab) {
+    if (tab.status == null) {
+      return orders.length;
+    }
+
+    return orders.where((order) => order.status == tab.status).length;
+  }
+
+  List<OrderModel> filterOrders(List<OrderModel> orders, _OrderStatusTab tab) {
+    return orders.where((order) {
+      final matchesStatus = tab.status == null || order.status == tab.status;
+
+      final matchesQuery =
+          searchQuery.isEmpty ||
+          order.orderNumber.toLowerCase().contains(searchQuery);
+
+      return matchesStatus && matchesQuery;
+    }).toList();
+  }
+
+  Widget buildOrderList({
+    required String storeId,
+    required List<OrderModel> orders,
+  }) {
+    if (orders.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(sellerOrdersProvider(storeId));
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          children: const [
+            SizedBox(height: 160),
+            Center(child: Text('No matching orders')),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(sellerOrdersProvider(storeId));
+      },
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: orders.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return buildOrderCard(context, orders[index]);
         },
       ),
     );
@@ -170,4 +279,11 @@ class SellerOrdersPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _OrderStatusTab {
+  final String label;
+  final String? status;
+
+  const _OrderStatusTab({required this.label, required this.status});
 }

@@ -50,6 +50,12 @@ class OrderDetailModel {
 
   final String paymentStatus;
 
+  final String shippingName;
+
+  final String shippingPhone;
+
+  final String shippingAddress;
+
   final DateTime createdAt;
 
   final DateTime? paidAt;
@@ -72,6 +78,9 @@ class OrderDetailModel {
     required this.status,
     required this.totalAmount,
     required this.paymentStatus,
+    required this.shippingName,
+    required this.shippingPhone,
+    required this.shippingAddress,
     required this.createdAt,
     required this.paidAt,
     required this.shippedAt,
@@ -93,6 +102,12 @@ class OrderDetailModel {
       totalAmount: json['total_amount'],
 
       paymentStatus: json['payment_status'],
+
+      shippingName: json['shipping_name'],
+
+      shippingPhone: json['shipping_phone'],
+
+      shippingAddress: json['shipping_address'],
 
       createdAt: DateTime.parse(json['created_at']),
 
