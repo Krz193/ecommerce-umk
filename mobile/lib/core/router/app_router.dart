@@ -1,6 +1,11 @@
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/core/router/customer_shell.dart';
 import 'package:mobile/core/router/router_refresh_stream.dart';
+import 'package:mobile/features/account/account_page.dart';
+import 'package:mobile/features/account/edit_profile_page.dart';
+import 'package:mobile/features/address/address_form_page.dart';
+import 'package:mobile/features/address/address_list_page.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/product/product_detail_page.dart';
@@ -53,7 +58,37 @@ final appRouter = GoRouter(
       },
     ),
 
-    GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+    ShellRoute(
+      builder: (context, state, child) {
+        return CustomerShell(child: child);
+      },
+      routes: [
+        GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+
+        GoRoute(
+          path: '/orders',
+          builder: (context, state) {
+            return const OrdersPage();
+          },
+        ),
+
+        GoRoute(
+          path: '/account',
+          builder: (context, state) {
+            return const AccountPage();
+          },
+        ),
+
+        GoRoute(
+          path: '/account/edit',
+          builder: (context, state) {
+            return const EditProfilePage();
+          },
+        ),
+      ],
+    ),
+
+    GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
 
     GoRoute(
       path: '/products/:id',
@@ -65,7 +100,28 @@ final appRouter = GoRouter(
       },
     ),
 
-    GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
+    GoRoute(
+      path: '/addresses',
+      builder: (context, state) {
+        return const AddressListPage();
+      },
+    ),
+
+    GoRoute(
+      path: '/addresses/create',
+      builder: (context, state) {
+        return const AddressFormPage();
+      },
+    ),
+
+    GoRoute(
+      path: '/addresses/:id/edit',
+      builder: (context, state) {
+        final addressId = state.pathParameters['id']!;
+
+        return AddressFormPage(addressId: addressId);
+      },
+    ),
 
     GoRoute(
       path: '/seller/onboarding',
@@ -117,13 +173,6 @@ final appRouter = GoRouter(
         final orderId = state.pathParameters['id']!;
 
         return SellerOrderDetailPage(orderId: orderId);
-      },
-    ),
-
-    GoRoute(
-      path: '/orders',
-      builder: (context, state) {
-        return const OrdersPage();
       },
     ),
 

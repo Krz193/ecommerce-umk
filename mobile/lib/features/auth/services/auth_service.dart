@@ -33,6 +33,49 @@ class AuthService {
     return AppUserModel.fromMap(Map<String, dynamic>.from(response));
   }
 
+  Future<AppUserModel> updateProfile({
+    required String fullName,
+    String? username,
+    String? phone,
+  }) async {
+    final user = currentUser;
+
+    if (user == null) {
+      throw Exception('User not logged in');
+    }
+
+    try {
+      final response = await _supabase
+          .from('users')
+          .update({
+            'full_name': fullName,
+            'username': blankToNull(username),
+            'phone': blankToNull(phone),
+          })
+          .eq('id', user.id)
+          .select('id, full_name, username, phone, avatar_url, role')
+          .single();
+
+      return AppUserModel.fromMap(response);
+    } on PostgrestException catch (error) {
+      if (error.code == '23505' && error.message.contains('users_username_key')) {
+        throw Exception('Username is already used');
+      }
+
+      throw Exception(error.message);
+    }
+  }
+
+  String? blankToNull(String? value) {
+    final trimmed = value?.trim();
+
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+
+    return trimmed;
+  }
+
   // Login
   Future<AuthResponse> signIn({
     required String email,
