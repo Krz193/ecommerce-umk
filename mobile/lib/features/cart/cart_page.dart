@@ -167,6 +167,28 @@ class CartPage extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
 
                             children: [
+                              if (item.productThumbnail != null) ...[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    item.productThumbnail!,
+                                    height: 140,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        height: 140,
+                                        color: Colors.grey.shade200,
+                                        alignment: Alignment.center,
+                                        child: const Text('Image unavailable'),
+                                      );
+                                    },
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+                              ],
+
                               Text(
                                 item.productName,
 
@@ -178,7 +200,20 @@ class CartPage extends ConsumerWidget {
 
                               const SizedBox(height: 8),
 
-                              Text('Rp ${item.productPrice}'),
+                              Text(CurrencyFormatter.format(item.productPrice)),
+
+                              const SizedBox(height: 8),
+
+                              Text(
+                                item.productStock > 0
+                                    ? 'Available stock: ${item.productStock}'
+                                    : 'Out of stock',
+                                style: TextStyle(
+                                  color: item.productStock > 0
+                                      ? Colors.grey.shade700
+                                      : Colors.red,
+                                ),
+                              ),
 
                               const SizedBox(height: 12),
 
@@ -202,24 +237,44 @@ class CartPage extends ConsumerWidget {
                                   Text('${item.quantity}'),
 
                                   IconButton(
-                                    onPressed: () async {
-                                      await cartService.updateCartQuantity(
-                                        cartItemId: item.id,
+                                    onPressed:
+                                        item.quantity >= item.productStock
+                                        ? null
+                                        : () async {
+                                            await cartService
+                                                .updateCartQuantity(
+                                                  cartItemId: item.id,
 
-                                        quantity: item.quantity + 1,
+                                                  quantity: item.quantity + 1,
+                                                );
+
+                                            ref.invalidate(cartProvider);
+                                          },
+
+                                    icon: const Icon(Icons.add),
+                                  ),
+
+                                  const Spacer(),
+
+                                  IconButton(
+                                    tooltip: 'Remove item',
+                                    onPressed: () async {
+                                      await cartService.removeCartItem(
+                                        cartItemId: item.id,
                                       );
 
                                       ref.invalidate(cartProvider);
                                     },
-
-                                    icon: const Icon(Icons.add),
+                                    icon: const Icon(Icons.delete_outline),
                                   ),
                                 ],
                               ),
 
                               const SizedBox(height: 12),
 
-                              Text('Subtotal: Rp ${item.subtotal}'),
+                              Text(
+                                'Subtotal: ${CurrencyFormatter.format(item.subtotal)}',
+                              ),
                             ],
                           ),
                         );

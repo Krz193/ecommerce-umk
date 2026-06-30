@@ -87,14 +87,20 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: TextField(
-                        controller: searchController,
-                        onChanged: updateSearch,
-                        textInputAction: TextInputAction.search,
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search),
-                          labelText: 'Search order number',
-                        ),
+                      child: Column(
+                        children: [
+                          buildSellerNotice(orders),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: searchController,
+                            onChanged: updateSearch,
+                            textInputAction: TextInputAction.search,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.search),
+                              labelText: 'Search order number',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     TabBar(
@@ -238,6 +244,45 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget buildSellerNotice(List<OrderModel> orders) {
+    final readyToShip = orders
+        .where(
+          (order) =>
+              order.status == 'processing' && order.paymentStatus == 'paid',
+        )
+        .length;
+
+    final shipped = orders.where((order) => order.status == 'shipped').length;
+
+    final text = readyToShip > 0
+        ? '$readyToShip paid order(s) ready to ship'
+        : shipped > 0
+        ? '$shipped shipped order(s) waiting for buyer confirmation'
+        : 'No urgent seller actions';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.local_shipping_outlined, color: Colors.blue),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

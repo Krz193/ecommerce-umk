@@ -53,10 +53,26 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final carts = cartState.asData?.value;
 
       if (carts == null || carts.isEmpty) {
-        throw Exception('Cart is empty');
+        throw Exception('Your cart is empty');
       }
 
       final cart = carts.first;
+
+      if (cart.items.isEmpty) {
+        throw Exception('Your cart is empty');
+      }
+
+      for (final item in cart.items) {
+        if (item.productStock <= 0) {
+          throw Exception('${item.productName} is out of stock');
+        }
+
+        if (item.quantity > item.productStock) {
+          throw Exception(
+            '${item.productName} only has ${item.productStock} item(s) left',
+          );
+        }
+      }
 
       final addresses = ref.read(addressProvider).asData?.value;
 
@@ -65,7 +81,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           : null;
 
       if (selectedAddress == null) {
-        throw Exception('No address selected');
+        throw Exception('Add or select a shipping address before checkout');
+      }
+
+      final confirmed = await confirmCheckout(
+        itemCount: cart.totalItems,
+        total: cart.subtotal,
+        address: selectedAddress,
+      );
+
+      if (!confirmed) {
+        return;
       }
 
       final result = await checkoutService.checkout(
@@ -131,7 +157,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(readableCheckoutError(error))));
     } finally {
       if (mounted) {
         setState(() {
@@ -139,6 +165,99 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         });
       }
     }
+  }
+
+  Future<bool> confirmCheckout({
+    required int itemCount,
+    required int total,
+    required AddressModel address,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm Checkout'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Items: $itemCount'),
+              const SizedBox(height: 8),
+              Text('Total: ${CurrencyFormatter.format(total)}'),
+              const SizedBox(height: 12),
+              const Text(
+                'Ship to',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(address.recipientName),
+              Text(address.phoneNumber),
+              Text(address.fullAddress),
+              const SizedBox(height: 12),
+              const Text(
+                'Checkout currently supports products from one store per order.',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Review'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('Create Payment'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  String readableCheckoutError(Object error) {
+    final raw = error is FunctionException ? error.details : error;
+
+    if (raw is Map) {
+      final message = raw['error'] ?? raw['message'];
+
+      if (message != null) {
+        return readableCheckoutMessage(message.toString());
+      }
+    }
+
+    return readableCheckoutMessage(
+      error.toString().replaceFirst('Exception: ', ''),
+    );
+  }
+
+  String readableCheckoutMessage(String message) {
+    if (message.contains('Cart is empty')) {
+      return 'Your cart is empty';
+    }
+
+    if (message.contains('Address not found')) {
+      return 'The selected address is no longer available';
+    }
+
+    if (message.contains('single store')) {
+      return 'Checkout only supports one store at a time';
+    }
+
+    if (message.contains('Insufficient stock')) {
+      return 'Some products no longer have enough stock';
+    }
+
+    if (message.contains('pending payment')) {
+      return 'You still have a pending payment';
+    }
+
+    return message;
   }
 
   @override

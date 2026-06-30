@@ -83,6 +83,58 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     }
   }
 
+  String displayStatus(dynamic order) {
+    if (order.paymentStatus == 'pending') {
+      return 'Waiting payment';
+    }
+
+    if (order.paymentStatus == 'paid' && order.status == 'processing') {
+      return 'Processing';
+    }
+
+    if (order.status == 'shipped') {
+      return 'Shipped';
+    }
+
+    if (order.status == 'completed') {
+      return 'Completed';
+    }
+
+    if (order.paymentStatus == 'expired') {
+      return 'Payment expired';
+    }
+
+    if (order.paymentStatus == 'failed') {
+      return 'Payment failed';
+    }
+
+    return order.status;
+  }
+
+  String orderNotice(dynamic order) {
+    if (order.paymentStatus == 'pending') {
+      return 'Payment is still pending. Complete payment before the order can be processed.';
+    }
+
+    if (order.paymentStatus == 'paid' && order.status == 'processing') {
+      return 'Payment received. The seller can now prepare this order.';
+    }
+
+    if (order.status == 'shipped') {
+      return 'Order has been shipped. Confirm receipt after the package arrives.';
+    }
+
+    if (order.status == 'completed') {
+      return 'Order completed.';
+    }
+
+    if (order.paymentStatus == 'expired' || order.paymentStatus == 'failed') {
+      return 'Payment was not completed for this order.';
+    }
+
+    return 'Order status updated.';
+  }
+
   List<Map<String, dynamic>> buildTimeline(dynamic order) {
     final timeline = <Map<String, dynamic>>[];
 
@@ -138,11 +190,22 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       });
     }
 
+    if (order.paymentStatus == 'failed') {
+      timeline.add({
+        'title': 'Payment Failed',
+        'date': null,
+        'completed': true,
+      });
+    }
+
     return timeline;
   }
 
-  bool isFinalStatus(String status) {
-    return status == 'paid' || status == 'expired' || status == 'failed';
+  bool shouldStopPolling(dynamic order) {
+    return order.status == 'completed' ||
+        order.status == 'cancelled' ||
+        order.paymentStatus == 'expired' ||
+        order.paymentStatus == 'failed';
   }
 
   void startPolling() {
@@ -206,7 +269,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         data: (order) {
           final timeline = buildTimeline(order);
 
-          if (isFinalStatus(order.paymentStatus)) {
+          if (shouldStopPolling(order)) {
             stopPolling();
           }
 
@@ -227,6 +290,28 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            displayStatus(order),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.notifications_none),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(orderNotice(order)),
+
+                    const SizedBox(height: 16),
+
                     Text(
                       order.orderNumber,
 
@@ -263,7 +348,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                       ),
 
                       child: Text(
-                        order.paymentStatus,
+                        displayStatus(order),
 
                         style: TextStyle(
                           color: getStatusColor(order.paymentStatus),
@@ -341,6 +426,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                   ],
                 ),
               ),
+
+              const SizedBox(height: 24),
+
+              buildReceipt(order),
 
               const SizedBox(height: 24),
 
@@ -556,6 +645,61 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         loading: () {
           return const Center(child: CircularProgressIndicator());
         },
+      ),
+    );
+  }
+
+  Widget buildReceipt(dynamic order) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Receipt',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          buildReceiptRow('Order Number', order.orderNumber),
+          buildReceiptRow(
+            'Order Date',
+            DateFormatter.formatDateTime(order.createdAt.toString()),
+          ),
+          buildReceiptRow('Payment Status', order.paymentStatus),
+          buildReceiptRow('Order Status', order.status),
+          const Divider(height: 24),
+          buildReceiptRow(
+            'Total',
+            CurrencyFormatter.format(order.totalAmount),
+            isStrong: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildReceiptRow(String label, String value, {bool isStrong = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontWeight: isStrong ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

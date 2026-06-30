@@ -167,6 +167,7 @@ serve(async (req) => {
                     stock,
                     status,
                     store_id,
+                    thumbnail_url,
                     product_images (
                         image_url,
                         sort_order
@@ -351,13 +352,9 @@ serve(async (req) => {
         const orderItemsPayload =
             cartItems.map((item) => {
 
-                const thumbnail =
+                const thumbnail = item.product.thumbnail_url ??
                     item.product.product_images
-                        ?.sort(
-                            (a, b) =>
-                                a.sort_order -
-                                b.sort_order,
-                        )?.[0]
+                        ?.sort((a, b) => a.sort_order - b.sort_order)?.[0]
                         ?.image_url ?? null;
 
                 return {
