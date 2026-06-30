@@ -29,7 +29,8 @@ final cartProvider = FutureProvider.autoDispose<List<CartModel>>((ref) async {
             id,
             name,
             price,
-            stock
+            stock,
+            thumbnail_url
           )
         ''')
         .eq('cart_id', cart['id']);

@@ -10,7 +10,20 @@ final productDetailProvider = FutureProvider.family<ProductModel, String>((
 ) async {
   final response = await supabase
       .from('products')
-      .select()
+      .select('''
+        *,
+        category:categories (
+          id,
+          name,
+          slug
+        ),
+        product_images (
+          id,
+          product_id,
+          image_url,
+          sort_order
+        )
+      ''')
       .eq('id', productId)
       .single();
 

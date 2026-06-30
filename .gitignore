@@ -11,3 +11,17 @@ Thumbs.db
 
 # Env
 .env
+admin/.env
+admin/.env.example
+
+# Database files
+*.sqlite
+*.db
+
+# Office documents
+*.xlsx
+*.xls
+*.csv
+
+# Supabase temp CLI
+supabase/.temp/cli-latest

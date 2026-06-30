@@ -11,6 +11,8 @@ class CartItemModel {
 
   final int productStock;
 
+  final String? productThumbnail;
+
   CartItemModel({
     required this.id,
     required this.quantity,
@@ -18,6 +20,7 @@ class CartItemModel {
     required this.productName,
     required this.productPrice,
     required this.productStock,
+    this.productThumbnail,
   });
 
   int get subtotal => productPrice * quantity;
@@ -37,6 +40,8 @@ class CartItemModel {
       productPrice: (product['price'] as num).toInt(),
 
       productStock: (product['stock'] as num).toInt(),
+
+      productThumbnail: product['thumbnail_url'],
     );
   }
 }

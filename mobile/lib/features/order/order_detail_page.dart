@@ -7,6 +7,8 @@ import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
+import 'package:mobile/features/order/providers/order_status_provider.dart';
+import 'package:mobile/features/order/providers/orders_provider.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -23,6 +25,44 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     with WidgetsBindingObserver {
   Timer? refreshTimer;
   DateTime? lastResumeRefresh;
+  bool isUpdating = false;
+
+  Future<void> confirmReceived() async {
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      final service = ref.read(orderStatusServiceProvider);
+
+      await service.confirmReceived(orderId: widget.orderId);
+
+      if (!mounted) {
+        return;
+      }
+
+      ref.invalidate(ordersProvider);
+      ref.invalidate(orderDetailProvider(widget.orderId));
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Order completed')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdating = false;
+        });
+      }
+    }
+  }
 
   Color getStatusColor(String status) {
     switch (status) {
@@ -41,6 +81,58 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       default:
         return Colors.grey;
     }
+  }
+
+  String displayStatus(dynamic order) {
+    if (order.paymentStatus == 'pending') {
+      return 'Waiting payment';
+    }
+
+    if (order.paymentStatus == 'paid' && order.status == 'processing') {
+      return 'Processing';
+    }
+
+    if (order.status == 'shipped') {
+      return 'Shipped';
+    }
+
+    if (order.status == 'completed') {
+      return 'Completed';
+    }
+
+    if (order.paymentStatus == 'expired') {
+      return 'Payment expired';
+    }
+
+    if (order.paymentStatus == 'failed') {
+      return 'Payment failed';
+    }
+
+    return order.status;
+  }
+
+  String orderNotice(dynamic order) {
+    if (order.paymentStatus == 'pending') {
+      return 'Payment is still pending. Complete payment before the order can be processed.';
+    }
+
+    if (order.paymentStatus == 'paid' && order.status == 'processing') {
+      return 'Payment received. The seller can now prepare this order.';
+    }
+
+    if (order.status == 'shipped') {
+      return 'Order has been shipped. Confirm receipt after the package arrives.';
+    }
+
+    if (order.status == 'completed') {
+      return 'Order completed.';
+    }
+
+    if (order.paymentStatus == 'expired' || order.paymentStatus == 'failed') {
+      return 'Payment was not completed for this order.';
+    }
+
+    return 'Order status updated.';
   }
 
   List<Map<String, dynamic>> buildTimeline(dynamic order) {
@@ -63,19 +155,31 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     if (order.paymentStatus == 'paid') {
       timeline.add({
         'title': 'Payment Success',
-        'date': null,
+        'date': order.paidAt,
         'completed': true,
       });
 
       timeline.add({
-        'title': 'Order Confirmed',
-        'date': null,
-        'completed': false,
+        'title': 'Processing',
+        'date': order.paidAt,
+        'completed': [
+          'processing',
+          'shipped',
+          'completed',
+        ].contains(order.status),
       });
 
-      timeline.add({'title': 'Shipped', 'date': null, 'completed': false});
+      timeline.add({
+        'title': 'Shipped',
+        'date': order.shippedAt,
+        'completed': ['shipped', 'completed'].contains(order.status),
+      });
 
-      timeline.add({'title': 'Completed', 'date': null, 'completed': false});
+      timeline.add({
+        'title': 'Completed',
+        'date': order.completedAt,
+        'completed': order.status == 'completed',
+      });
     }
 
     if (order.paymentStatus == 'expired') {
@@ -86,11 +190,22 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       });
     }
 
+    if (order.paymentStatus == 'failed') {
+      timeline.add({
+        'title': 'Payment Failed',
+        'date': null,
+        'completed': true,
+      });
+    }
+
     return timeline;
   }
 
-  bool isFinalStatus(String status) {
-    return status == 'paid' || status == 'expired' || status == 'failed';
+  bool shouldStopPolling(dynamic order) {
+    return order.status == 'completed' ||
+        order.status == 'cancelled' ||
+        order.paymentStatus == 'expired' ||
+        order.paymentStatus == 'failed';
   }
 
   void startPolling() {
@@ -154,7 +269,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         data: (order) {
           final timeline = buildTimeline(order);
 
-          if (isFinalStatus(order.paymentStatus)) {
+          if (shouldStopPolling(order)) {
             stopPolling();
           }
 
@@ -175,6 +290,28 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            displayStatus(order),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.notifications_none),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(orderNotice(order)),
+
+                    const SizedBox(height: 16),
+
                     Text(
                       order.orderNumber,
 
@@ -211,7 +348,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                       ),
 
                       child: Text(
-                        order.paymentStatus,
+                        displayStatus(order),
 
                         style: TextStyle(
                           color: getStatusColor(order.paymentStatus),
@@ -259,11 +396,80 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                         ),
                       ),
                     ],
+
+                    if (order.shippingProvider != null ||
+                        order.trackingNumber != null) ...[
+                      const SizedBox(height: 16),
+                      Text('Courier: ${order.shippingProvider ?? '-'}'),
+                      const SizedBox(height: 8),
+                      Text('Tracking Number: ${order.trackingNumber ?? '-'}'),
+                    ],
+
+                    if (order.status == 'shipped') ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isUpdating ? null : confirmReceived,
+                          child: isUpdating
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Confirm Received'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
 
               const SizedBox(height: 24),
+
+              buildReceipt(order),
+
+              const SizedBox(height: 24),
+
+              const Text(
+                'Shipping Address',
+
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 16),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+
+                decoration: BoxDecoration(
+                  color: Colors.white,
+
+                  borderRadius: BorderRadius.circular(16),
+                ),
+
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+                    Text(
+                      order.shippingName,
+
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(order.shippingPhone),
+
+                    const SizedBox(height: 8),
+
+                    Text(order.shippingAddress),
+                  ],
+                ),
+              ),
 
               const SizedBox(height: 24),
 
@@ -439,6 +645,61 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         loading: () {
           return const Center(child: CircularProgressIndicator());
         },
+      ),
+    );
+  }
+
+  Widget buildReceipt(dynamic order) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Receipt',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          buildReceiptRow('Order Number', order.orderNumber),
+          buildReceiptRow(
+            'Order Date',
+            DateFormatter.formatDateTime(order.createdAt.toString()),
+          ),
+          buildReceiptRow('Payment Status', order.paymentStatus),
+          buildReceiptRow('Order Status', order.status),
+          const Divider(height: 24),
+          buildReceiptRow(
+            'Total',
+            CurrencyFormatter.format(order.totalAmount),
+            isStrong: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildReceiptRow(String label, String value, {bool isStrong = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontWeight: isStrong ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

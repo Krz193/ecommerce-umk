@@ -6,8 +6,22 @@ import 'package:mobile/features/product/models/product_model.dart';
 final productsProvider = FutureProvider<List<ProductModel>>((ref) async {
   final response = await supabase
       .from('products')
-      .select()
-      .eq('status', 'published');
+      .select('''
+        *,
+        category:categories (
+          id,
+          name,
+          slug
+        ),
+        product_images (
+          id,
+          product_id,
+          image_url,
+          sort_order
+        )
+      ''')
+      .eq('status', 'published')
+      .order('created_at', ascending: false);
 
   return response
       .map<ProductModel>((json) => ProductModel.fromJson(json))

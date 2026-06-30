@@ -4,9 +4,10 @@ import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
 serve(async (req) => {
     try {
         /**
-         * Only allow PATCH requests
+         * Supabase Flutter functions.invoke sends POST by default.
+         * PATCH is still accepted for direct API clients.
          */
-        if (req.method !== "PATCH") {
+        if (!["POST", "PATCH"].includes(req.method)) {
             return new Response(JSON.stringify({error: "Method not allowed"}), {
                 status: 405,
                 headers: {
@@ -57,7 +58,12 @@ serve(async (req) => {
          */
         const body = await req.json();
 
-        const {order_id, status} = body;
+        const {
+            order_id,
+            status,
+            shipping_provider,
+            tracking_number
+        } = body;
 
         /**
          * Required payload validation
@@ -109,24 +115,7 @@ serve(async (req) => {
             },);
         }
 
-        /**
-         * Strict lifecycle transition validation
-         */
-        const validTransition = (order.status === "processing" && status === "shipped") || (
-            order.status === "shipped" && status === "completed"
-        );
-
-        if (!validTransition) {
-            return new Response(
-                JSON.stringify({error: "Invalid order lifecycle transition"}),
-                {
-                    status: 400,
-                    headers: {
-                        "Content-Type": "application/json"
-                    }
-                },
-            );
-        }
+        const updates: Record<string, unknown> = {status};
 
         /**
          * Prepare lifecycle timestamps
@@ -136,11 +125,82 @@ serve(async (req) => {
         let completedAt = order.completed_at;
 
         if (status === "shipped") {
+            if (order.status !== "processing") {
+                return new Response(
+                    JSON.stringify({error: "Invalid order lifecycle transition"}),
+                    {
+                        status: 400,
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    },
+                );
+            }
+
+            if (order.payment_status !== "paid") {
+                return new Response(
+                    JSON.stringify({error: "Only paid orders can be shipped"}),
+                    {
+                        status: 400,
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    },
+                );
+            }
+
+            const shippingProvider = String(shipping_provider ?? "").trim();
+            const trackingNumber = String(tracking_number ?? "").trim();
+
+            if (!shippingProvider || !trackingNumber) {
+                return new Response(
+                    JSON.stringify({error: "Shipping provider and tracking number are required"}),
+                    {
+                        status: 400,
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    },
+                );
+            }
+
+            const {error: storeOwnerError} = await supabase
+                .from("stores")
+                .select("id")
+                .eq("id", order.store_id)
+                .eq("owner_id", user.id)
+                .single();
+
+            if (storeOwnerError) {
+                return new Response(JSON.stringify({error: "Forbidden"}), {
+                    status: 403,
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                },);
+            }
+
             shippedAt = new Date().toISOString();
+            updates.shipped_at = shippedAt;
+            updates.shipping_provider = shippingProvider;
+            updates.tracking_number = trackingNumber;
         }
 
         if (status === "completed") {
+            if (order.status !== "shipped" || order.user_id !== user.id) {
+                return new Response(
+                    JSON.stringify({error: "Invalid order lifecycle transition"}),
+                    {
+                        status: 400,
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    },
+                );
+            }
+
             completedAt = new Date().toISOString();
+            updates.completed_at = completedAt;
         }
 
         /**
@@ -150,7 +210,7 @@ serve(async (req) => {
             .from(
                 "orders"
             )
-            .update({status, shipped_at: shippedAt, completed_at: completedAt})
+            .update(updates)
             .eq("id", order.id)
             .select()
             .single();

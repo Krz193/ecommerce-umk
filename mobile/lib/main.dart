@@ -7,7 +7,11 @@ import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/features/order/providers/orders_provider.dart';
+import 'package:mobile/features/order/providers/order_detail_provider.dart';
+import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/address/providers/address_provider.dart';
+import 'package:mobile/features/product/providers/seller_product_provider.dart';
+import 'package:mobile/features/store/providers/store_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,8 +36,14 @@ class MyApp extends ConsumerWidget {
       // or cross-account data shown after sign-out/sign-in.
       ref.invalidate(cartProvider);
       ref.invalidate(ordersProvider);
+      ref.invalidate(orderDetailProvider);
       ref.invalidate(addressProvider);
       ref.invalidate(currentUserProvider);
+      ref.invalidate(appUserProvider);
+      ref.invalidate(myStoreProvider);
+      ref.invalidate(sellerProductsProvider);
+      ref.invalidate(sellerOrdersProvider);
+      ref.invalidate(sellerOrderDetailProvider);
     });
 
     return MaterialApp.router(

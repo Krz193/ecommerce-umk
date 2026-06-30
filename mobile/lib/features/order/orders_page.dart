@@ -97,6 +97,58 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     }
   }
 
+  String notificationText(dynamic order) {
+    if (order.paymentStatus == 'pending') {
+      return 'Complete payment for ${order.orderNumber}';
+    }
+
+    if (order.paymentStatus == 'paid' && order.status == 'processing') {
+      return '${order.orderNumber} is being prepared by the seller';
+    }
+
+    if (order.status == 'shipped') {
+      return '${order.orderNumber} has been shipped';
+    }
+
+    if (order.status == 'completed') {
+      return '${order.orderNumber} is completed';
+    }
+
+    if (order.paymentStatus == 'expired' || order.paymentStatus == 'failed') {
+      return '${order.orderNumber} payment was not completed';
+    }
+
+    return '${order.orderNumber} status updated';
+  }
+
+  String displayStatus(dynamic order) {
+    if (order.paymentStatus == 'pending') {
+      return 'Waiting payment';
+    }
+
+    if (order.paymentStatus == 'paid' && order.status == 'processing') {
+      return 'Processing';
+    }
+
+    if (order.status == 'shipped') {
+      return 'Shipped';
+    }
+
+    if (order.status == 'completed') {
+      return 'Completed';
+    }
+
+    if (order.paymentStatus == 'expired') {
+      return 'Payment expired';
+    }
+
+    if (order.paymentStatus == 'failed') {
+      return 'Payment failed';
+    }
+
+    return order.status;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ordersAsync = ref.watch(ordersProvider);
@@ -124,12 +176,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
             child: ListView.separated(
               padding: const EdgeInsets.all(24),
 
-              itemCount: orders.length,
+              itemCount: orders.length + 1,
 
               separatorBuilder: (context, index) => const SizedBox(height: 16),
 
               itemBuilder: (context, index) {
-                final order = orders[index];
+                if (index == 0) {
+                  return buildStatusNotice(orders.first);
+                }
+
+                final order = orders[index - 1];
 
                 return GestureDetector(
                   onTap: () {
@@ -188,7 +244,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                           ),
 
                           child: Text(
-                            order.paymentStatus,
+                            displayStatus(order),
 
                             style: TextStyle(
                               color: getStatusColor(order.paymentStatus),
@@ -213,6 +269,29 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
         loading: () {
           return const Center(child: CircularProgressIndicator());
         },
+      ),
+    );
+  }
+
+  Widget buildStatusNotice(dynamic order) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_none, color: Colors.blue),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              notificationText(order),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
