@@ -22,16 +22,16 @@ Update dokumen ini secara berkala selama development berlangsung.
 
 ## Current Phase
 
-Customer UX Polish Foundation
+Core E-Commerce Completion
 
 ---
 
 ## Current Focus
 
-* customer account and address experience
-* marketplace navigation and shell polish
-* seller store, product, and order management UX
-* checkout and payment flow refinement
+* customer product discovery and cart polish
+* checkout validation and order receipt experience
+* seller operational polish for product, stock, and order handling
+* production-readiness cleanup for core payment/order lifecycle
 
 ---
 
@@ -45,6 +45,18 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 * Order and payment experience: `mobile/lib/features/order/`, `mobile/lib/features/payment/payment_page.dart`
 * Auth and profile integration: `mobile/lib/features/auth/services/auth_service.dart`, `mobile/lib/core/router/app_router.dart`
 * Backend support for address writes: `supabase/migrations/20260611000100_grant_authenticated_address_writes.sql`
+
+Current repo verification:
+
+* `flutter analyze` passed with no issues on mobile app
+* profile edit page is implemented and no longer a next-step item
+* Excel requirement file is treated as full product backlog, not MVP scope
+* MVP priorities 1, 2, 3, 5, and 7 started in Flutter UI
+* product image storage and thumbnail selection flow started with Supabase Storage
+* product category seed, seller category input, and buyer category filter started
+* product price filter, public store page, and checkout confirmation started
+* product detail gallery preview, store summary, and stock warning polish started
+* seller dashboard metrics and low stock alerts implemented and analyzer-clean
 
 ---
 
@@ -157,6 +169,7 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 * checkout edge function implemented
 * Midtrans transaction creation implemented
 * payment webhook foundation implemented
+* Midtrans webhook signature validation implemented
 * replay-safe settlement lifecycle implemented
 * idempotent payment lifecycle implemented
 * inventory deduction lifecycle implemented
@@ -231,10 +244,10 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 
 ## Current Active Work
 
-* customer account and address experience polish
-* seller store and product management UX refinement
-* order and payment flow polish
-* navigation shell and marketplace entry refinement
+* customer product discovery and cart UI polish
+* checkout validation and receipt/order summary polish
+* seller order and product operation polish
+* production-readiness cleanup for auth, checkout, payment, and order lifecycle
 
 ---
 
@@ -242,16 +255,21 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 
 ## Backend & Database
 
-* seller balance implementation
-* notification system
-* transaction audit improvements
-* webhook signature hardening
-* seller settlement lifecycle
-* shipment lifecycle integration with shipping API
-* refund-required edge-case handling
+Core e-commerce backend gaps:
+
 * production replacement for development default address trigger
-* address CRUD-ready flow
-* stale state security audit completion
+* transaction audit and operational logging improvements
+* stale state and RLS security audit completion
+* refund-required edge-case handling for failed settlement or insufficient stock
+* seller settlement lifecycle and balance ledger
+
+Post-MVP backend backlog from Excel:
+
+* notification system
+* shipment lifecycle integration with shipping API
+* donation lifecycle
+* promotion/recommendation engine
+* reporting tables/views for admin and seller dashboards
 
 ---
 
@@ -267,18 +285,27 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 
 ### Customer Features
 
+Core e-commerce completion:
+
 * product search
-* profile page
-* product search
-* product filtering
+* product filtering/sorting
 * cart UI polish
 * checkout validation polish
 * invoice/receipt display
+* clearer order progress display after payment and shipping
+
+Post-MVP customer backlog:
+
 * review/comment/star feature
 * wishlist
 * notification UI
+* cancellation/refund request UI
+* donation UI
+* courier/ojek map, call, and message flow
 
 ### Seller Features
+
+Implemented foundation:
 
 * seller onboarding
 * create store flow
@@ -287,9 +314,18 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 * stock management
 * order processing
 * order status progression actions
+
+Core e-commerce completion:
+
+* seller order UX polish
+* product image and product detail polish
+* stock movement clarity
 * shipment proof display
+* cancellation/refund handling
 
 ### Assistant Features
+
+Post-MVP Flutter backlog:
 
 * assigned store management
 * operational product management
@@ -299,18 +335,29 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 
 ## Laravel Admin
 
+Post-MVP web admin backlog:
+
 * admin authentication
 * moderation dashboard
 * seller verification dashboard
 * refund management
 * analytics/reporting
+* user/role/permission management
+* training, assistance, donation, and reporting modules from Excel
 
 ---
 
 ## Integrations
 
+Core e-commerce candidates:
+
+* notification/email integration for order/payment events
+
+Post-MVP integrations:
+
 * shipping API integration
-* notification/email integration
+* map/GPS integration for courier or ojek delivery
+* chat/call integration for buyer-courier communication
 
 ---
 
@@ -328,6 +375,12 @@ Perubahan yang saat ini sedang berjalan dapat dikelompokkan ke area berikut:
 * warehouse distribution system
 * AI recommendation engine
 * inventory reservation system
+* full Admin Web implementation
+* full Ekspedisi/Ojek/Gojek operational apps
+* map/GPS delivery tracking
+* buyer-courier call/message flow
+* training/asistensi/donation modules
+* broad reporting dashboards
 
 ---
 
@@ -738,17 +791,72 @@ Do not fix this by:
 * prepare_seller_product_management
 * prepare_seller_order_management
 * add_order_shipment_fields
+* grant_authenticated_address_writes
+* prepare_product_image_storage
+* seed_core_categories
+* allow_store_profile_for_published_products
+* fix_store_public_policy_recursion
 
 ---
 
 # Next Immediate Priority
 
-## Next Step
+## Core E-Commerce Next Steps
 
-1. implement profile edit page
-2. validate full name and phone update
-3. keep role immutable from profile edit
-4. profile phone and address recipient phone remain separate; address create may later prefill from profile
+1. Customer product discovery
+   * add product search on home/catalog - started
+   * add basic filter/sort for price and stock availability - started
+   * add category filter when category data is ready - started
+   * add min/max price filter and clear filter action - started
+   * keep public product query limited to published products
+
+2. Cart and checkout polish
+   * improve cart item layout, empty state, and quantity edge-case handling - started
+   * improve checkout validation messages for empty cart, missing address, stock changes, and single-store constraint - started
+   * add checkout confirmation before payment creation - started
+   * keep checkout price calculation server-side only
+
+3. Receipt and order progress
+   * add invoice/receipt-style order summary on order detail - started
+   * polish order timeline states: pending payment, paid/processing, shipped, completed, cancelled/failed - started
+   * show shipping provider and tracking number consistently for buyer and seller - started
+   * polish product detail gallery preview, store summary, and stock warnings - started
+
+4. Seller operational polish
+   * polish seller order list/detail actions and empty/error states - started
+   * improve product create/edit UX, including image upload, thumbnail selection, and publish/draft clarity - started
+   * require seller category selection for product hidden filters - started
+   * expose public store profile from published products - started
+   * add seller dashboard product/order metrics and low stock alerts - completed
+   * prepare cancellation/refund handling as a manual MVP flow
+
+5. Production-readiness cleanup
+   * replace development default address trigger with production-safe onboarding/address requirement
+   * review RLS and user-scoped provider invalidation for auth switching
+   * add focused manual QA checklist for buyer checkout and seller fulfillment flow
+
+## Excel Requirement Priority Decision
+
+The Excel file contains a full product backlog and is intentionally broader than the current MVP. To finish core e-commerce first, prioritize:
+
+1. product discovery
+2. cart and checkout stability
+3. payment/order receipt
+4. shipment tracking display
+5. seller product/order operations
+6. manual refund/cancellation foundation
+7. notification for order/payment status
+
+Defer until after core e-commerce is coherent:
+
+* Admin Web CRUD/reporting modules
+* Ekspedisi/Ojek/Gojek apps
+* map/GPS delivery tracking
+* call/message flow
+* training/asistensi modules
+* donation modules
+* recommendation/promotion engine
+* broad analytics/reporting
 
 ---
 
