@@ -21,6 +21,7 @@ import 'package:mobile/features/payment/payment_page.dart';
 import 'package:mobile/features/auth/register_page.dart';
 import 'package:mobile/features/store/seller_onboarding_page.dart';
 import 'package:mobile/features/store/seller_store_dashboard_page.dart';
+import 'package:mobile/features/store/store_public_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -97,6 +98,15 @@ final appRouter = GoRouter(
         final productId = state.pathParameters['id']!;
 
         return ProductDetailPage(productId: productId);
+      },
+    ),
+
+    GoRoute(
+      path: '/stores/:id',
+      builder: (context, state) {
+        final storeId = state.pathParameters['id']!;
+
+        return StorePublicPage(storeId: storeId);
       },
     ),
 

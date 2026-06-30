@@ -58,7 +58,8 @@ class AuthService {
 
       return AppUserModel.fromMap(response);
     } on PostgrestException catch (error) {
-      if (error.code == '23505' && error.message.contains('users_username_key')) {
+      if (error.code == '23505' &&
+          error.message.contains('users_username_key')) {
         throw Exception('Username is already used');
       }
 

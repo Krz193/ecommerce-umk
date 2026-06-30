@@ -1,3 +1,5 @@
+import 'package:mobile/features/product/models/product_image_model.dart';
+
 class ProductModel {
   final String id;
 
@@ -11,7 +13,15 @@ class ProductModel {
 
   final String? description;
 
+  final String? thumbnailUrl;
+
   final String storeId;
+
+  final String? categoryId;
+
+  final String? categoryName;
+
+  final List<ProductImageModel> images;
 
   ProductModel({
     required this.id,
@@ -20,10 +30,17 @@ class ProductModel {
     required this.stock,
     required this.status,
     this.description,
+    this.thumbnailUrl,
     required this.storeId,
+    this.categoryId,
+    this.categoryName,
+    this.images = const [],
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
+    final rawImages = json['product_images'];
+    final category = json['category'];
+
     return ProductModel(
       id: json['id'],
       name: json['name'],
@@ -36,7 +53,21 @@ class ProductModel {
 
       description: json['description'],
 
+      thumbnailUrl: json['thumbnail_url'],
+
       storeId: json['store_id'],
+
+      categoryId: json['category_id'],
+
+      categoryName: category is Map ? category['name'] : null,
+
+      images: rawImages is List
+          ? rawImages
+                .map<ProductImageModel>(
+                  (image) => ProductImageModel.fromJson(image),
+                )
+                .toList()
+          : const [],
     );
   }
 }
