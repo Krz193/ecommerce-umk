@@ -99,6 +99,21 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'marketplace' => [
+            'driver' => 'pgsql',
+            'url' => env('MARKETPLACE_DB_URL'),
+            'host' => env('MARKETPLACE_DB_HOST', '127.0.0.1'),
+            'port' => env('MARKETPLACE_DB_PORT', '5432'),
+            'database' => env('MARKETPLACE_DB_DATABASE', 'postgres'),
+            'username' => env('MARKETPLACE_DB_USERNAME', 'postgres'),
+            'password' => env('MARKETPLACE_DB_PASSWORD', ''),
+            'charset' => env('MARKETPLACE_DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => env('MARKETPLACE_DB_SEARCH_PATH', 'public'),
+            'sslmode' => env('MARKETPLACE_DB_SSLMODE', 'require'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

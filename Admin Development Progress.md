@@ -49,7 +49,21 @@ Perubahan admin yang akan berjalan difokuskan ke Laravel saja:
 
 Current repo verification:
 
-* Laravel admin implementation has not started yet
+* Laravel admin app has been installed under `admin/`
+* Laravel admin scaffold includes `artisan`, `composer.json`, and `.env.example`
+* Admin stack currently uses Laravel React starter kit with Inertia and Fortify
+* Laravel framework requirement is `^13.17`
+* PHP requirement is `^8.3`
+* Admin MVP foundation routes implemented: dashboard, stores, products, orders
+* Admin middleware guard implemented with local Laravel `users.is_admin`
+* Marketplace database connection configured as separate `marketplace` connection
+* Marketplace Supabase connection manually validated through Laravel tinker against `stores`
+* Laravel admin login and marketplace data access manually validated in browser
+* PHP syntax check passed for new admin controllers
+* `npm run types:check` passed for admin React/Inertia pages
+* `php artisan route:list` validated dashboard, store, product, and order routes
+* Store moderation action labels polished: suspended stores now show `Unsuspend` instead of `Approve`
+* Store list action alignment polished with separate `Detail` and `Actions` columns
 * Flutter mobile core e-commerce is the current production-facing client
 * Supabase remains the source of truth database
 * Laravel admin should use server-side privileged access carefully
@@ -63,18 +77,18 @@ Current repo verification:
 | ------------------------------ | ----------- |
 | Admin Scope                    | ✅ Completed |
 | Admin Architecture Direction   | ✅ Completed |
-| Laravel Project Setup          | ⏳ Pending   |
-| Environment Configuration      | ⏳ Pending   |
-| Database Connection            | ⏳ Pending   |
-| Admin Authentication           | ⏳ Pending   |
-| Admin Authorization Guard      | ⏳ Pending   |
-| Admin Layout                   | ⏳ Pending   |
-| Dashboard Summary              | ⏳ Pending   |
+| Laravel Project Setup          | ✅ Completed |
+| Environment Configuration      | ✅ Completed |
+| Database Connection            | ✅ Completed |
+| Admin Authentication           | ✅ Completed |
+| Admin Authorization Guard      | ✅ Completed |
+| Admin Layout                   | ⏳ In Progress |
+| Dashboard Summary              | ✅ Completed |
 | User Lookup                    | ⏳ Pending   |
-| Store Moderation               | ⏳ Pending   |
-| Product Moderation             | ⏳ Pending   |
-| Order Lookup                   | ⏳ Pending   |
-| Payment Lookup                 | ⏳ Pending   |
+| Store Moderation               | ⏳ In Progress |
+| Product Moderation             | ⏳ In Progress |
+| Order Lookup                   | ✅ Completed |
+| Payment Lookup                 | ✅ Completed |
 | Manual Cancellation Tracking   | ⏳ Pending   |
 | Manual Refund Tracking         | ⏳ Pending   |
 | Audit Trail                    | ⏳ Pending   |
@@ -98,6 +112,11 @@ Current repo verification:
 
 ## Technical Foundations
 
+* Laravel app scaffold exists under `admin/`
+* Laravel React starter kit selected for admin web UI
+* Inertia Laravel is available for server-driven React pages
+* Laravel Fortify is available for authentication foundation
+* Laravel Pint, Larastan/PHPStan, and Pest are available for code quality/testing
 * Supabase is the source of truth database
 * Laravel admin should not duplicate marketplace domain logic unnecessarily
 * admin actions must be explicit and auditable
@@ -111,7 +130,31 @@ Current repo verification:
 
 ## Current Active Work
 
-No Laravel admin code work has started yet.
+Laravel admin MVP foundation has started.
+
+Current implementation surface:
+
+* `admin/artisan`
+* `admin/composer.json`
+* `admin/.env.example`
+* `admin/config/database.php`
+* `admin/routes/web.php`
+* `admin/app/Http/Middleware/EnsureAdminUser.php`
+* `admin/app/Http/Controllers/Admin/`
+* `admin/resources/js/pages/admin/`
+
+Implemented this pass:
+
+* separate `marketplace` database connection for Supabase/Postgres marketplace reads and controlled admin writes
+* local Laravel admin guard using `users.is_admin`
+* seeded admin account support through `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`
+* dashboard metrics and recent store/order summary
+* store moderation list/detail with approve and suspend actions
+* product moderation list/detail with archive and restore actions
+* read-only order/payment lookup list/detail
+
+Next active work is filling real `.env`, running migrations/seeders, connecting to Supabase Postgres, and manually validating in browser.
+Real `.env`, admin login, and Supabase marketplace connection have now been manually validated. Next active work is audit trail, moderation reason capture, and browser QA for each moderation/lookup screen.
 
 ---
 
@@ -119,11 +162,11 @@ No Laravel admin code work has started yet.
 
 ## Laravel App Foundation
 
-* create or identify Laravel admin app directory
-* configure `.env` for database and app secrets
-* connect Laravel to Supabase Postgres
-* define admin route group
-* create admin layout shell
+* create or identify Laravel admin app directory - completed: `admin/`
+* configure `.env` for database and app secrets - pending local values
+* connect Laravel to Supabase Postgres - implementation prepared through `marketplace` connection
+* define admin route group - completed
+* create admin layout shell - started using existing starter-kit layout and admin sidebar nav
 * prepare local run and build commands
 
 ---
@@ -132,13 +175,13 @@ No Laravel admin code work has started yet.
 
 * implement admin login page
 * implement admin session handling
-* create admin-only middleware
+* create admin-only middleware - completed
 * decide admin identity source:
   * existing `public.users.role = admin`
   * separate Laravel admin users table
   * environment-seeded first admin account
 * implement logout
-* protect all admin routes
+* protect all admin routes - completed for dashboard, stores, products, orders, and settings
 
 ---
 
@@ -149,10 +192,12 @@ MVP workflow:
 * list stores by status
 * view store detail
 * view store owner profile
-* approve pending store
-* reject or suspend problematic store
+* approve pending store - implemented
+* unsuspend suspended store - implemented through active status restore
+* reject or suspend problematic store - suspend implemented, reject reason pending schema
 * record moderation reason
 * show basic store product/order context
+* separate detail and action columns for cleaner table alignment - implemented
 
 ---
 
@@ -163,7 +208,7 @@ MVP workflow:
 * list products with store and seller context
 * filter by status, category, store, and stock condition
 * view product detail and image thumbnail
-* hide/unhide or moderation-flag product
+* hide/unhide or moderation-flag product - archive/restore implemented using `archived_at` and draft status
 * record moderation reason
 * keep seller product management inside Flutter seller app
 
@@ -177,7 +222,7 @@ MVP workflow:
 * filter by order status and payment status
 * view order detail with buyer, seller, store, items, shipment, and payment
 * inspect Midtrans transaction reference stored in database
-* keep payment mutation controlled by webhook and established backend functions
+* keep payment mutation controlled by webhook and established backend functions - implemented as read-only admin lookup
 
 ---
 
@@ -318,7 +363,9 @@ Schema changes may be needed for:
 
 ## Implemented Admin Migrations
 
-No Laravel-admin-specific migrations implemented yet.
+Implemented Laravel-admin-specific migrations:
+
+* `2026_07_01_000001_add_is_admin_to_users_table`
 
 Related marketplace migrations already available in Supabase:
 
@@ -342,33 +389,33 @@ Related marketplace migrations already available in Supabase:
 ## Laravel Admin MVP Next Steps
 
 1. Admin project foundation
-   * create or confirm Laravel admin app directory
-   * configure environment
-   * connect to Supabase Postgres
-   * create admin route group and base layout
+   * confirm Laravel admin scaffold under `admin/` - completed
+   * configure environment - completed for local development
+   * connect to Supabase Postgres - completed and manually validated
+   * create admin route group and base layout - started
 
 2. Admin authentication
-   * implement admin login/logout
-   * implement admin session guard
-   * protect admin routes
-   * decide admin identity storage
+   * implement admin login/logout - available from starter kit
+   * implement admin session guard - available from starter kit
+   * protect admin routes - completed with `admin` middleware
+   * decide admin identity storage - selected local Laravel admin users table for MVP
 
 3. Store moderation
-   * list pending/active/suspended stores
-   * view store detail and owner context
-   * approve or suspend store
+   * list pending/active/suspended stores - implemented
+   * view store detail and owner context - implemented
+   * approve, suspend, and unsuspend store - implemented
    * record admin reason and audit entry
 
 4. Product moderation
-   * list products with store/category/status context
-   * view product detail and image
-   * prepare hide/unhide or moderation flag flow
+   * list products with store/category/status context - implemented
+   * view product detail and image - implemented
+   * prepare hide/unhide or moderation flag flow - archive/restore implemented
 
 5. Order/payment lookup
-   * list orders
-   * view order detail
-   * view payment status and provider transaction reference
-   * keep mutation read-only until manual case tracking exists
+   * list orders - implemented
+   * view order detail - implemented
+   * view payment status and provider transaction reference - implemented
+   * keep mutation read-only until manual case tracking exists - implemented
 
 ## Admin MVP Priority Decision
 
@@ -399,15 +446,19 @@ Defer:
 
 Current admin foundation blocker:
 
-Laravel admin app directory and stack choice have not been created or confirmed yet.
+No Laravel app scaffold blocker currently.
+
+Current admin environment blocker:
+
+No local environment or Supabase credential blocker currently.
 
 Current admin auth blocker:
 
-Admin identity model has not been finalized.
+No admin identity model blocker currently. MVP uses local Laravel admin users with `is_admin`.
 
 Current moderation blocker:
 
-Admin-specific audit/moderation schema has not been implemented yet.
+Admin-specific audit/moderation schema has not been implemented yet, so moderation reason/audit trail is still pending.
 
 ---
 
@@ -447,11 +498,18 @@ Admin project saat ini memiliki:
 
 * finalized separation from Flutter app
 * confirmed Laravel direction for admin web
+* Laravel admin app installed under `admin/`
+* Laravel React starter kit with Inertia/Fortify available
+* local Laravel admin users table selected for admin identity
+* admin guard implemented through `users.is_admin`
+* admin dashboard, store moderation, product moderation, and order/payment lookup pages implemented
+* Laravel admin login and marketplace data access manually validated
+* store approve/suspend/unsuspend UI context polished
 * confirmed MVP-first admin scope
 * confirmed Supabase as shared database/source of truth
 * confirmed initial priority: admin foundation, auth, store moderation, product moderation, order/payment lookup
-* no Laravel admin implementation yet
-* no admin-specific migration yet
-* open decision for admin identity model
+* Laravel admin MVP domain implementation has started
+* admin-specific `is_admin` migration added
+* audit/moderation reason schema still pending
 
-Implementation harus melanjutkan dari Laravel admin foundation, bukan dari Flutter mobile app.
+Implementation harus melanjutkan dari browser QA, audit trail, moderation reason schema, dan manual refund/cancellation case tracking, bukan dari Flutter mobile app.
