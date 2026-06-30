@@ -204,6 +204,27 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
           children: [
             Row(
               children: [
+                if (product.thumbnailUrl != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      product.thumbnailUrl!,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 72,
+                          height: 72,
+                          color: Colors.grey.shade200,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.image_not_supported),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Text(
                     product.name,
@@ -220,6 +241,10 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
             ),
             const SizedBox(height: 8),
             Text(CurrencyFormatter.format(product.price)),
+            if (product.categoryName != null) ...[
+              const SizedBox(height: 8),
+              Text('Category: ${product.categoryName}'),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [

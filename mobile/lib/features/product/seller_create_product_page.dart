@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:mobile/features/product/models/category_model.dart';
+import 'package:mobile/features/product/providers/category_provider.dart';
 import 'package:mobile/features/product/providers/seller_product_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -25,6 +27,8 @@ class _SellerCreateProductPageState
   final stockController = TextEditingController();
 
   final descriptionController = TextEditingController();
+
+  String? selectedCategoryId;
 
   bool isLoading = false;
 
@@ -70,6 +74,14 @@ class _SellerCreateProductPageState
       return;
     }
 
+    if (selectedCategoryId == null) {
+      setState(() {
+        errorMessage = 'Category required';
+      });
+
+      return;
+    }
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -90,12 +102,13 @@ class _SellerCreateProductPageState
 
       final sellerProductService = ref.read(sellerProductServiceProvider);
 
-      await sellerProductService.createProduct(
+      final product = await sellerProductService.createProduct(
         storeId: store.id,
         name: nameController.text.trim(),
         slug: slug,
         price: int.parse(priceController.text.trim()),
         stock: int.parse(stockController.text.trim()),
+        categoryId: selectedCategoryId!,
         description: descriptionController.text.trim().isEmpty
             ? null
             : descriptionController.text.trim(),
@@ -107,11 +120,13 @@ class _SellerCreateProductPageState
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Product created')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Product draft created. Add images before publishing.'),
+        ),
+      );
 
-      context.pop();
+      context.go('/seller/products/${product.id}/edit');
     } catch (error) {
       if (!mounted) {
         return;
@@ -137,6 +152,8 @@ class _SellerCreateProductPageState
 
   @override
   Widget build(BuildContext context) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Create Product')),
 
@@ -160,6 +177,20 @@ class _SellerCreateProductPageState
                     }
 
                     return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                categoriesAsync.when(
+                  data: (categories) {
+                    return buildCategoryDropdown(categories);
+                  },
+                  error: (error, stackTrace) {
+                    return Text(error.toString());
+                  },
+                  loading: () {
+                    return const LinearProgressIndicator();
                   },
                 ),
 
@@ -240,6 +271,33 @@ class _SellerCreateProductPageState
           ),
         ),
       ),
+    );
+  }
+
+  Widget buildCategoryDropdown(List<CategoryModel> categories) {
+    final value =
+        categories.any((category) => category.id == selectedCategoryId)
+        ? selectedCategoryId
+        : null;
+
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: const InputDecoration(labelText: 'Category'),
+      items: categories.map((category) {
+        return DropdownMenuItem(value: category.id, child: Text(category.name));
+      }).toList(),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Category required';
+        }
+
+        return null;
+      },
+      onChanged: (value) {
+        setState(() {
+          selectedCategoryId = value;
+        });
+      },
     );
   }
 }

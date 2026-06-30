@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:mobile/features/order/models/order_model.dart';
+import 'package:mobile/features/order/providers/seller_order_provider.dart';
+import 'package:mobile/features/product/models/product_model.dart';
+import 'package:mobile/features/product/providers/seller_product_provider.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -67,17 +71,23 @@ class SellerStoreDashboardPage extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(myStoreProvider);
+              ref.invalidate(sellerProductsProvider(store.id));
+              ref.invalidate(sellerOrdersProvider(store.id));
             },
 
             child: ListView(
               padding: const EdgeInsets.all(16),
 
               children: [
-                buildStoreSummary(store),
+                _buildStoreSummary(store),
 
                 const SizedBox(height: 16),
 
-                buildActionTile(
+                _buildDashboardMetrics(context, ref, store.id),
+
+                const SizedBox(height: 16),
+
+                _buildActionTile(
                   icon: Icons.inventory_2_outlined,
                   title: 'Products',
                   subtitle: 'Manage store products',
@@ -88,7 +98,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                 const SizedBox(height: 12),
 
-                buildActionTile(
+                _buildActionTile(
                   icon: Icons.receipt_long_outlined,
                   title: 'Orders',
                   subtitle: 'Manage incoming orders',
@@ -110,7 +120,283 @@ class SellerStoreDashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget buildStoreSummary(StoreModel store) {
+  Widget _buildDashboardMetrics(
+    BuildContext context,
+    WidgetRef ref,
+    String storeId,
+  ) {
+    final productsAsync = ref.watch(sellerProductsProvider(storeId));
+    final ordersAsync = ref.watch(sellerOrdersProvider(storeId));
+
+    return productsAsync.when(
+      data: (products) {
+        return ordersAsync.when(
+          data: (orders) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildProductMetrics(products),
+                const SizedBox(height: 12),
+                _buildOrderMetrics(orders),
+                const SizedBox(height: 12),
+                _buildLowStockAlerts(context, products),
+              ],
+            );
+          },
+          error: (error, stackTrace) {
+            return _buildMetricError(error);
+          },
+          loading: () {
+            return const LinearProgressIndicator();
+          },
+        );
+      },
+      error: (error, stackTrace) {
+        return _buildMetricError(error);
+      },
+      loading: () {
+        return const LinearProgressIndicator();
+      },
+    );
+  }
+
+  Widget _buildProductMetrics(List<ProductModel> products) {
+    final published = products
+        .where((product) => product.status == 'published')
+        .length;
+    final draft = products.where((product) => product.status == 'draft').length;
+    final lowStock = products
+        .where((product) => product.stock > 0 && product.stock <= 5)
+        .length;
+    final outOfStock = products.where((product) => product.stock == 0).length;
+
+    return _buildMetricPanel(
+      title: 'Product Metrics',
+      metrics: [
+        _DashboardMetric(
+          label: 'Total',
+          value: products.length.toString(),
+          icon: Icons.inventory_2_outlined,
+          color: Colors.blue,
+        ),
+        _DashboardMetric(
+          label: 'Published',
+          value: published.toString(),
+          icon: Icons.visibility_outlined,
+          color: Colors.green,
+        ),
+        _DashboardMetric(
+          label: 'Draft',
+          value: draft.toString(),
+          icon: Icons.edit_note,
+          color: Colors.orange,
+        ),
+        _DashboardMetric(
+          label: 'Low/Out',
+          value: '${lowStock + outOfStock}',
+          icon: Icons.warning_amber_outlined,
+          color: lowStock + outOfStock > 0 ? Colors.red : Colors.green,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOrderMetrics(List<OrderModel> orders) {
+    final processing = orders
+        .where(
+          (order) =>
+              order.status == 'processing' && order.paymentStatus == 'paid',
+        )
+        .length;
+    final shipped = orders.where((order) => order.status == 'shipped').length;
+    final completed = orders
+        .where((order) => order.status == 'completed')
+        .length;
+    final pendingPayment = orders
+        .where((order) => order.paymentStatus == 'pending')
+        .length;
+
+    return _buildMetricPanel(
+      title: 'Order Metrics',
+      metrics: [
+        _DashboardMetric(
+          label: 'Ready Ship',
+          value: processing.toString(),
+          icon: Icons.local_shipping_outlined,
+          color: processing > 0 ? Colors.blue : Colors.grey,
+        ),
+        _DashboardMetric(
+          label: 'Shipped',
+          value: shipped.toString(),
+          icon: Icons.inventory_outlined,
+          color: shipped > 0 ? Colors.deepPurple : Colors.grey,
+        ),
+        _DashboardMetric(
+          label: 'Completed',
+          value: completed.toString(),
+          icon: Icons.check_circle_outline,
+          color: Colors.green,
+        ),
+        _DashboardMetric(
+          label: 'Pending Pay',
+          value: pendingPayment.toString(),
+          icon: Icons.payments_outlined,
+          color: pendingPayment > 0 ? Colors.orange : Colors.grey,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricPanel({
+    required String title,
+    required List<_DashboardMetric> metrics,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth < 520
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4;
+
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: metrics.map((metric) {
+                  return SizedBox(
+                    width: itemWidth,
+                    child: _buildMetricTile(metric),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile(_DashboardMetric metric) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: metric.color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(metric.icon, color: metric.color),
+          const SizedBox(height: 10),
+          Text(
+            metric.value,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(metric.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLowStockAlerts(
+    BuildContext context,
+    List<ProductModel> products,
+  ) {
+    final alertProducts =
+        products.where((product) => product.stock <= 5).toList()
+          ..sort((a, b) => a.stock.compareTo(b.stock));
+
+    if (alertProducts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle_outline, color: Colors.green),
+            SizedBox(width: 12),
+            Expanded(child: Text('No low stock alerts')),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Low Stock Alerts',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          ...alertProducts.take(5).map((product) {
+            final isOut = product.stock == 0;
+
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                isOut
+                    ? Icons.remove_shopping_cart_outlined
+                    : Icons.warning_amber_outlined,
+                color: isOut ? Colors.red : Colors.orange,
+              ),
+              title: Text(product.name),
+              subtitle: Text(
+                isOut ? 'Out of stock' : 'Stock: ${product.stock}',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                context.push('/seller/products/${product.id}/edit');
+              },
+            );
+          }),
+          if (alertProducts.length > 5) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () {
+                context.push('/seller/products');
+              },
+              child: Text('View ${alertProducts.length - 5} more alert(s)'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricError(Object error) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(error.toString()),
+    );
+  }
+
+  Widget _buildStoreSummary(StoreModel store) {
     return Container(
       padding: const EdgeInsets.all(16),
 
@@ -135,7 +421,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                 ),
               ),
 
-              buildStatusBadge(store.status),
+              _buildStatusBadge(store.status),
             ],
           ),
 
@@ -158,7 +444,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget buildStatusBadge(String status) {
+  Widget _buildStatusBadge(String status) {
     final color = status == 'active' ? Colors.green : Colors.orange;
 
     return Container(
@@ -176,7 +462,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget buildActionTile({
+  Widget _buildActionTile({
     required IconData icon,
     required String title,
     required String subtitle,
@@ -223,4 +509,18 @@ class SellerStoreDashboardPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _DashboardMetric {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _DashboardMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 }
