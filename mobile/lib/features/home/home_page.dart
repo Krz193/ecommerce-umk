@@ -74,6 +74,29 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  List<ProductModel> recommendedProducts(List<ProductModel> products) {
+    final recommended =
+        products
+            .where((product) => product.stock > 0)
+            .where(
+              (product) =>
+                  selectedCategoryId == null ||
+                  product.categoryId == selectedCategoryId,
+            )
+            .toList()
+          ..sort((a, b) {
+            final stockCompare = b.stock.compareTo(a.stock);
+
+            if (stockCompare != 0) {
+              return stockCompare;
+            }
+
+            return a.price.compareTo(b.price);
+          });
+
+    return recommended.take(5).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
@@ -88,6 +111,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           .when(
             data: (products) {
               final visible = visibleProducts(products);
+              final recommended = recommendedProducts(products);
 
               return ListView(
                 padding: const EdgeInsets.all(16),
@@ -264,6 +288,38 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   const SizedBox(height: 16),
 
+                  if (recommended.isNotEmpty) ...[
+                    const Text(
+                      'Recommended Products',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 260,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: recommended.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(width: 12),
+                        itemBuilder: (context, index) {
+                          return SizedBox(
+                            width: 220,
+                            child: buildProductCard(
+                              context,
+                              recommended[index],
+                              isCompact: true,
+                              isRecommended: true,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   if (products.isEmpty)
                     const Center(child: Text('No published products yet')),
 
@@ -273,80 +329,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ...visible.map((product) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-
-                      child: GestureDetector(
-                        onTap: () {
-                          context.push('/products/${product.id}');
-                        },
-
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-
-                            children: [
-                              Text(
-                                product.name,
-
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-
-                              if (product.thumbnailUrl != null) ...[
-                                const SizedBox(height: 12),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
-                                    product.thumbnailUrl!,
-                                    height: 160,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        height: 160,
-                                        color: Colors.grey.shade200,
-                                        alignment: Alignment.center,
-                                        child: const Text('Image unavailable'),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-
-                              const SizedBox(height: 8),
-
-                              Text(CurrencyFormatter.format(product.price)),
-
-                              const SizedBox(height: 4),
-
-                              Text(
-                                product.stock > 0
-                                    ? 'Stock: ${product.stock}'
-                                    : 'Out of stock',
-                                style: TextStyle(
-                                  color: product.stock > 0
-                                      ? Colors.grey.shade700
-                                      : Colors.red,
-                                ),
-                              ),
-
-                              if (product.categoryName != null) ...[
-                                const SizedBox(height: 4),
-                                Text(product.categoryName!),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
+                      child: buildProductCard(context, product),
                     );
                   }),
                 ],
@@ -377,6 +360,114 @@ class _HomePageState extends ConsumerState<HomePage> {
       inStockOnly = false;
       sort = _ProductSort.newest;
     });
+  }
+
+  Widget buildProductCard(
+    BuildContext context,
+    ProductModel product, {
+    bool isCompact = false,
+    bool isRecommended = false,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        context.push('/products/${product.id}');
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    product.name,
+                    maxLines: isCompact ? 2 : null,
+                    overflow: isCompact ? TextOverflow.ellipsis : null,
+                    style: TextStyle(
+                      fontSize: isCompact ? 16 : 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (isRecommended) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.recommend_outlined, size: 18),
+                ],
+              ],
+            ),
+            if (product.thumbnailUrl != null) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  product.thumbnailUrl!,
+                  height: isCompact ? 88 : 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: isCompact ? 88 : 160,
+                      color: Colors.grey.shade200,
+                      alignment: Alignment.center,
+                      child: const Text('Image unavailable'),
+                    );
+                  },
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              CurrencyFormatter.format(product.price),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              product.stock > 0 ? 'Stock: ${product.stock}' : 'Out of stock',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: product.stock > 0 ? Colors.grey.shade700 : Colors.red,
+              ),
+            ),
+            if (product.categoryName != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                product.categoryName!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (!isCompact && hasCharacteristics(product)) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  if (product.productType?.isNotEmpty == true)
+                    Chip(label: Text(product.productType!)),
+                  if (product.size?.isNotEmpty == true)
+                    Chip(label: Text(product.size!)),
+                  if (product.color?.isNotEmpty == true)
+                    Chip(label: Text(product.color!)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool hasCharacteristics(ProductModel product) {
+    return product.productType?.isNotEmpty == true ||
+        product.size?.isNotEmpty == true ||
+        product.color?.isNotEmpty == true;
   }
 }
 

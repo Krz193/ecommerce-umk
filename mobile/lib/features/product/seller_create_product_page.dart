@@ -26,6 +26,12 @@ class _SellerCreateProductPageState
 
   final stockController = TextEditingController();
 
+  final productTypeController = TextEditingController();
+
+  final sizeController = TextEditingController();
+
+  final colorController = TextEditingController();
+
   final descriptionController = TextEditingController();
 
   String? selectedCategoryId;
@@ -46,6 +52,9 @@ class _SellerCreateProductPageState
     nameController.dispose();
     priceController.dispose();
     stockController.dispose();
+    productTypeController.dispose();
+    sizeController.dispose();
+    colorController.dispose();
     descriptionController.dispose();
 
     super.dispose();
@@ -109,6 +118,15 @@ class _SellerCreateProductPageState
         price: int.parse(priceController.text.trim()),
         stock: int.parse(stockController.text.trim()),
         categoryId: selectedCategoryId!,
+        productType: productTypeController.text.trim().isEmpty
+            ? null
+            : productTypeController.text.trim(),
+        size: sizeController.text.trim().isEmpty
+            ? null
+            : sizeController.text.trim(),
+        color: colorController.text.trim().isEmpty
+            ? null
+            : colorController.text.trim(),
         description: descriptionController.text.trim().isEmpty
             ? null
             : descriptionController.text.trim(),
@@ -232,6 +250,43 @@ class _SellerCreateProductPageState
 
                     return null;
                   },
+                ),
+
+                const SizedBox(height: 16),
+
+                const Text(
+                  'Characteristics',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+
+                const SizedBox(height: 8),
+
+                TextFormField(
+                  controller: productTypeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    hintText: 'Example: food, shirt, craft',
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                TextFormField(
+                  controller: sizeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Size',
+                    hintText: 'Example: S, M, 250g, 1 pack',
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                TextFormField(
+                  controller: colorController,
+                  decoration: const InputDecoration(
+                    labelText: 'Color',
+                    hintText: 'Example: red, black, natural',
+                  ),
                 ),
 
                 const SizedBox(height: 16),

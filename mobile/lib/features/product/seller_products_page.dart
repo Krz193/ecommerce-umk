@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/product/models/product_model.dart';
-import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:mobile/features/product/providers/seller_product_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -16,59 +15,6 @@ class SellerProductsPage extends ConsumerStatefulWidget {
 }
 
 class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
-  String? updatingProductId;
-
-  Future<void> adjustStock(ProductModel product, int delta) async {
-    final nextStock = product.stock + delta;
-
-    if (nextStock < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Stock cannot be below zero')),
-      );
-
-      return;
-    }
-
-    setState(() {
-      updatingProductId = product.id;
-    });
-
-    try {
-      final sellerProductService = ref.read(sellerProductServiceProvider);
-
-      await sellerProductService.updateProductStock(
-        productId: product.id,
-        storeId: product.storeId,
-        stock: nextStock,
-      );
-
-      ref.invalidate(sellerProductsProvider(product.storeId));
-      ref.invalidate(productsProvider);
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Stock updated to $nextStock')));
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
-    } finally {
-      if (mounted) {
-        setState(() {
-          updatingProductId = null;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final storeAsync = ref.watch(myStoreProvider);
@@ -186,8 +132,6 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
   }
 
   Widget buildProductCard(ProductModel product) {
-    final isUpdating = updatingProductId == product.id;
-
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () {
@@ -245,43 +189,38 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
               const SizedBox(height: 8),
               Text('Category: ${product.categoryName}'),
             ],
+            if (hasCharacteristics(product)) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (product.productType?.isNotEmpty == true)
+                    Chip(label: Text('Type: ${product.productType}')),
+                  if (product.size?.isNotEmpty == true)
+                    Chip(label: Text('Size: ${product.size}')),
+                  if (product.color?.isNotEmpty == true)
+                    Chip(label: Text('Color: ${product.color}')),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 buildStockBadge(product.stock),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Reduce stock',
-                  onPressed: isUpdating
-                      ? null
-                      : () {
-                          adjustStock(product, -1);
-                        },
-                  icon: const Icon(Icons.remove_circle_outline),
+                Text(
+                  'Current stock: ${product.stock}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                SizedBox(
-                  width: 48,
-                  child: Center(
-                    child: isUpdating
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            product.stock.toString(),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Add stock',
-                  onPressed: isUpdating
-                      ? null
-                      : () {
-                          adjustStock(product, 1);
-                        },
-                  icon: const Icon(Icons.add_circle_outline),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    context.push('/seller/products/${product.id}/edit');
+                  },
+                  icon: const Icon(Icons.inventory_2_outlined),
+                  label: const Text('Manage Inventory'),
                 ),
               ],
             ),
@@ -309,5 +248,11 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
         style: TextStyle(color: color, fontWeight: FontWeight.bold),
       ),
     );
+  }
+
+  bool hasCharacteristics(ProductModel product) {
+    return product.productType?.isNotEmpty == true ||
+        product.size?.isNotEmpty == true ||
+        product.color?.isNotEmpty == true;
   }
 }
