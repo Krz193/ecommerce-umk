@@ -9,6 +9,14 @@ class OrderModel {
 
   final int totalAmount;
 
+  final String? userId;
+
+  final String? shippingName;
+
+  final String? shippingProvider;
+
+  final String? trackingNumber;
+
   final DateTime createdAt;
 
   OrderModel({
@@ -17,6 +25,10 @@ class OrderModel {
     required this.status,
     required this.paymentStatus,
     required this.totalAmount,
+    this.userId,
+    this.shippingName,
+    this.shippingProvider,
+    this.trackingNumber,
     required this.createdAt,
   });
 
@@ -31,6 +43,14 @@ class OrderModel {
       paymentStatus: json['payment_status'],
 
       totalAmount: (json['total_amount'] as num).toInt(),
+
+      userId: json['user_id'],
+
+      shippingName: json['shipping_name'],
+
+      shippingProvider: json['shipping_provider'],
+
+      trackingNumber: json['tracking_number'],
 
       createdAt: DateTime.parse(json['created_at']),
     );
