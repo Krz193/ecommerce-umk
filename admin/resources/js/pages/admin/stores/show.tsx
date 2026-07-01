@@ -1,4 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
+import { ReasonActionDialog } from '@/components/admin/reason-action-dialog';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,20 +20,6 @@ type StoreShowProps = {
 };
 
 export default function StoreShow({ store, metrics, recentProducts }: StoreShowProps) {
-    function approve() {
-        const action = store.status === 'suspended' ? 'Unsuspend' : 'Approve';
-
-        if (confirm(`${action} ${store.name}?`)) {
-            router.patch(`/stores/${store.id}/approve`);
-        }
-    }
-
-    function suspend() {
-        if (confirm(`Suspend ${store.name}?`)) {
-            router.patch(`/stores/${store.id}/suspend`);
-        }
-    }
-
     return (
         <>
             <Head title={store.name} />
@@ -44,11 +32,26 @@ export default function StoreShow({ store, metrics, recentProducts }: StoreShowP
                     </div>
                     <div className="flex gap-2">
                         {store.status !== 'active' && (
-                            <Button onClick={approve}>
-                                {store.status === 'suspended' ? 'Unsuspend' : 'Approve'}
-                            </Button>
+                            <ConfirmActionDialog
+                                title={`${store.status === 'suspended' ? 'Unsuspend' : 'Approve'} store`}
+                                description={`${store.status === 'suspended' ? 'Unsuspend' : 'Approve'} ${store.name}. This updates the live marketplace store status.`}
+                                actionLabel={store.status === 'suspended' ? 'Unsuspend' : 'Approve'}
+                                triggerLabel={store.status === 'suspended' ? 'Unsuspend' : 'Approve'}
+                                size="default"
+                                onConfirm={() => router.patch(`/stores/${store.id}/approve`)}
+                            />
                         )}
-                        {store.status !== 'suspended' && <Button variant="destructive" onClick={suspend}>Suspend</Button>}
+                        {store.status !== 'suspended' && (
+                            <ReasonActionDialog
+                                title="Suspend store"
+                                description={`Suspend ${store.name}. This removes the store from active operation until it is unsuspended.`}
+                                actionLabel="Suspend"
+                                triggerLabel="Suspend"
+                                variant="destructive"
+                                size="default"
+                                onSubmit={(reason) => router.patch(`/stores/${store.id}/suspend`, { reason })}
+                            />
+                        )}
                     </div>
                 </div>
 

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { LayoutDashboard, PackageSearch, ReceiptText, Store } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, PackageSearch, ReceiptText, ScrollText, Store, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -35,6 +35,26 @@ const mainNavItems: NavItem[] = [
         title: 'Orders',
         href: '/orders',
         icon: ReceiptText,
+    },
+    {
+        title: 'Users',
+        href: '/users',
+        icon: Users,
+    },
+    {
+        title: 'Refund Cases',
+        href: '/refund-cases',
+        icon: ClipboardList,
+    },
+    {
+        title: 'Reports',
+        href: '/reports',
+        icon: ScrollText,
+    },
+    {
+        title: 'Audit Logs',
+        href: '/audit-logs',
+        icon: ScrollText,
     },
 ];
 
