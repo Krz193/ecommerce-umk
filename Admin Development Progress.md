@@ -67,6 +67,7 @@ Current repo verification:
 * Audit log and moderation reason foundation implemented for store/product/refund-case actions
 * Marketplace user lookup implemented as read-only admin screen
 * Manual refund/cancellation case tracking implemented as local admin case workflow
+* Flutter buyer/seller cancellation/refund requests from Supabase `refunds` are now visible and updateable in admin refund cases
 * MVP reports implemented for UMK summary, finance summary, and low-stock products
 * Browser `prompt()` removed from moderation/refund updates and replaced with form dialogs or confirm dialogs
 * Product restore now republishes product so it returns to buyer home/product listing

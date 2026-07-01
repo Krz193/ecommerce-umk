@@ -24,13 +24,31 @@ Legend:
 | ---------- | ---------- | ----------------- | ---------------------- |
 | B23 | User UMK | Pengelolaan profile UMK | Completed through seller store onboarding/dashboard/profile fields |
 | B24 | User UMK | CRUD produk | Completed through seller product create/edit/list/publish/draft |
+| B25 | User UMK | CRUD karakteristik (tipe, ukuran, warna, dll) | Completed for MVP through product type, size, and color fields in seller create/edit and buyer product display. |
+| B26 | User UMK | CRUD barang masuk | Completed for MVP through seller stock-in form, read-only current stock, stock movement history, atomic stock-in RPC, and tracked adjustment for corrections. |
+| B28 | User UMK | Input hasil stock opname | Completed for MVP through seller Stock Opname input with system stock, physical count, note, and tracked stock movement adjustment. |
 | B29 | User UMK | Approval pembayaran | Completed as automated payment lifecycle through Midtrans webhook, not manual approval |
+| B30 | User UMK | CRUD pengiriman sisi UMK | Completed for MVP through seller shipment input with courier and tracking number. |
+| B31 | User UMK | CRUD pembatalan dan refund transaksi sisi UMK | Completed for MVP through seller cancellation/refund request creation and request history on seller order detail. |
 | B35 | User UMK | Display informasi pembelian | Completed through order list/detail |
 | B36 | User UMK | Display informasi pembayaran | Completed through payment page and order/payment status |
+| B38 | User UMK | Display laporan barang | Completed for MVP through seller dashboard goods report, product metrics, and low-stock alerts. |
+| B39 | User UMK | Display laporan keuangan | Completed for MVP through seller dashboard financial report with paid revenue, completed revenue, pending payment value, and paid order count. |
+| B40 | User UMK | Display laporan pembeli | Completed for MVP through seller dashboard buyer report with unique buyers, paid buyers, repeat buyers, and buyer order count. |
+| B41 | User UMK | Display laporan pengiriman | Completed for MVP through seller dashboard shipment report with ready-to-ship, in-transit, delivered, and tracking coverage metrics. |
 | B45 | User Pembeli | Searching produk | Completed in Flutter Home |
+| B46 | User Pembeli | Display produk, promosi, dan rekomendasi | Completed for MVP through product listing and simple in-stock product recommendations. Promotion engine remains post-MVP. |
 | B47 | User Pembeli | CRUD keranjang pemesanan | Completed through cart add/update/remove/quantity flow |
 | B48 | User Pembeli | CRUD pembelian (check out) | Completed through checkout flow |
 | B49 | User Pembeli | CRUD pembayaran | Completed through Midtrans payment creation/status flow |
+| B50 | User Pembeli | Display invoice dan kwitansi | Completed for MVP through formal invoice/receipt section in order detail. |
+| B51 | User Pembeli | CRUD pengiriman sisi Pembeli | Completed for MVP through shipment progress display and confirm received. |
+| B52 | User Pembeli | Display informasi progres pengiriman | Completed for MVP through order timeline, shipment progress, courier, and tracking number. |
+| B55 | User Pembeli | CRUD pembatalan dan refund transaksi sisi Pembeli | Completed for MVP through buyer cancellation/refund request creation and request history on order detail. |
+| B14 | User Admin - Basis Web Responsive | Display laporan UMK | Completed for MVP through Admin Reports UMK summary. |
+| B15 | User Admin - Basis Web Responsive | Display laporan barang per UMK | Completed for MVP through Admin Reports product count and low-stock report. |
+| B16 | User Admin - Basis Web Responsive | Display laporan keuangan per UMK | Completed for MVP through Admin Reports paid revenue/application fee summary. |
+| B17 | User Admin - Basis Web Responsive | Display laporan pembeli per UMK | Completed for MVP through Admin Reports buyer count per store and order lookup. |
 
 ---
 
@@ -53,28 +71,10 @@ Legend:
 | Excel Cell | Excel Area | Requirement | Missing Scope |
 | ---------- | ---------- | ----------- | ------------- |
 | B5 | User Admin - Basis Web Responsive | CRUD user (Admin, UMK, Pembeli, Expedisi, Gojek, Asisten UMK) | Admin user auth and marketplace user lookup completed; broad CRUD for all roles deferred |
-| B14 | User Admin - Basis Web Responsive | Display laporan UMK | Admin Reports has UMK summary; full reporting module not implemented |
-| B15 | User Admin - Basis Web Responsive | Display laporan barang per UMK | Admin Reports has product/low-stock summary; full report/export not implemented |
-| B16 | User Admin - Basis Web Responsive | Display laporan keuangan per UMK | Admin Reports has paid revenue/application fee summary; ledger/report export not implemented |
-| B17 | User Admin - Basis Web Responsive | Display laporan pembeli per UMK | User/order lookup exists; full buyer report not implemented |
-| B25 | User UMK | CRUD karakteristik (tipe, ukuran, warna, dll) | Category and core product fields exist; variants for type/size/color not implemented |
-| B26 | User UMK | CRUD barang masuk | Stock management exists; formal goods-in workflow not implemented |
-| B30 | User UMK | CRUD pengiriman sisi UMK | Seller can ship order with provider/tracking; full shipment CRUD/API not implemented |
-| B31 | User UMK | CRUD pembatalan dan refund transaksi sisi UMK | Admin refund case tracking exists; seller-side request flow not implemented |
 | B34 | User UMK | Display informasi keranjang pemesanan | Cart UI exists for buyer; seller cart visibility is not separately implemented |
-| B38 | User UMK | Display laporan barang | Seller dashboard metrics and low-stock alerts exist; full report/export not implemented |
-| B39 | User UMK | Display laporan keuangan | Admin Reports exists; seller finance ledger not implemented |
-| B41 | User UMK | Display laporan pengiriman | Shipment provider/tracking exists; full delivery report not implemented |
-| B46 | User Pembeli | Display produk, promosi, dan rekomendasi | Product display exists; promotion/recommendation deferred |
-| B50 | User Pembeli | Display invoice dan kwitansi | Order detail receipt/summary exists; formal invoice/print/export not implemented |
-| B51 | User Pembeli | CRUD pengiriman sisi Pembeli | Shipping snapshot and confirm received exist; full shipment CRUD not implemented |
-| B52 | User Pembeli | Display informasi progres pengiriman | Order timeline and tracking fields exist; GPS tracking not implemented |
-| B55 | User Pembeli | CRUD pembatalan dan refund transaksi sisi Pembeli | Buyer refund request UI not implemented |
 | B27 | User UMK | CRUD promosi | Promotion module not implemented |
-| B28 | User UMK | Input hasil stock opname | Formal stock opname workflow not implemented |
 | B32 | User UMK | Approval Comment Pembeli | Review/comment module not implemented |
 | B33 | User UMK | CRUD Comment Sistem ke Admin | Comment/ticket module not implemented |
-| B40 | User UMK | Display laporan pembeli | Full buyer analytics report not implemented |
 | B59 | User Pembeli | CRUD Comment dan Star | Review/star module not implemented |
 | B18 | User Admin | Display laporan ekspedisi per UMK | Expedition module not implemented |
 | B19 | User Admin | Display laporan asisten UMK | Assistant module not implemented |
