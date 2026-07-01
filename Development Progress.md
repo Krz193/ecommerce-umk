@@ -57,6 +57,13 @@ Current repo verification:
 * product price filter, public store page, and checkout confirmation started
 * product detail gallery preview, store summary, and stock warning polish started
 * seller dashboard metrics and low stock alerts implemented and analyzer-clean
+* seller dashboard goods, financial, buyer, and shipment reports implemented for MVP Excel marks
+* seller stock-in workflow with stock movement log implemented for MVP Excel B26
+* seller inventory UX clarified with read-only current stock, stock-in action, and tracked adjustment action for corrections
+* seller stock opname input implemented for MVP Excel B28 using tracked stock movement adjustment
+* seller product characteristics implemented for MVP Excel B25 with type, size, and color fields
+* buyer home simple recommendation section implemented for MVP Excel B46
+* buyer and seller cancellation/refund request flow implemented for MVP Excel B55 and B31
 
 ---
 
@@ -589,7 +596,12 @@ Users currently implement:
 * seller product edit/publish flow validated
 * seller product edit/publish invalidates public product listing cache
 * duplicate seller product name UX validated
-* seller quick stock adjustment validated
+* seller product stock additions are managed through stock-in workflow for MVP
+* seller stock-in workflow prepared with append-only stock movement log and atomic stock update RPC
+* seller stock correction prepared through tracked adjustment RPC with required reason
+* seller stock opname input prepared through physical count form and tracked stock movement note
+* seller product characteristics prepared with type, size, and color metadata
+* buyer and seller cancellation/refund requests prepared through existing refunds table with RLS
 * stock cannot go below zero validation passed
 * low/out-of-stock badges validated
 * seller order flow A-E validated: paid processing order, seller ship, no seller complete, buyer confirm received, final timestamps visible
@@ -796,6 +808,10 @@ Do not fix this by:
 * seed_core_categories
 * allow_store_profile_for_published_products
 * fix_store_public_policy_recursion
+* prepare_stock_movements
+* add_stock_adjustment_rpc
+* add_product_characteristics
+* prepare_refund_requests
 
 ---
 
@@ -828,7 +844,13 @@ Do not fix this by:
    * require seller category selection for product hidden filters - started
    * expose public store profile from published products - started
    * add seller dashboard product/order metrics and low stock alerts - completed
+   * add seller dashboard goods, financial, buyer, and shipment reports - completed
+   * add stock-in workflow, tracked adjustment flow, and stock movement history - completed
+   * add stock opname physical count input - completed
+   * add product characteristics type, size, and color fields - completed
+   * add buyer and seller cancellation/refund request flow - completed
    * prepare cancellation/refund handling as a manual MVP flow
+   * add simple recommended products section on buyer home - completed
 
 5. Production-readiness cleanup
    * replace development default address trigger with production-safe onboarding/address requirement
@@ -977,7 +999,12 @@ Project sudah memiliki:
 * implemented buyer `Confirm Received` action
 * updated `update-order-status` to separate seller shipping and buyer completion authorization
 * validated seller order lifecycle A-E including final buyer/seller state
-* implemented and validated seller quick stock adjustment
+* implemented seller stock-in workflow for tracked stock additions and tracked stock correction
+* implemented seller stock opname input for tracked physical stock count corrections
+* implemented product characteristics and simple product recommendations for Excel MVP marks
+* implemented buyer and seller cancellation/refund request creation and history
+* moved seller store metrics into dedicated Store Reports page
+* implemented seller Store Reports CSV export for goods, financial, buyer, and shipment details
 * implemented and validated seller order status tabs and realtime order search
 * implemented buyer address list/create/edit/delete foundation
 * implemented checkout address selection foundation

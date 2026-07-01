@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -93,30 +94,63 @@ class StoreModerationController extends Controller
         ]);
     }
 
-    public function approve(string $store): RedirectResponse
+    public function approve(Request $request, AdminAuditLogger $auditLogger, string $store): RedirectResponse
     {
-        DB::connection('marketplace')
-            ->table('stores')
-            ->where('id', $store)
+        $db = DB::connection('marketplace');
+        $previous = $db->table('stores')->where('id', $store)->firstOrFail();
+        $isUnsuspend = $previous->status === 'suspended';
+
+        $db->table('stores')->where('id', $store)
             ->update([
                 'status' => 'active',
                 'suspended_at' => null,
                 'updated_at' => now(),
             ]);
 
+        $auditLogger->log(
+            $request,
+            $isUnsuspend ? 'store.unsuspend' : 'store.approve',
+            'store',
+            $store,
+            $isUnsuspend ? 'Store unsuspended by admin.' : 'Store approved by admin.',
+            [
+                'previous_status' => $previous->status,
+                'next_status' => 'active',
+                'store_name' => $previous->name,
+            ],
+        );
+
         return back()->with('success', 'Store approved.');
     }
 
-    public function suspend(string $store): RedirectResponse
+    public function suspend(Request $request, AdminAuditLogger $auditLogger, string $store): RedirectResponse
     {
-        DB::connection('marketplace')
-            ->table('stores')
-            ->where('id', $store)
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+
+        $db = DB::connection('marketplace');
+        $previous = $db->table('stores')->where('id', $store)->firstOrFail();
+
+        $db->table('stores')->where('id', $store)
             ->update([
                 'status' => 'suspended',
                 'suspended_at' => now(),
                 'updated_at' => now(),
             ]);
+
+        $auditLogger->log(
+            $request,
+            'store.suspend',
+            'store',
+            $store,
+            $validated['reason'],
+            [
+                'previous_status' => $previous->status,
+                'next_status' => 'suspended',
+                'store_name' => $previous->name,
+            ],
+        );
 
         return back()->with('success', 'Store suspended.');
     }

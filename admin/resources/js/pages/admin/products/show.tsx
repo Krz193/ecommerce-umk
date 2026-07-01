@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { ReasonActionDialog } from '@/components/admin/reason-action-dialog';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,18 +24,6 @@ type ProductShowProps = {
 };
 
 export default function ProductShow({ product, images }: ProductShowProps) {
-    function archive() {
-        if (confirm(`Archive ${product.name}?`)) {
-            router.patch(`/products/${product.id}/archive`);
-        }
-    }
-
-    function restore() {
-        if (confirm(`Restore ${product.name}?`)) {
-            router.patch(`/products/${product.id}/restore`);
-        }
-    }
-
     return (
         <>
             <Head title={product.name} />
@@ -50,9 +39,24 @@ export default function ProductShow({ product, images }: ProductShowProps) {
                     </div>
                     <div className="flex gap-2">
                         {product.archived_at ? (
-                            <Button onClick={restore}>Restore</Button>
+                            <ReasonActionDialog
+                                title="Restore product"
+                                description={`Restore ${product.name}. This republishes the product to the marketplace.`}
+                                actionLabel="Restore"
+                                triggerLabel="Restore"
+                                size="default"
+                                onSubmit={(reason) => router.patch(`/products/${product.id}/restore`, { reason })}
+                            />
                         ) : (
-                            <Button variant="destructive" onClick={archive}>Archive</Button>
+                            <ReasonActionDialog
+                                title="Archive product"
+                                description={`Archive ${product.name}. This removes it from public listing by setting it to draft.`}
+                                actionLabel="Archive"
+                                triggerLabel="Archive"
+                                variant="destructive"
+                                size="default"
+                                onSubmit={(reason) => router.patch(`/products/${product.id}/archive`, { reason })}
+                            />
                         )}
                     </div>
                 </div>

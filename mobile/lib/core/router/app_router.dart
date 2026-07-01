@@ -148,6 +148,13 @@ final appRouter = GoRouter(
     ),
 
     GoRoute(
+      path: '/seller/reports',
+      builder: (context, state) {
+        return const SellerStoreReportsPage();
+      },
+    ),
+
+    GoRoute(
       path: '/seller/products',
       builder: (context, state) {
         return const SellerProductsPage();

@@ -21,6 +21,12 @@ class ProductModel {
 
   final String? categoryName;
 
+  final String? productType;
+
+  final String? size;
+
+  final String? color;
+
   final List<ProductImageModel> images;
 
   ProductModel({
@@ -34,6 +40,9 @@ class ProductModel {
     required this.storeId,
     this.categoryId,
     this.categoryName,
+    this.productType,
+    this.size,
+    this.color,
     this.images = const [],
   });
 
@@ -60,6 +69,12 @@ class ProductModel {
       categoryId: json['category_id'],
 
       categoryName: category is Map ? category['name'] : null,
+
+      productType: json['product_type'],
+
+      size: json['size'],
+
+      color: json['color'],
 
       images: rawImages is List
           ? rawImages

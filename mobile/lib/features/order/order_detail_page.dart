@@ -6,9 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 
+import 'package:mobile/features/order/models/order_detail_model.dart';
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
+import 'package:mobile/features/order/providers/refund_request_provider.dart';
 import 'package:mobile/features/order/providers/order_status_provider.dart';
 import 'package:mobile/features/order/providers/orders_provider.dart';
+import 'package:mobile/features/order/widgets/refund_request_dialog.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -26,6 +29,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   Timer? refreshTimer;
   DateTime? lastResumeRefresh;
   bool isUpdating = false;
+  bool isSubmittingRequest = false;
 
   Future<void> confirmReceived() async {
     setState(() {
@@ -64,6 +68,70 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     }
   }
 
+  Future<void> showRefundRequestDialog(String orderId) async {
+    final result = await showDialog<RefundRequestDialogResult>(
+      context: context,
+      builder: (context) {
+        return const RefundRequestDialog();
+      },
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    await submitRefundRequest(
+      orderId: orderId,
+      requestType: result.requestType,
+      reason: result.reason,
+    );
+  }
+
+  Future<void> submitRefundRequest({
+    required String orderId,
+    required String requestType,
+    required String reason,
+  }) async {
+    setState(() {
+      isSubmittingRequest = true;
+    });
+
+    try {
+      final service = ref.read(refundRequestServiceProvider);
+
+      await service.createRequest(
+        orderId: orderId,
+        requestType: requestType,
+        requesterRole: 'buyer',
+        reason: reason,
+      );
+
+      ref.invalidate(refundRequestsProvider(orderId));
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Request submitted')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSubmittingRequest = false;
+        });
+      }
+    }
+  }
+
   Color getStatusColor(String status) {
     switch (status) {
       case 'paid':
@@ -83,7 +151,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     }
   }
 
-  String displayStatus(dynamic order) {
+  String displayStatus(OrderDetailModel order) {
     if (order.paymentStatus == 'pending') {
       return 'Waiting payment';
     }
@@ -111,7 +179,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     return order.status;
   }
 
-  String orderNotice(dynamic order) {
+  String orderNotice(OrderDetailModel order) {
     if (order.paymentStatus == 'pending') {
       return 'Payment is still pending. Complete payment before the order can be processed.';
     }
@@ -135,7 +203,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     return 'Order status updated.';
   }
 
-  List<Map<String, dynamic>> buildTimeline(dynamic order) {
+  List<Map<String, dynamic>> buildTimeline(OrderDetailModel order) {
     final timeline = <Map<String, dynamic>>[];
 
     timeline.add({
@@ -201,7 +269,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     return timeline;
   }
 
-  bool shouldStopPolling(dynamic order) {
+  bool shouldStopPolling(OrderDetailModel order) {
     return order.status == 'completed' ||
         order.status == 'cancelled' ||
         order.paymentStatus == 'expired' ||
@@ -397,13 +465,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                       ),
                     ],
 
-                    if (order.shippingProvider != null ||
-                        order.trackingNumber != null) ...[
-                      const SizedBox(height: 16),
-                      Text('Courier: ${order.shippingProvider ?? '-'}'),
-                      const SizedBox(height: 8),
-                      Text('Tracking Number: ${order.trackingNumber ?? '-'}'),
-                    ],
+                    const SizedBox(height: 16),
+                    buildShipmentProgress(order),
 
                     if (order.status == 'shipped') ...[
                       const SizedBox(height: 16),
@@ -430,6 +493,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
               const SizedBox(height: 24),
 
               buildReceipt(order),
+
+              const SizedBox(height: 24),
+
+              buildRefundRequestSection(order),
 
               const SizedBox(height: 24),
 
@@ -649,7 +716,115 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     );
   }
 
-  Widget buildReceipt(dynamic order) {
+  Widget buildRefundRequestSection(OrderDetailModel order) {
+    final requestsAsync = ref.watch(refundRequestsProvider(order.id));
+    final canRequest =
+        order.status != 'cancelled' &&
+        ['paid', 'pending'].contains(order.paymentStatus);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Cancellation / Refund Request',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Submit a request when this order needs manual cancellation or refund handling.',
+          ),
+          const SizedBox(height: 12),
+          requestsAsync.when(
+            data: (requests) {
+              final hasActiveRequest = requests.any((request) {
+                return request.isActive;
+              });
+
+              if (requests.isEmpty) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('No request submitted yet'),
+                    if (canRequest) ...[
+                      const SizedBox(height: 12),
+                      buildSubmitRefundRequestButton(order.id),
+                    ],
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:
+                    requests.map((request) {
+                      return buildReceiptRow(
+                        '${request.requestType} (${request.status})',
+                        request.reason,
+                      );
+                    }).toList()..addAll([
+                      if (hasActiveRequest) ...[
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Request is already submitted and waiting for admin handling.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                      if (canRequest && !hasActiveRequest) ...[
+                        const SizedBox(height: 12),
+                        buildSubmitRefundRequestButton(order.id),
+                      ],
+                    ]),
+              );
+            },
+            error: (error, stackTrace) {
+              return Text(error.toString());
+            },
+            loading: () {
+              return const LinearProgressIndicator();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSubmitRefundRequestButton(String orderId) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: isSubmittingRequest
+            ? null
+            : () => showRefundRequestDialog(orderId),
+        icon: isSubmittingRequest
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.assignment_return_outlined),
+        label: const Text('Submit Request'),
+      ),
+    );
+  }
+
+  Widget buildReceipt(OrderDetailModel order) {
+    var subtotal = 0;
+
+    for (final item in order.items) {
+      subtotal += item.subtotal;
+    }
+
+    final shippingCost = order.totalAmount > subtotal
+        ? order.totalAmount - subtotal
+        : 0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -660,8 +835,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Receipt',
+            'Invoice / Receipt',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Official order summary for this transaction.',
+            style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 12),
           buildReceiptRow('Order Number', order.orderNumber),
@@ -669,14 +849,68 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             'Order Date',
             DateFormatter.formatDateTime(order.createdAt.toString()),
           ),
+          buildReceiptRow('Customer', order.shippingName),
           buildReceiptRow('Payment Status', order.paymentStatus),
           buildReceiptRow('Order Status', order.status),
+          const Divider(height: 24),
+          ...order.items.map((item) {
+            return buildReceiptRow(
+              '${item.productName} x${item.quantity}',
+              CurrencyFormatter.format(item.subtotal),
+            );
+          }),
+          const Divider(height: 24),
+          buildReceiptRow('Subtotal', CurrencyFormatter.format(subtotal)),
+          buildReceiptRow('Shipping', CurrencyFormatter.format(shippingCost)),
           const Divider(height: 24),
           buildReceiptRow(
             'Total',
             CurrencyFormatter.format(order.totalAmount),
             isStrong: true,
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildShipmentProgress(OrderDetailModel order) {
+    final hasShipment =
+        order.shippingProvider != null || order.trackingNumber != null;
+    final isShipped = ['shipped', 'completed'].contains(order.status);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Shipment Progress',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isShipped
+                ? 'Package has been shipped.'
+                : 'Waiting for seller shipment.',
+          ),
+          const SizedBox(height: 8),
+          buildReceiptRow('Courier', order.shippingProvider ?? '-'),
+          buildReceiptRow('Tracking Number', order.trackingNumber ?? '-'),
+          if (order.shippedAt != null)
+            buildReceiptRow(
+              'Shipped At',
+              DateFormatter.formatDateTime(order.shippedAt.toString()),
+            ),
+          if (!hasShipment)
+            const Text(
+              'Courier and tracking number will appear after seller ships the order.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
         ],
       ),
     );

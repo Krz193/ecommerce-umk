@@ -155,38 +155,13 @@ class _SellerOnboardingPageState extends ConsumerState<SellerOnboardingPage> {
       body: existingStore.when(
         data: (store) {
           if (store != null) {
-            return Padding(
-              padding: const EdgeInsets.all(24),
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/seller/store');
+              }
+            });
 
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-
-                children: [
-                  Text(
-                    store.name,
-
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Text('Status: ${store.status}'),
-
-                  const SizedBox(height: 24),
-
-                  ElevatedButton(
-                    onPressed: () {
-                      context.go('/seller/store');
-                    },
-
-                    child: const Text('Open Store Dashboard'),
-                  ),
-                ],
-              ),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           return SafeArea(

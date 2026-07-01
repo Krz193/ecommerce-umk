@@ -63,9 +63,14 @@ export default function OrderShow({ order, items }: OrderShowProps) {
                         <h1 className="text-2xl font-semibold">{order.order_number}</h1>
                         <p className="text-sm text-muted-foreground">{order.store_name} · {formatDate(order.created_at)}</p>
                     </div>
-                    <Button asChild variant="outline">
-                        <Link href="/orders">Back to orders</Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button asChild>
+                            <Link href={`/refund-cases/create?order_id=${order.id}`}>Create Refund Case</Link>
+                        </Button>
+                        <Button asChild variant="outline">
+                            <Link href="/orders">Back to orders</Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-3">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,29 +79,66 @@ class ProductModerationController extends Controller
         ]);
     }
 
-    public function archive(string $product): RedirectResponse
+    public function archive(Request $request, AdminAuditLogger $auditLogger, string $product): RedirectResponse
     {
-        DB::connection('marketplace')
-            ->table('products')
-            ->where('id', $product)
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+
+        $db = DB::connection('marketplace');
+        $previous = $db->table('products')->where('id', $product)->firstOrFail();
+
+        $db->table('products')->where('id', $product)
             ->update([
                 'status' => 'draft',
                 'archived_at' => now(),
                 'updated_at' => now(),
             ]);
 
+        $auditLogger->log(
+            $request,
+            'product.archive',
+            'product',
+            $product,
+            $validated['reason'],
+            [
+                'previous_status' => $previous->status,
+                'next_status' => 'draft',
+                'product_name' => $previous->name,
+            ],
+        );
+
         return back()->with('success', 'Product archived.');
     }
 
-    public function restore(string $product): RedirectResponse
+    public function restore(Request $request, AdminAuditLogger $auditLogger, string $product): RedirectResponse
     {
-        DB::connection('marketplace')
-            ->table('products')
-            ->where('id', $product)
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+
+        $db = DB::connection('marketplace');
+        $previous = $db->table('products')->where('id', $product)->firstOrFail();
+
+        $db->table('products')->where('id', $product)
             ->update([
+                'status' => 'published',
                 'archived_at' => null,
                 'updated_at' => now(),
             ]);
+
+        $auditLogger->log(
+            $request,
+            'product.restore',
+            'product',
+            $product,
+            $validated['reason'],
+            [
+                'previous_status' => $previous->status,
+                'next_status' => 'published',
+                'product_name' => $previous->name,
+            ],
+        );
 
         return back()->with('success', 'Product restored.');
     }

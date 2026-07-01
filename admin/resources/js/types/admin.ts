@@ -52,3 +52,40 @@ export type OrderRow = {
     provider: string | null;
     provider_transaction_id: string | null;
 };
+
+export type MarketplaceUserRow = {
+    id: string;
+    full_name: string;
+    username: string | null;
+    phone: string | null;
+    role: string;
+    created_at: string;
+};
+
+export type AuditLogRow = {
+    id: number;
+    action: string;
+    target_type: string;
+    target_id: string;
+    reason: string;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+    admin_name: string;
+    admin_email: string;
+};
+
+export type RefundCaseRow = {
+    id: string;
+    case_key: string;
+    source: 'local' | 'marketplace';
+    order_id: string;
+    status: string;
+    request_type: string;
+    requester_role: string;
+    reason: string;
+    admin_notes: string | null;
+    created_by_name: string;
+    resolved_by_name: string | null;
+    resolved_at: string | null;
+    created_at: string;
+};

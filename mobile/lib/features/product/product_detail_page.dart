@@ -247,6 +247,26 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           ),
           const SizedBox(height: 12),
           Text(product.description ?? 'No description'),
+          if (hasCharacteristics(product)) ...[
+            const SizedBox(height: 16),
+            const Text(
+              'Characteristics',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (product.productType?.isNotEmpty == true)
+                  Chip(label: Text('Type: ${product.productType}')),
+                if (product.size?.isNotEmpty == true)
+                  Chip(label: Text('Size: ${product.size}')),
+                if (product.color?.isNotEmpty == true)
+                  Chip(label: Text('Color: ${product.color}')),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           buildStockNotice(product),
           if (product.categoryName != null) ...[
@@ -258,6 +278,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         ],
       ),
     );
+  }
+
+  bool hasCharacteristics(ProductModel product) {
+    return product.productType?.isNotEmpty == true ||
+        product.size?.isNotEmpty == true ||
+        product.color?.isNotEmpty == true;
   }
 
   String? firstImage(ProductModel product) {

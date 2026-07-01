@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/order/models/order_detail_model.dart';
+import 'package:mobile/features/order/providers/refund_request_provider.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
+import 'package:mobile/features/order/widgets/refund_request_dialog.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
 class SellerOrderDetailPage extends ConsumerStatefulWidget {
@@ -19,6 +21,7 @@ class SellerOrderDetailPage extends ConsumerStatefulWidget {
 
 class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
   bool isUpdating = false;
+  bool isSubmittingRequest = false;
 
   Future<void> showShipOrderDialog({required String storeId}) async {
     final providerController = TextEditingController();
@@ -134,6 +137,70 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
     }
   }
 
+  Future<void> showRefundRequestDialog(String orderId) async {
+    final result = await showDialog<RefundRequestDialogResult>(
+      context: context,
+      builder: (context) {
+        return const RefundRequestDialog();
+      },
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    await submitRefundRequest(
+      orderId: orderId,
+      requestType: result.requestType,
+      reason: result.reason,
+    );
+  }
+
+  Future<void> submitRefundRequest({
+    required String orderId,
+    required String requestType,
+    required String reason,
+  }) async {
+    setState(() {
+      isSubmittingRequest = true;
+    });
+
+    try {
+      final service = ref.read(refundRequestServiceProvider);
+
+      await service.createRequest(
+        orderId: orderId,
+        requestType: requestType,
+        requesterRole: 'seller',
+        reason: reason,
+      );
+
+      ref.invalidate(refundRequestsProvider(orderId));
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Request submitted')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSubmittingRequest = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final storeAsync = ref.watch(myStoreProvider);
@@ -163,6 +230,10 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     buildOrderSummary(store.id, order),
+                    const SizedBox(height: 16),
+                    buildShipmentSection(store.id, order),
+                    const SizedBox(height: 16),
+                    buildRefundRequestSection(order),
                     const SizedBox(height: 16),
                     buildItems(order.items),
                   ],
@@ -229,9 +300,10 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
           if (order.shippingProvider != null ||
               order.trackingNumber != null) ...[
             const SizedBox(height: 12),
-            Text('Courier: ${order.shippingProvider ?? '-'}'),
-            const SizedBox(height: 8),
-            Text('Tracking Number: ${order.trackingNumber ?? '-'}'),
+            const Text(
+              'Shipment details are recorded below.',
+              style: TextStyle(color: Colors.grey),
+            ),
           ],
           if (order.completedAt != null) ...[
             const SizedBox(height: 8),
@@ -259,6 +331,176 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget buildShipmentSection(String storeId, OrderDetailModel order) {
+    final canShip =
+        order.status == 'processing' && order.paymentStatus == 'paid';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Shipment Management',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Text(canShip ? 'Ready to ship' : 'Shipment status: ${order.status}'),
+          const SizedBox(height: 12),
+          buildInfoRow('Courier', order.shippingProvider ?? '-'),
+          buildInfoRow('Tracking Number', order.trackingNumber ?? '-'),
+          if (order.shippedAt != null)
+            buildInfoRow(
+              'Shipped At',
+              DateFormatter.formatDateTime(order.shippedAt.toString()),
+            ),
+          if (order.completedAt != null)
+            buildInfoRow(
+              'Completed At',
+              DateFormatter.formatDateTime(order.completedAt.toString()),
+            ),
+          if (canShip) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: isUpdating
+                    ? null
+                    : () {
+                        showShipOrderDialog(storeId: storeId);
+                      },
+                icon: const Icon(Icons.local_shipping_outlined),
+                label: const Text('Input Courier and Tracking'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget buildRefundRequestSection(OrderDetailModel order) {
+    final requestsAsync = ref.watch(refundRequestsProvider(order.id));
+    final canRequest =
+        order.status != 'cancelled' &&
+        order.status != 'completed' &&
+        ['paid', 'pending'].contains(order.paymentStatus);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Cancellation / Refund Request',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Create a manual handling request when seller-side cancellation or refund follow-up is needed.',
+          ),
+          const SizedBox(height: 12),
+          requestsAsync.when(
+            data: (requests) {
+              final hasActiveRequest = requests.any((request) {
+                return request.isActive;
+              });
+
+              if (requests.isEmpty) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('No request submitted yet'),
+                    if (canRequest) ...[
+                      const SizedBox(height: 12),
+                      buildSubmitRefundRequestButton(order.id),
+                    ],
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:
+                    requests.map((request) {
+                      return buildInfoRow(
+                        '${request.requesterRole} ${request.requestType}',
+                        '${request.status}: ${request.reason}',
+                      );
+                    }).toList()..addAll([
+                      if (hasActiveRequest) ...[
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Request is already submitted and waiting for admin handling.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                      if (canRequest && !hasActiveRequest) ...[
+                        const SizedBox(height: 12),
+                        buildSubmitRefundRequestButton(order.id),
+                      ],
+                    ]),
+              );
+            },
+            error: (error, stackTrace) {
+              return Text(error.toString());
+            },
+            loading: () {
+              return const LinearProgressIndicator();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSubmitRefundRequestButton(String orderId) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: isSubmittingRequest
+            ? null
+            : () => showRefundRequestDialog(orderId),
+        icon: isSubmittingRequest
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.assignment_return_outlined),
+        label: const Text('Submit Request'),
+      ),
+    );
+  }
+
+  Widget buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );

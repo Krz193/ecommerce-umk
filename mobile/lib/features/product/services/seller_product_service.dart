@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/features/product/models/product_image_model.dart';
 import 'package:mobile/features/product/models/product_model.dart';
+import 'package:mobile/features/product/models/stock_movement_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SellerProductException implements Exception {
@@ -50,6 +51,9 @@ class SellerProductService {
     required int stock,
     required String categoryId,
     String? description,
+    String? productType,
+    String? size,
+    String? color,
   }) async {
     try {
       final response = await _supabase
@@ -62,6 +66,9 @@ class SellerProductService {
             'stock': stock,
             'category_id': categoryId,
             'description': description,
+            'product_type': productType,
+            'size': size,
+            'color': color,
             'status': 'draft',
           })
           .select('''
@@ -103,10 +110,12 @@ class SellerProductService {
     required String name,
     required String slug,
     required int price,
-    required int stock,
     required String categoryId,
     required String status,
     String? description,
+    String? productType,
+    String? size,
+    String? color,
   }) async {
     try {
       final response = await _supabase
@@ -115,9 +124,11 @@ class SellerProductService {
             'name': name,
             'slug': slug,
             'price': price,
-            'stock': stock,
             'category_id': categoryId,
             'description': description,
+            'product_type': productType,
+            'size': size,
+            'color': color,
             'status': status,
           })
           .eq('id', productId)
@@ -229,45 +240,75 @@ class SellerProductService {
     }
   }
 
-  Future<ProductModel> updateProductStock({
+  Future<ProductModel> recordStockIn({
     required String productId,
-    required String storeId,
-    required int stock,
+    required int quantity,
+    String? note,
   }) async {
-    if (stock < 0) {
-      throw SellerProductException('Stock cannot be below zero');
+    if (quantity <= 0) {
+      throw SellerProductException('Stock-in quantity must be greater than 0');
     }
 
     try {
-      final response = await _supabase
-          .from('products')
-          .update({'stock': stock})
-          .eq('id', productId)
-          .eq('store_id', storeId)
-          .select('''
-            *,
-            category:categories (
-              id,
-              name,
-              slug
-            ),
-            product_images (
-              id,
-              product_id,
-              image_url,
-              sort_order
-            )
-          ''')
-          .single();
+      final response = await _supabase.rpc(
+        'record_stock_in',
+        params: {
+          'product_uuid': productId,
+          'quantity_in': quantity,
+          'movement_note': note,
+        },
+      );
 
       return ProductModel.fromJson(response);
     } on PostgrestException catch (error) {
-      if (error.code == '42501') {
-        throw SellerProductException(
-          'Your account is not allowed to update this product',
-        );
-      }
+      throw SellerProductException(error.message);
+    }
+  }
 
+  Future<ProductModel> recordStockAdjustment({
+    required String productId,
+    required int newStock,
+    required String reason,
+  }) async {
+    if (newStock < 0) {
+      throw SellerProductException('New stock quantity cannot be below zero');
+    }
+
+    if (reason.trim().isEmpty) {
+      throw SellerProductException('Adjustment reason is required');
+    }
+
+    try {
+      final response = await _supabase.rpc(
+        'record_stock_adjustment',
+        params: {
+          'product_uuid': productId,
+          'new_stock_quantity': newStock,
+          'movement_note': reason.trim(),
+        },
+      );
+
+      return ProductModel.fromJson(response);
+    } on PostgrestException catch (error) {
+      throw SellerProductException(error.message);
+    }
+  }
+
+  Future<List<StockMovementModel>> getStockMovements({
+    required String productId,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('stock_movements')
+          .select()
+          .eq('product_id', productId)
+          .order('created_at', ascending: false)
+          .limit(10);
+
+      return response
+          .map<StockMovementModel>((json) => StockMovementModel.fromJson(json))
+          .toList();
+    } on PostgrestException catch (error) {
       throw SellerProductException(error.message);
     }
   }

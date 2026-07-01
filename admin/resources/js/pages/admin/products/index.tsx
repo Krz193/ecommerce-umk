@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { Pagination } from '@/components/admin/pagination';
+import { ReasonActionDialog } from '@/components/admin/reason-action-dialog';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,18 +26,6 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
         event.preventDefault();
 
         router.get('/products', { search, status }, { preserveState: true, replace: true });
-    }
-
-    function archive(product: ProductRow) {
-        if (confirm(`Archive ${product.name}? This removes it from public listing by setting it to draft.`)) {
-            router.patch(`/products/${product.id}/archive`);
-        }
-    }
-
-    function restore(product: ProductRow) {
-        if (confirm(`Restore ${product.name}?`)) {
-            router.patch(`/products/${product.id}/restore`);
-        }
     }
 
     return (
@@ -102,9 +91,22 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                                                     <Link href={`/products/${product.id}`}>Detail</Link>
                                                 </Button>
                                                 {product.archived_at ? (
-                                                    <Button size="sm" onClick={() => restore(product)}>Restore</Button>
+                                                    <ReasonActionDialog
+                                                        title="Restore product"
+                                                        description={`Restore ${product.name}. This republishes the product to the marketplace.`}
+                                                        actionLabel="Restore"
+                                                        triggerLabel="Restore"
+                                                        onSubmit={(reason) => router.patch(`/products/${product.id}/restore`, { reason })}
+                                                    />
                                                 ) : (
-                                                    <Button variant="destructive" size="sm" onClick={() => archive(product)}>Archive</Button>
+                                                    <ReasonActionDialog
+                                                        title="Archive product"
+                                                        description={`Archive ${product.name}. This removes it from public listing by setting it to draft.`}
+                                                        actionLabel="Archive"
+                                                        triggerLabel="Archive"
+                                                        variant="destructive"
+                                                        onSubmit={(reason) => router.patch(`/products/${product.id}/archive`, { reason })}
+                                                    />
                                                 )}
                                             </div>
                                         </td>

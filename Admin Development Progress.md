@@ -64,6 +64,16 @@ Current repo verification:
 * `php artisan route:list` validated dashboard, store, product, and order routes
 * Store moderation action labels polished: suspended stores now show `Unsuspend` instead of `Approve`
 * Store list action alignment polished with separate `Detail` and `Actions` columns
+* Audit log and moderation reason foundation implemented for store/product/refund-case actions
+* Marketplace user lookup implemented as read-only admin screen
+* Manual refund/cancellation case tracking implemented as local admin case workflow
+* Flutter buyer/seller cancellation/refund requests from Supabase `refunds` are now visible and updateable in admin refund cases
+* MVP reports implemented for UMK summary, finance summary, and low-stock products
+* Browser `prompt()` removed from moderation/refund updates and replaced with form dialogs or confirm dialogs
+* Product restore now republishes product so it returns to buyer home/product listing
+* Refund case detail page implemented with order, payment, item, and timeline context
+* Product archive/restore, product action dialogs, refund case update, and refund case detail manually validated
+* Store approve/unsuspend now uses confirm dialog only; store suspend still requires moderation reason
 * Flutter mobile core e-commerce is the current production-facing client
 * Supabase remains the source of truth database
 * Laravel admin should use server-side privileged access carefully
@@ -84,14 +94,14 @@ Current repo verification:
 | Admin Authorization Guard      | ✅ Completed |
 | Admin Layout                   | ⏳ In Progress |
 | Dashboard Summary              | ✅ Completed |
-| User Lookup                    | ⏳ Pending   |
+| User Lookup                    | ✅ Completed |
 | Store Moderation               | ⏳ In Progress |
 | Product Moderation             | ⏳ In Progress |
 | Order Lookup                   | ✅ Completed |
 | Payment Lookup                 | ✅ Completed |
-| Manual Cancellation Tracking   | ⏳ Pending   |
-| Manual Refund Tracking         | ⏳ Pending   |
-| Audit Trail                    | ⏳ Pending   |
+| Manual Cancellation Tracking   | ⏳ In Progress |
+| Manual Refund Tracking         | ⏳ In Progress |
+| Audit Trail                    | ⏳ In Progress |
 | Admin Testing & QA             | ⏳ Pending   |
 | Admin Deployment               | ⏳ Pending   |
 
@@ -154,7 +164,7 @@ Implemented this pass:
 * read-only order/payment lookup list/detail
 
 Next active work is filling real `.env`, running migrations/seeders, connecting to Supabase Postgres, and manually validating in browser.
-Real `.env`, admin login, and Supabase marketplace connection have now been manually validated. Next active work is audit trail, moderation reason capture, and browser QA for each moderation/lookup screen.
+Real `.env`, admin login, and Supabase marketplace connection have now been manually validated. Next active work is browser QA for reason dialogs, refund case detail, and report screens.
 
 ---
 
@@ -194,8 +204,8 @@ MVP workflow:
 * view store owner profile
 * approve pending store - implemented
 * unsuspend suspended store - implemented through active status restore
-* reject or suspend problematic store - suspend implemented, reject reason pending schema
-* record moderation reason
+* reject or suspend problematic store - suspend implemented, reject flow deferred
+* record moderation reason - implemented through action dialogs and audit logs
 * show basic store product/order context
 * separate detail and action columns for cleaner table alignment - implemented
 
@@ -208,8 +218,8 @@ MVP workflow:
 * list products with store and seller context
 * filter by status, category, store, and stock condition
 * view product detail and image thumbnail
-* hide/unhide or moderation-flag product - archive/restore implemented using `archived_at` and draft status
-* record moderation reason
+* hide/unhide or moderation-flag product - archive/restore implemented using `archived_at`; restore republishes product
+* record moderation reason - implemented through action dialogs and audit logs
 * keep seller product management inside Flutter seller app
 
 ---
@@ -458,7 +468,7 @@ No admin identity model blocker currently. MVP uses local Laravel admin users wi
 
 Current moderation blocker:
 
-Admin-specific audit/moderation schema has not been implemented yet, so moderation reason/audit trail is still pending.
+No audit/moderation schema blocker currently. Browser QA for audit/reason flows is still needed.
 
 ---
 
@@ -505,11 +515,16 @@ Admin project saat ini memiliki:
 * admin dashboard, store moderation, product moderation, and order/payment lookup pages implemented
 * Laravel admin login and marketplace data access manually validated
 * store approve/suspend/unsuspend UI context polished
+* audit log table/model/service prepared
+* moderation reason required for restrictive store/product actions; store approve/unsuspend uses confirm-only flow
+* moderation and refund update dialogs implemented
+* user lookup, refund cases, and report pages implemented
+* refund case detail page implemented
 * confirmed MVP-first admin scope
 * confirmed Supabase as shared database/source of truth
 * confirmed initial priority: admin foundation, auth, store moderation, product moderation, order/payment lookup
 * Laravel admin MVP domain implementation has started
 * admin-specific `is_admin` migration added
-* audit/moderation reason schema still pending
+* audit log and refund case migrations added, pending browser QA validation after local migrate
 
-Implementation harus melanjutkan dari browser QA, audit trail, moderation reason schema, dan manual refund/cancellation case tracking, bukan dari Flutter mobile app.
+Implementation harus melanjutkan dari browser QA, refund case workflow polish, report polish/export, dan post-MVP assistant/permission planning, bukan dari Flutter mobile app.
