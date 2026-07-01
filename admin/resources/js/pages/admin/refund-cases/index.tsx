@@ -69,8 +69,10 @@ export default function RefundCasesIndex({ cases, filters }: RefundCasesIndexPro
                                 <tr>
                                     <th className="pb-3 font-medium">Order</th>
                                     <th className="pb-3 font-medium">Status</th>
+                                    <th className="pb-3 font-medium">Source</th>
+                                    <th className="pb-3 font-medium">Type</th>
                                     <th className="pb-3 font-medium">Reason</th>
-                                    <th className="pb-3 font-medium">Created By</th>
+                                    <th className="pb-3 font-medium">Requester</th>
                                     <th className="pb-3 font-medium">Created</th>
                                     <th className="pb-3 text-right font-medium">Actions</th>
                                 </tr>
@@ -82,13 +84,15 @@ export default function RefundCasesIndex({ cases, filters }: RefundCasesIndexPro
                                             <Link href={`/orders/${refundCase.order_id}`} className="font-mono text-xs hover:underline">{refundCase.order_id}</Link>
                                         </td>
                                         <td className="py-3"><StatusBadge status={refundCase.status} /></td>
+                                        <td className="py-3 capitalize">{refundCase.source}</td>
+                                        <td className="py-3 capitalize">{refundCase.requester_role} {refundCase.request_type}</td>
                                         <td className="max-w-md py-3">{refundCase.reason}</td>
                                         <td className="py-3">{refundCase.created_by_name}</td>
                                         <td className="py-3">{formatDate(refundCase.created_at)}</td>
                                         <td className="py-3 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button asChild variant="outline" size="sm">
-                                                    <Link href={`/refund-cases/${refundCase.id}`}>Detail</Link>
+                                                    <Link href={`/refund-cases/${refundCase.case_key}`}>Detail</Link>
                                                 </Button>
                                                 <RefundCaseUpdateDialog refundCase={refundCase} />
                                             </div>

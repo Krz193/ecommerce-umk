@@ -75,9 +75,13 @@ export type AuditLogRow = {
 };
 
 export type RefundCaseRow = {
-    id: number;
+    id: string;
+    case_key: string;
+    source: 'local' | 'marketplace';
     order_id: string;
     status: string;
+    request_type: string;
+    requester_role: string;
     reason: string;
     admin_notes: string | null;
     created_by_name: string;

@@ -5,13 +5,18 @@ const statusTone: Record<string, 'default' | 'secondary' | 'destructive' | 'outl
     published: 'default',
     paid: 'default',
     completed: 'default',
+    resolved: 'default',
+    requested: 'secondary',
+    open: 'secondary',
     pending: 'secondary',
     processing: 'secondary',
+    reviewing: 'secondary',
     draft: 'outline',
     shipped: 'outline',
     cancelled: 'destructive',
     failed: 'destructive',
     expired: 'destructive',
+    rejected: 'destructive',
     suspended: 'destructive',
 };
 

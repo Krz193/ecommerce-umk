@@ -25,7 +25,7 @@ export function RefundCaseUpdateDialog({ refundCase }: { refundCase: RefundCaseR
             return;
         }
 
-        router.patch(`/refund-cases/${refundCase.id}`, {
+        router.patch(`/refund-cases/${refundCase.case_key}`, {
             status,
             reason: trimmedReason,
             admin_notes: adminNotes,
@@ -49,6 +49,7 @@ export function RefundCaseUpdateDialog({ refundCase }: { refundCase: RefundCaseR
                         <div>
                             <label className="mb-1 block text-sm font-medium">Status</label>
                             <select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={status} onChange={(event) => setStatus(event.target.value)}>
+                                <option value="requested">Requested</option>
                                 <option value="open">Open</option>
                                 <option value="reviewing">Reviewing</option>
                                 <option value="resolved">Resolved</option>

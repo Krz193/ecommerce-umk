@@ -10,6 +10,12 @@ type ReportsIndexProps = {
         paid_orders: number;
         pending_payments: number;
     };
+    storeSummary: {
+        total: number;
+        active: number;
+        pending: number;
+        suspended: number;
+    };
     storeReports: Array<{
         id: string;
         name: string;
@@ -17,6 +23,7 @@ type ReportsIndexProps = {
         product_count: number;
         published_product_count: number;
         order_count: number;
+        buyer_count: number;
         paid_revenue: string;
     }>;
     stockReports: Array<{
@@ -30,7 +37,7 @@ type ReportsIndexProps = {
     }>;
 };
 
-export default function ReportsIndex({ financeSummary, storeReports, stockReports }: ReportsIndexProps) {
+export default function ReportsIndex({ financeSummary, storeSummary, storeReports, stockReports }: ReportsIndexProps) {
     return (
         <>
             <Head title="Reports" />
@@ -38,6 +45,13 @@ export default function ReportsIndex({ financeSummary, storeReports, stockReport
                 <div>
                     <h1 className="text-2xl font-semibold">Reports</h1>
                     <p className="text-sm text-muted-foreground">MVP reports for UMK, stock, and finance monitoring.</p>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-4">
+                    <Metric title="Total UMK" value={String(storeSummary.total)} />
+                    <Metric title="Active UMK" value={String(storeSummary.active)} />
+                    <Metric title="Pending UMK" value={String(storeSummary.pending)} />
+                    <Metric title="Suspended UMK" value={String(storeSummary.suspended)} />
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-4">
@@ -58,6 +72,7 @@ export default function ReportsIndex({ financeSummary, storeReports, stockReport
                                     <th className="pb-3 font-medium">Products</th>
                                     <th className="pb-3 font-medium">Published</th>
                                     <th className="pb-3 font-medium">Orders</th>
+                                    <th className="pb-3 font-medium">Buyers</th>
                                     <th className="pb-3 text-right font-medium">Paid Revenue</th>
                                 </tr>
                             </thead>
@@ -69,6 +84,7 @@ export default function ReportsIndex({ financeSummary, storeReports, stockReport
                                         <td className="py-3">{store.product_count}</td>
                                         <td className="py-3">{store.published_product_count}</td>
                                         <td className="py-3">{store.order_count}</td>
+                                        <td className="py-3">{store.buyer_count}</td>
                                         <td className="py-3 text-right">{formatCurrency(store.paid_revenue)}</td>
                                     </tr>
                                 ))}

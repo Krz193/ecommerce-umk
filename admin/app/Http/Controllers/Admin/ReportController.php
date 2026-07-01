@@ -24,6 +24,7 @@ class ReportController extends Controller
                     DB::raw('count(distinct products.id) as product_count'),
                     DB::raw("count(distinct case when products.status = 'published' then products.id end) as published_product_count"),
                     DB::raw('count(distinct orders.id) as order_count'),
+                    DB::raw('count(distinct orders.user_id) as buyer_count'),
                     DB::raw("coalesce(sum(case when orders.payment_status = 'paid' then orders.total_amount else 0 end), 0) as paid_revenue"),
                 ])
                 ->groupBy('stores.id', 'stores.name', 'stores.status')
@@ -51,6 +52,12 @@ class ReportController extends Controller
                 'application_fee' => $db->table('orders')->where('payment_status', 'paid')->sum('application_fee'),
                 'paid_orders' => $db->table('orders')->where('payment_status', 'paid')->count(),
                 'pending_payments' => $db->table('orders')->where('payment_status', 'pending')->count(),
+            ],
+            'storeSummary' => [
+                'total' => $db->table('stores')->count(),
+                'active' => $db->table('stores')->where('status', 'active')->count(),
+                'pending' => $db->table('stores')->where('status', 'pending')->count(),
+                'suspended' => $db->table('stores')->where('status', 'suspended')->count(),
             ],
         ]);
     }

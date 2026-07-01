@@ -58,7 +58,7 @@ export default function RefundCaseShow({ refundCase, order, items, logs }: Refun
                     <div>
                         <div className="mb-2"><StatusBadge status={refundCase.status} /></div>
                         <h1 className="text-2xl font-semibold">Refund Case #{refundCase.id}</h1>
-                        <p className="text-sm text-muted-foreground">{order.order_number} · {order.store_name}</p>
+                        <p className="text-sm text-muted-foreground">{order.order_number} · {order.store_name} · {refundCase.source}</p>
                     </div>
                     <div className="flex gap-2">
                         <RefundCaseUpdateDialog refundCase={refundCase} />
@@ -74,7 +74,9 @@ export default function RefundCaseShow({ refundCase, order, items, logs }: Refun
                         <CardContent className="space-y-3 text-sm">
                             <Info label="Reason" value={refundCase.reason} />
                             <Info label="Admin Notes" value={refundCase.admin_notes || '-'} />
-                            <Info label="Created By" value={refundCase.created_by_name} />
+                            <Info label="Request Type" value={refundCase.request_type} />
+                            <Info label="Requester Role" value={refundCase.requester_role} />
+                            <Info label="Requester" value={refundCase.created_by_name} />
                             <Info label="Resolved By" value={refundCase.resolved_by_name || '-'} />
                             <Info label="Resolved At" value={formatDate(refundCase.resolved_at)} />
                         </CardContent>
