@@ -32,7 +32,7 @@ class ProductReviewModel {
     String? name;
     String? avatar;
     if (rawUser is Map<String, dynamic>) {
-      name = rawUser['full_name'] ?? rawUser['username'];
+      name = rawUser['full_name'];
       avatar = rawUser['avatar_url'];
     }
 

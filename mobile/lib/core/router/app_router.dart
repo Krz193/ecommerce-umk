@@ -4,6 +4,7 @@ import 'package:mobile/core/router/customer_shell.dart';
 import 'package:mobile/core/router/router_refresh_stream.dart';
 import 'package:mobile/features/account/account_page.dart';
 import 'package:mobile/features/account/edit_profile_page.dart';
+import 'package:mobile/features/account/change_password_page.dart';
 import 'package:mobile/features/address/address_form_page.dart';
 import 'package:mobile/features/address/address_list_page.dart';
 import 'package:mobile/features/auth/login_page.dart';
@@ -84,6 +85,13 @@ final appRouter = GoRouter(
           path: '/account/edit',
           builder: (context, state) {
             return const EditProfilePage();
+          },
+        ),
+
+        GoRoute(
+          path: '/account/change-password',
+          builder: (context, state) {
+            return const ChangePasswordPage();
           },
         ),
       ],

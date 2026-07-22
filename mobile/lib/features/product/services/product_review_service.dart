@@ -23,7 +23,6 @@ class ProductReviewService {
             *,
             users:user_id (
               full_name,
-              username,
               avatar_url
             )
           ''')
@@ -56,7 +55,6 @@ class ProductReviewService {
             *,
             users:user_id (
               full_name,
-              username,
               avatar_url
             )
           ''')
@@ -98,7 +96,6 @@ class ProductReviewService {
             *,
             users:user_id (
               full_name,
-              username,
               avatar_url
             )
           ''')
@@ -134,7 +131,6 @@ class ProductReviewService {
             *,
             users:user_id (
               full_name,
-              username,
               avatar_url
             )
           ''')
@@ -181,7 +177,6 @@ class ProductReviewService {
             *,
             users:user_id (
               full_name,
-              username,
               avatar_url
             )
           ''')

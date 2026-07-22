@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 
@@ -979,7 +980,7 @@ class _OrderItemReviewButton extends ConsumerWidget {
       padding: const EdgeInsets.only(top: 12),
       child: SizedBox(
         width: double.infinity,
-        child: OutlinedButton.icon(
+        child: ElevatedButton.icon(
           onPressed: () async {
             if (productId.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -996,16 +997,34 @@ class _OrderItemReviewButton extends ConsumerWidget {
               ),
             );
           },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: existingReview != null
+                ? AppColors.primaryLight
+                : AppColors.primary,
+            foregroundColor: existingReview != null
+                ? AppColors.primaryHover
+                : Colors.white,
+            elevation: 0,
+            minimumSize: const Size.fromHeight(48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: existingReview != null
+                  ? const BorderSide(color: AppColors.primary, width: 1.5)
+                  : BorderSide.none,
+            ),
+          ),
           icon: Icon(
-            existingReview != null ? Icons.edit_outlined : Icons.star_outline,
-            size: 18,
-            color: Colors.amber.shade800,
+            existingReview != null ? Icons.edit_note_rounded : Icons.star_rate_rounded,
+            size: 20,
           ),
           label: Text(
             existingReview != null
-                ? 'Edit Ulasan (${existingReview.rating}★)'
-                : 'Beri Ulasan',
-            style: TextStyle(color: Colors.amber.shade900),
+                ? 'Edit Ulasan Saya (${existingReview.rating}★)'
+                : 'Beri Ulasan Produk Ini',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ),
       ),

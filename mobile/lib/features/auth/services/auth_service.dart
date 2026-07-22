@@ -20,7 +20,7 @@ class AuthService {
 
     final response = await _supabase
         .from('users')
-        .select('id, full_name, username, phone, avatar_url, role')
+        .select('id, full_name, phone, avatar_url, role')
         .eq('id', user.id)
         .single();
 
@@ -35,7 +35,6 @@ class AuthService {
 
   Future<AppUserModel> updateProfile({
     required String fullName,
-    String? username,
     String? phone,
   }) async {
     final user = currentUser;
@@ -49,20 +48,14 @@ class AuthService {
           .from('users')
           .update({
             'full_name': fullName,
-            'username': blankToNull(username),
             'phone': blankToNull(phone),
           })
           .eq('id', user.id)
-          .select('id, full_name, username, phone, avatar_url, role')
+          .select('id, full_name, phone, avatar_url, role')
           .single();
 
       return AppUserModel.fromMap(response);
     } on PostgrestException catch (error) {
-      if (error.code == '23505' &&
-          error.message.contains('users_username_key')) {
-        throw Exception('Username is already used');
-      }
-
       throw Exception(error.message);
     }
   }
@@ -93,14 +86,11 @@ class AuthService {
     required String email,
     required String password,
     required String fullName,
-    required String username,
   }) async {
     return await _supabase.auth.signUp(
       email: email,
-
       password: password,
-
-      data: {'full_name': fullName, 'username': username},
+      data: {'full_name': fullName},
     );
   }
 
