@@ -12,6 +12,8 @@ import 'package:mobile/features/order/providers/refund_request_provider.dart';
 import 'package:mobile/features/order/providers/order_status_provider.dart';
 import 'package:mobile/features/order/providers/orders_provider.dart';
 import 'package:mobile/features/order/widgets/refund_request_dialog.dart';
+import 'package:mobile/features/product/providers/product_review_providers.dart';
+import 'package:mobile/features/product/widgets/product_review_dialog.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -697,6 +699,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                       Text(
                         'Subtotal: ${CurrencyFormatter.format(item.subtotal)}',
                       ),
+                      _OrderItemReviewButton(
+                        orderId: order.id,
+                        productId: item.productId,
+                        isDeliveredOrCompleted:
+                            order.status == 'delivered' ||
+                            order.status == 'completed',
+                      ),
                     ],
                   ),
                 );
@@ -934,6 +943,71 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OrderItemReviewButton extends ConsumerWidget {
+  final String orderId;
+  final String productId;
+  final bool isDeliveredOrCompleted;
+
+  const _OrderItemReviewButton({
+    required this.orderId,
+    required this.productId,
+    required this.isDeliveredOrCompleted,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!isDeliveredOrCompleted) return const SizedBox.shrink();
+
+    final existingReview = productId.isEmpty
+        ? null
+        : ref
+              .watch(
+                orderProductReviewProvider((
+                  productId: productId,
+                  orderId: orderId,
+                )),
+              )
+              .asData
+              ?.value;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () async {
+            if (productId.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('ID Produk tidak ditemukan.')),
+              );
+              return;
+            }
+            await showDialog(
+              context: context,
+              builder: (context) => ProductReviewDialog(
+                productId: productId,
+                orderId: orderId,
+                existingReview: existingReview,
+              ),
+            );
+          },
+          icon: Icon(
+            existingReview != null ? Icons.edit_outlined : Icons.star_outline,
+            size: 18,
+            color: Colors.amber.shade800,
+          ),
+          label: Text(
+            existingReview != null
+                ? 'Edit Ulasan (${existingReview.rating}★)'
+                : 'Beri Ulasan',
+            style: TextStyle(color: Colors.amber.shade900),
+          ),
+        ),
       ),
     );
   }

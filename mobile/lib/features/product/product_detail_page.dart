@@ -9,6 +9,8 @@ import 'package:mobile/features/cart/widgets/cart_action_button.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
+import 'package:mobile/features/product/providers/product_review_providers.dart';
+import 'package:mobile/features/product/widgets/product_reviews_section.dart';
 
 class ProductDetailPage extends ConsumerStatefulWidget {
   final String productId;
@@ -25,6 +27,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final reviewStats = ref.watch(productReviewStatsProvider(widget.productId));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Product Detail'),
@@ -133,6 +137,24 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     ),
                   ),
 
+                  if (reviewStats.totalReviews > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 18),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${reviewStats.averageRating}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          ' (${reviewStats.totalReviews} ulasan)',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ],
+
                   const SizedBox(height: 16),
 
                   Text(
@@ -213,6 +235,13 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   const SizedBox(height: 24),
 
                   buildDescriptionSection(product),
+
+                  const SizedBox(height: 16),
+
+                  ProductReviewsSection(
+                    productId: product.id,
+                    storeId: product.storeId,
+                  ),
 
                   const SizedBox(height: 96),
                 ],
