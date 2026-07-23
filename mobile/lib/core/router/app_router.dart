@@ -4,6 +4,7 @@ import 'package:mobile/core/router/customer_shell.dart';
 import 'package:mobile/core/router/router_refresh_stream.dart';
 import 'package:mobile/features/account/account_page.dart';
 import 'package:mobile/features/account/edit_profile_page.dart';
+import 'package:mobile/features/account/change_password_page.dart';
 import 'package:mobile/features/address/address_form_page.dart';
 import 'package:mobile/features/address/address_list_page.dart';
 import 'package:mobile/features/auth/login_page.dart';
@@ -19,9 +20,18 @@ import 'package:mobile/features/order/orders_page.dart';
 import 'package:mobile/features/order/order_detail_page.dart';
 import 'package:mobile/features/payment/payment_page.dart';
 import 'package:mobile/features/auth/register_page.dart';
+import 'package:mobile/features/store/models/store_model.dart';
+import 'package:mobile/features/store/seller_edit_store_page.dart';
 import 'package:mobile/features/store/seller_onboarding_page.dart';
+import 'package:mobile/features/store/seller_reviews_page.dart';
 import 'package:mobile/features/store/seller_store_dashboard_page.dart';
 import 'package:mobile/features/store/store_public_page.dart';
+import 'package:mobile/features/assistant/models/store_content_model.dart';
+import 'package:mobile/features/assistant/screens/assistance_log_page.dart';
+import 'package:mobile/features/assistant/screens/assistant_dashboard_page.dart';
+import 'package:mobile/features/assistant/screens/assistant_profile_page.dart';
+import 'package:mobile/features/assistant/screens/store_content_form_page.dart';
+import 'package:mobile/features/assistant/screens/store_content_list_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -86,6 +96,13 @@ final appRouter = GoRouter(
             return const EditProfilePage();
           },
         ),
+
+        GoRoute(
+          path: '/account/change-password',
+          builder: (context, state) {
+            return const ChangePasswordPage();
+          },
+        ),
       ],
     ),
 
@@ -130,6 +147,19 @@ final appRouter = GoRouter(
         final addressId = state.pathParameters['id']!;
 
         return AddressFormPage(addressId: addressId);
+      },
+    ),
+
+    GoRoute(
+      path: '/edit-profile',
+      builder: (context, state) => const EditProfilePage(),
+    ),
+
+    GoRoute(
+      path: '/seller/edit-store',
+      builder: (context, state) {
+        final store = state.extra as StoreModel;
+        return SellerEditStorePage(store: store);
       },
     ),
 
@@ -194,6 +224,13 @@ final appRouter = GoRouter(
     ),
 
     GoRoute(
+      path: '/seller/reviews',
+      builder: (context, state) {
+        return const SellerReviewsPage();
+      },
+    ),
+
+    GoRoute(
       path: '/orders/:id',
 
       builder: (context, state) {
@@ -213,6 +250,48 @@ final appRouter = GoRouter(
           order: extra['order'],
           payment: extra['payment'],
           midtrans: extra['midtrans'],
+        );
+      },
+    ),
+
+    GoRoute(
+      path: '/assistant/dashboard',
+      builder: (context, state) => const AssistantDashboardPage(),
+    ),
+    GoRoute(
+      path: '/assistant/profile',
+      builder: (context, state) => const AssistantProfilePage(),
+    ),
+    GoRoute(
+      path: '/assistant/logs',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return AssistanceLogPage(storeId: storeId);
+      },
+    ),
+    GoRoute(
+      path: '/assistant/contents',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'] ?? '';
+        final storeName = state.uri.queryParameters['storeName'];
+        return StoreContentListPage(storeId: storeId, storeName: storeName);
+      },
+    ),
+    GoRoute(
+      path: '/assistant/contents/create',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'] ?? '';
+        return StoreContentFormPage(storeId: storeId);
+      },
+    ),
+    GoRoute(
+      path: '/assistant/contents/edit/:id',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'] ?? '';
+        final existingContent = state.extra as StoreContentModel?;
+        return StoreContentFormPage(
+          storeId: storeId,
+          existingContent: existingContent,
         );
       },
     ),

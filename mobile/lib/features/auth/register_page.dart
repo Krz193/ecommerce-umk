@@ -17,8 +17,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   final fullNameController = TextEditingController();
 
-  final usernameController = TextEditingController();
-
   final emailController = TextEditingController();
 
   final passwordController = TextEditingController();
@@ -28,8 +26,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   @override
   void dispose() {
     fullNameController.dispose();
-
-    usernameController.dispose();
 
     emailController.dispose();
 
@@ -56,8 +52,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         password: passwordController.text,
 
         fullName: fullNameController.text.trim(),
-
-        username: usernameController.text.trim(),
       );
 
       if (!mounted) {
@@ -119,22 +113,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Full name required';
-                      }
-
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: usernameController,
-
-                    decoration: const InputDecoration(labelText: 'Username'),
-
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Username required';
                       }
 
                       return null;

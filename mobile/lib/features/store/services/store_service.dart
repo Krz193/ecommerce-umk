@@ -34,6 +34,43 @@ class StoreService {
     return StoreModel.fromMap(response);
   }
 
+  Future<StoreModel?> getStoreById(String storeId) async {
+    final response = await _supabase
+        .from('stores')
+        .select('id, owner_id, name, slug, description, phone, address, status')
+        .eq('id', storeId)
+        .maybeSingle();
+
+    if (response == null) {
+      return null;
+    }
+
+    return StoreModel.fromMap(response);
+  }
+
+  Future<StoreModel> updateStore({
+    required String storeId,
+    required String name,
+    String? description,
+    String? phone,
+    String? address,
+  }) async {
+    final response = await _supabase
+        .from('stores')
+        .update({
+          'name': name,
+          'description': description,
+          'phone': phone,
+          'address': address,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', storeId)
+        .select('id, owner_id, name, slug, description, phone, address, status')
+        .single();
+
+    return StoreModel.fromMap(response);
+  }
+
   Future<StoreModel> createStore({
     required String name,
     required String slug,

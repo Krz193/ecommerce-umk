@@ -3,6 +3,8 @@ import 'package:mobile/features/order/models/order_payment_model.dart';
 class OrderItemModel {
   final String id;
 
+  final String productId;
+
   final String productName;
 
   final int productPrice;
@@ -15,6 +17,7 @@ class OrderItemModel {
 
   OrderItemModel({
     required this.id,
+    required this.productId,
     required this.productName,
     required this.productPrice,
     required this.quantity,
@@ -25,6 +28,8 @@ class OrderItemModel {
   factory OrderItemModel.fromJson(Map<String, dynamic> json) {
     return OrderItemModel(
       id: json['id'],
+
+      productId: json['product_id'] ?? '',
 
       productName: json['product_name'],
 

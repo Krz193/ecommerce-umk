@@ -25,6 +25,7 @@ final orderDetailProvider = FutureProvider.autoDispose
           ),
           order_items (
             id,
+            product_id,
             product_name,
             product_price,
             quantity,

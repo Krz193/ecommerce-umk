@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/cart/widgets/cart_action_button.dart';
 import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/product/providers/category_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
-import 'package:go_router/go_router.dart';
+import 'package:mobile/features/product/providers/product_review_providers.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -31,7 +33,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     searchController.dispose();
     minPriceController.dispose();
     maxPriceController.dispose();
-
     super.dispose();
   }
 
@@ -86,11 +87,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             .toList()
           ..sort((a, b) {
             final stockCompare = b.stock.compareTo(a.stock);
-
-            if (stockCompare != 0) {
-              return stockCompare;
-            }
-
+            if (stockCompare != 0) return stockCompare;
             return a.price.compareTo(b.price);
           });
 
@@ -103,8 +100,11 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products'),
-        actions: [const CartActionButton()],
+        title: const Text(
+          'Pasar UMK',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: const [CartActionButton()],
       ),
       body: ref
           .watch(productsProvider)
@@ -115,25 +115,28 @@ class _HomePageState extends ConsumerState<HomePage> {
 
               return ListView(
                 padding: const EdgeInsets.all(16),
-
                 children: [
+                  // Search Bar
                   TextField(
                     controller: searchController,
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search),
-                      labelText: 'Search products',
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: AppColors.primary,
+                      ),
+                      hintText: 'Cari produk UMK favorit Anda...',
                       suffixIcon: searchQuery.isEmpty
                           ? null
                           : IconButton(
-                              tooltip: 'Clear search',
+                              tooltip: 'Bersihkan pencarian',
                               onPressed: () {
                                 searchController.clear();
                                 setState(() {
                                   searchQuery = '';
                                 });
                               },
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(Icons.close_rounded),
                             ),
                     ),
                     onChanged: (value) {
@@ -145,96 +148,95 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   const SizedBox(height: 12),
 
+                  // Filters & Sort Bar
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       FilterChip(
-                        label: const Text('In stock'),
+                        label: const Text('Tersedia (In stock)'),
                         selected: inStockOnly,
+                        selectedColor: AppColors.primaryLight,
+                        checkmarkColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          color: inStockOnly
+                              ? AppColors.primaryHover
+                              : AppColors.textPrimary,
+                          fontWeight: inStockOnly
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 13,
+                        ),
                         onSelected: (value) {
                           setState(() {
                             inStockOnly = value;
                           });
                         },
                       ),
-                      DropdownButton<_ProductSort>(
-                        value: sort,
-                        onChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
-
-                          setState(() {
-                            sort = value;
-                          });
-                        },
-                        items: const [
-                          DropdownMenuItem(
-                            value: _ProductSort.newest,
-                            child: Text('Newest'),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<_ProductSort>(
+                            value: sort,
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.primary,
+                            ),
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                              fontFamily: 'Poppins',
+                            ),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                sort = value;
+                              });
+                            },
+                            items: const [
+                              DropdownMenuItem(
+                                value: _ProductSort.newest,
+                                child: Text('Terbaru'),
+                              ),
+                              DropdownMenuItem(
+                                value: _ProductSort.priceLow,
+                                child: Text('Harga Rendah → Tinggi'),
+                              ),
+                              DropdownMenuItem(
+                                value: _ProductSort.priceHigh,
+                                child: Text('Harga Tinggi → Rendah'),
+                              ),
+                              DropdownMenuItem(
+                                value: _ProductSort.stockHigh,
+                                child: Text('Stok Terbanyak'),
+                              ),
+                            ],
                           ),
-                          DropdownMenuItem(
-                            value: _ProductSort.priceLow,
-                            child: Text('Price low to high'),
-                          ),
-                          DropdownMenuItem(
-                            value: _ProductSort.priceHigh,
-                            child: Text('Price high to low'),
-                          ),
-                          DropdownMenuItem(
-                            value: _ProductSort.stockHigh,
-                            child: Text('Most stock'),
-                          ),
-                        ],
+                        ),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: clearFilters,
-                        icon: const Icon(Icons.filter_alt_off_outlined),
-                        label: const Text('Clear'),
-                      ),
+                      if (searchQuery.isNotEmpty ||
+                          selectedCategoryId != null ||
+                          inStockOnly ||
+                          minPrice != null ||
+                          maxPrice != null)
+                        TextButton.icon(
+                          onPressed: clearFilters,
+                          icon: const Icon(
+                            Icons.filter_alt_off_outlined,
+                            size: 16,
+                          ),
+                          label: const Text('Reset'),
+                        ),
                     ],
                   ),
 
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: minPriceController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Min price',
-                            prefixText: 'Rp ',
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              minPrice = int.tryParse(value.trim());
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: maxPriceController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Max price',
-                            prefixText: 'Rp ',
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              maxPrice = int.tryParse(value.trim());
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
+                  // Categories Horizontal Bar
                   categoriesAsync.when(
                     data: (categories) {
                       return Padding(
@@ -244,8 +246,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                           child: Row(
                             children: [
                               ChoiceChip(
-                                label: const Text('All Categories'),
+                                label: const Text('Semua Kategori'),
                                 selected: selectedCategoryId == null,
+                                selectedColor: AppColors.primaryLight,
+                                labelStyle: TextStyle(
+                                  color: selectedCategoryId == null
+                                      ? AppColors.primaryHover
+                                      : AppColors.textPrimary,
+                                  fontWeight: selectedCategoryId == null
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  fontSize: 13,
+                                ),
                                 onSelected: (_) {
                                   setState(() {
                                     selectedCategoryId = null;
@@ -254,11 +266,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                               const SizedBox(width: 8),
                               ...categories.map((category) {
+                                final isSelected =
+                                    selectedCategoryId == category.id;
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: ChoiceChip(
                                     label: Text(category.name),
-                                    selected: selectedCategoryId == category.id,
+                                    selected: isSelected,
+                                    selectedColor: AppColors.primaryLight,
+                                    labelStyle: TextStyle(
+                                      color: isSelected
+                                          ? AppColors.primaryHover
+                                          : AppColors.textPrimary,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      fontSize: 13,
+                                    ),
                                     onSelected: (_) {
                                       setState(() {
                                         selectedCategoryId = category.id;
@@ -272,33 +296,35 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ),
                       );
                     },
-                    error: (error, stackTrace) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Text(error.toString()),
-                      );
-                    },
-                    loading: () {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 12),
-                        child: LinearProgressIndicator(),
-                      );
-                    },
+                    error: (error, stackTrace) => const SizedBox.shrink(),
+                    loading: () => const LinearProgressIndicator(),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
+                  // Recommended Products Horizontal Scroll
                   if (recommended.isNotEmpty) ...[
-                    const Text(
-                      'Recommended Products',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.recommend_rounded,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Rekomendasi Produk',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     SizedBox(
-                      height: 260,
+                      height: 240,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: recommended.length,
@@ -306,43 +332,85 @@ class _HomePageState extends ConsumerState<HomePage> {
                             const SizedBox(width: 12),
                         itemBuilder: (context, index) {
                           return SizedBox(
-                            width: 220,
-                            child: buildProductCard(
-                              context,
-                              recommended[index],
-                              isCompact: true,
+                            width: 160,
+                            child: _ShopeeProductCard(
+                              product: recommended[index],
                               isRecommended: true,
                             ),
                           );
                         },
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                   ],
 
+                  // Main Product Title
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.grid_view_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Semua Produk',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
                   if (products.isEmpty)
-                    const Center(child: Text('No published products yet')),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          'Belum ada produk yang dipublikasi.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ),
 
                   if (products.isNotEmpty && visible.isEmpty)
-                    const Center(child: Text('No matching products')),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          'Tidak ada produk yang cocok dengan pencarian.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ),
 
-                  ...visible.map((product) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: buildProductCard(context, product),
-                    );
-                  }),
+                  // Shopee-Style 2 Column Grid View Layout
+                  if (visible.isNotEmpty)
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: visible.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.65,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                          ),
+                      itemBuilder: (context, index) {
+                        return _ShopeeProductCard(product: visible[index]);
+                      },
+                    ),
+
+                  const SizedBox(height: 24),
                 ],
               );
             },
-
-            error: (error, stackTrace) {
-              return Center(child: Text(error.toString()));
-            },
-
-            loading: () {
-              return const Center(child: CircularProgressIndicator());
-            },
+            error: (error, stackTrace) => Center(child: Text(error.toString())),
+            loading: () => const Center(child: CircularProgressIndicator()),
           ),
     );
   }
@@ -361,113 +429,199 @@ class _HomePageState extends ConsumerState<HomePage> {
       sort = _ProductSort.newest;
     });
   }
+}
 
-  Widget buildProductCard(
-    BuildContext context,
-    ProductModel product, {
-    bool isCompact = false,
-    bool isRecommended = false,
-  }) {
+class _ShopeeProductCard extends ConsumerWidget {
+  final ProductModel product;
+  final bool isRecommended;
+
+  const _ShopeeProductCard({required this.product, this.isRecommended = false});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(productReviewStatsProvider(product.id));
+
     return GestureDetector(
       onTap: () {
         context.push('/products/${product.id}');
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
+            // Top Product Image with Badge
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child: product.thumbnailUrl != null
+                        ? Image.network(
+                            product.thumbnailUrl!,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildImagePlaceholder();
+                            },
+                          )
+                        : _buildImagePlaceholder(),
+                  ),
+                  if (isRecommended)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Rekomendasi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (product.stock <= 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Habis',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Bottom Product Details
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (product.categoryName != null) ...[
+                    Text(
+                      product.categoryName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primaryHover,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                  Text(
                     product.name,
-                    maxLines: isCompact ? 2 : null,
-                    overflow: isCompact ? TextOverflow.ellipsis : null,
-                    style: TextStyle(
-                      fontSize: isCompact ? 16 : 18,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
+                      height: 1.25,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                ),
-                if (isRecommended) ...[
-                  const SizedBox(width: 8),
-                  const Icon(Icons.recommend_outlined, size: 18),
-                ],
-              ],
-            ),
-            if (product.thumbnailUrl != null) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  product.thumbnailUrl!,
-                  height: isCompact ? 88 : 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: isCompact ? 88 : 160,
-                      color: Colors.grey.shade200,
-                      alignment: Alignment.center,
-                      child: const Text('Image unavailable'),
-                    );
-                  },
-                ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              CurrencyFormatter.format(product.price),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              product.stock > 0 ? 'Stock: ${product.stock}' : 'Out of stock',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: product.stock > 0 ? Colors.grey.shade700 : Colors.red,
-              ),
-            ),
-            if (product.categoryName != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                product.categoryName!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            if (!isCompact && hasCharacteristics(product)) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  if (product.productType?.isNotEmpty == true)
-                    Chip(label: Text(product.productType!)),
-                  if (product.size?.isNotEmpty == true)
-                    Chip(label: Text(product.size!)),
-                  if (product.color?.isNotEmpty == true)
-                    Chip(label: Text(product.color!)),
+                  const SizedBox(height: 6),
+                  Text(
+                    CurrencyFormatter.format(product.price),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.star_rounded,
+                        color: stats.totalReviews > 0
+                            ? Colors.amber.shade700
+                            : Colors.grey.shade400,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        stats.totalReviews > 0
+                            ? '${stats.averageRating}'
+                            : 'New',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        product.stock > 0 ? 'Stok: ${product.stock}' : 'Habis',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: product.stock > 0
+                              ? AppColors.textSecondary
+                              : AppColors.error,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  bool hasCharacteristics(ProductModel product) {
-    return product.productType?.isNotEmpty == true ||
-        product.size?.isNotEmpty == true ||
-        product.color?.isNotEmpty == true;
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: Colors.grey.shade100,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.image_outlined,
+        color: AppColors.textMuted,
+        size: 32,
+      ),
+    );
   }
 }
 

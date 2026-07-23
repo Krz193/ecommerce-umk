@@ -17,7 +17,7 @@ class SellerProductsPage extends ConsumerStatefulWidget {
 class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
   @override
   Widget build(BuildContext context) {
-    final storeAsync = ref.watch(myStoreProvider);
+    final storeAsync = ref.watch(managedStoreProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Products')),

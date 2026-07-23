@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 
@@ -12,6 +13,8 @@ import 'package:mobile/features/order/providers/refund_request_provider.dart';
 import 'package:mobile/features/order/providers/order_status_provider.dart';
 import 'package:mobile/features/order/providers/orders_provider.dart';
 import 'package:mobile/features/order/widgets/refund_request_dialog.dart';
+import 'package:mobile/features/product/providers/product_review_providers.dart';
+import 'package:mobile/features/product/widgets/product_review_dialog.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -697,6 +700,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                       Text(
                         'Subtotal: ${CurrencyFormatter.format(item.subtotal)}',
                       ),
+                      _OrderItemReviewButton(
+                        orderId: order.id,
+                        productId: item.productId,
+                        isDeliveredOrCompleted:
+                            order.status == 'delivered' ||
+                            order.status == 'completed',
+                      ),
                     ],
                   ),
                 );
@@ -934,6 +944,88 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OrderItemReviewButton extends ConsumerWidget {
+  final String orderId;
+  final String productId;
+  final bool isDeliveredOrCompleted;
+
+  const _OrderItemReviewButton({
+    required this.orderId,
+    required this.productId,
+    required this.isDeliveredOrCompleted,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!isDeliveredOrCompleted) return const SizedBox.shrink();
+
+    final existingReview = productId.isEmpty
+        ? null
+        : ref
+              .watch(
+                orderProductReviewProvider((
+                  productId: productId,
+                  orderId: orderId,
+                )),
+              )
+              .asData
+              ?.value;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () async {
+            if (productId.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('ID Produk tidak ditemukan.')),
+              );
+              return;
+            }
+            await showDialog(
+              context: context,
+              builder: (context) => ProductReviewDialog(
+                productId: productId,
+                orderId: orderId,
+                existingReview: existingReview,
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: existingReview != null
+                ? AppColors.primaryLight
+                : AppColors.primary,
+            foregroundColor: existingReview != null
+                ? AppColors.primaryHover
+                : Colors.white,
+            elevation: 0,
+            minimumSize: const Size.fromHeight(48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: existingReview != null
+                  ? const BorderSide(color: AppColors.primary, width: 1.5)
+                  : BorderSide.none,
+            ),
+          ),
+          icon: Icon(
+            existingReview != null
+                ? Icons.edit_note_rounded
+                : Icons.star_rate_rounded,
+            size: 20,
+          ),
+          label: Text(
+            existingReview != null
+                ? 'Edit Ulasan Saya (${existingReview.rating}★)'
+                : 'Beri Ulasan Produk Ini',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+        ),
       ),
     );
   }

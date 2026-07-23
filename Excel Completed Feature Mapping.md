@@ -45,6 +45,8 @@ Legend:
 | B51 | User Pembeli | CRUD pengiriman sisi Pembeli | Completed for MVP through shipment progress display and confirm received. |
 | B52 | User Pembeli | Display informasi progres pengiriman | Completed for MVP through order timeline, shipment progress, courier, and tracking number. |
 | B55 | User Pembeli | CRUD pembatalan dan refund transaksi sisi Pembeli | Completed for MVP through buyer cancellation/refund request creation and request history on order detail. |
+| B59 | User Pembeli | CRUD Comment dan Star | Completed through buyer 1-5 star rating and comment CRUD on delivered order items, product review summary, and product detail review list. |
+| B32 | User UMK | Approval Comment Pembeli | Completed through seller store owner review display and seller reply capability on product reviews. |
 | B14 | User Admin - Basis Web Responsive | Display laporan UMK | Completed for MVP through Admin Reports UMK summary. |
 | B15 | User Admin - Basis Web Responsive | Display laporan barang per UMK | Completed for MVP through Admin Reports product count and low-stock report. |
 | B16 | User Admin - Basis Web Responsive | Display laporan keuangan per UMK | Completed for MVP through Admin Reports paid revenue/application fee summary. |
@@ -73,9 +75,7 @@ Legend:
 | B5 | User Admin - Basis Web Responsive | CRUD user (Admin, UMK, Pembeli, Expedisi, Gojek, Asisten UMK) | Admin user auth and marketplace user lookup completed; broad CRUD for all roles deferred |
 | B34 | User UMK | Display informasi keranjang pemesanan | Cart UI exists for buyer; seller cart visibility is not separately implemented |
 | B27 | User UMK | CRUD promosi | Promotion module not implemented |
-| B32 | User UMK | Approval Comment Pembeli | Review/comment module not implemented |
 | B33 | User UMK | CRUD Comment Sistem ke Admin | Comment/ticket module not implemented |
-| B59 | User Pembeli | CRUD Comment dan Star | Review/star module not implemented |
 | B18 | User Admin | Display laporan ekspedisi per UMK | Expedition module not implemented |
 | B19 | User Admin | Display laporan asisten UMK | Assistant module not implemented |
 | B20 | User Admin | Display laporan donasi UMK | Donation module not implemented |
