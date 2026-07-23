@@ -1,0 +1,1 @@
+grant update on public.payments to authenticated;

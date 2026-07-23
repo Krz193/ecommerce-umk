@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "734400449951",
+    "project_id": "e-commerce-umk",
+    "storage_bucket": "e-commerce-umk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:734400449951:android:654f771372ca54a8f801aa",
+        "android_client_info": {
+          "package_name": "com.ecommerceumk.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACf5W4vTUmikRyXpG-lO3llLtPczf5T_0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

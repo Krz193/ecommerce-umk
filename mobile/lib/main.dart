@@ -1,28 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/router/app_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'pages/product_page.dart';
+import 'package:mobile/core/theme/app_theme.dart';
+import 'package:mobile/features/auth/providers/auth_provider.dart';
+import 'package:mobile/features/cart/providers/cart_provider.dart';
+import 'package:mobile/features/order/providers/orders_provider.dart';
+import 'package:mobile/features/order/providers/order_detail_provider.dart';
+import 'package:mobile/features/order/providers/seller_order_provider.dart';
+import 'package:mobile/features/address/providers/address_provider.dart';
+import 'package:mobile/features/product/providers/seller_product_provider.dart';
+import 'package:mobile/features/store/providers/store_provider.dart';
 
-const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const supabaseKey = String.fromEnvironment('SUPABASE_KEY');
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await dotenv.load(fileName: '.env');
+
   await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseKey,
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: ProductPage(),
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(authStateProvider, (context, index) {
+      // Invalidate user-scoped providers on auth change to avoid stale
+      // or cross-account data shown after sign-out/sign-in.
+      ref.invalidate(cartProvider);
+      ref.invalidate(ordersProvider);
+      ref.invalidate(orderDetailProvider);
+      ref.invalidate(addressProvider);
+      ref.invalidate(currentUserProvider);
+      ref.invalidate(appUserProvider);
+      ref.invalidate(myStoreProvider);
+      ref.invalidate(sellerProductsProvider);
+      ref.invalidate(sellerOrdersProvider);
+      ref.invalidate(sellerOrderDetailProvider);
+    });
+
+    return MaterialApp.router(
+      title: 'Marketplace UMK',
+      debugShowCheckedModeBanner: false,
+      routerConfig: appRouter,
+      theme: AppTheme.lightTheme,
     );
   }
 }
