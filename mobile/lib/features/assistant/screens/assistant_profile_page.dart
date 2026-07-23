@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
@@ -12,7 +13,17 @@ class AssistantProfilePage extends ConsumerWidget {
     final profileAsync = ref.watch(assistantProfileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil Asisten UMK')),
+      appBar: AppBar(
+        title: const Text('Profil Asisten UMK'),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('Ubah Profil'),
+            onPressed: () => context.push('/edit-profile'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
@@ -123,6 +134,21 @@ class AssistantProfilePage extends ConsumerWidget {
                   icon: Icons.shield_outlined,
                   label: 'Peran Akun',
                   value: 'Asisten UMK (Pendamping Teknis Toko)',
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Ubah Profil Akun'),
+                    onPressed: () => context.push('/edit-profile'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 24),

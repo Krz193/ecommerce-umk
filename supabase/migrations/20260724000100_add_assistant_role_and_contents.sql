@@ -32,24 +32,35 @@ security definer
 set search_path = public
 as $$
 declare
-    updated_user public.users;
+    v_user public.users;
 begin
     if auth.uid() is null then
         raise exception 'Authentication required';
     end if;
 
-    update public.users
-    set role = 'assistant'
-    where id = auth.uid()
-      and role = 'buyer'
-    returning *
-    into updated_user;
+    select * into v_user
+    from public.users
+    where id = auth.uid();
 
     if not found then
-        raise exception 'Only buyer accounts can become assistants';
+        raise exception 'User profile not found';
     end if;
 
-    return updated_user;
+    if v_user.role = 'assistant' then
+        return v_user;
+    end if;
+
+    if v_user.role = 'seller' then
+        raise exception 'Akun Penjual UMK tidak dapat diubah menjadi Asisten UMK secara mandiri';
+    end if;
+
+    update public.users
+    set role = 'assistant',
+        updated_at = now()
+    where id = auth.uid()
+    returning * into v_user;
+
+    return v_user;
 end;
 $$;
 

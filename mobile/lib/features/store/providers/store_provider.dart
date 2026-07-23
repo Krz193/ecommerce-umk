@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/auth/providers/auth_provider.dart';
 import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/services/store_service.dart';
@@ -11,8 +12,17 @@ final storeServiceProvider = Provider<StoreService>((ref) {
 
 final myStoreProvider = FutureProvider.autoDispose<StoreModel?>((ref) async {
   final storeService = ref.read(storeServiceProvider);
-
   return storeService.getMyStore();
+});
+
+final managedStoreProvider = FutureProvider.autoDispose<StoreModel?>((ref) async {
+  final user = ref.watch(appUserProvider).asData?.value;
+
+  if (user?.isAssistant == true) {
+    return ref.watch(handledStoreProvider.future);
+  }
+
+  return ref.watch(myStoreProvider.future);
 });
 
 final publicStoreProvider = FutureProvider.family<StoreModel, String>((

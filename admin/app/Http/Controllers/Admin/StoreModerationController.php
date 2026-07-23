@@ -91,7 +91,7 @@ class StoreModerationController extends Controller
                 ->orderByDesc('products.created_at')
                 ->limit(8)
                 ->get(),
-            'assistants' => $db->table('store_assistants')
+            'assistant' => $db->table('store_assistants')
                 ->join('users', 'users.id', '=', 'store_assistants.user_id')
                 ->select([
                     'users.id',
@@ -101,7 +101,7 @@ class StoreModerationController extends Controller
                     'store_assistants.assigned_at',
                 ])
                 ->where('store_assistants.store_id', $store)
-                ->get(),
+                ->first(),
             'candidateUsers' => $db->table('users')
                 ->select(['id', 'full_name', 'phone', 'role'])
                 ->whereIn('role', ['buyer', 'assistant'])
@@ -189,20 +189,18 @@ class StoreModerationController extends Controller
             ]);
         }
 
-        $exists = $db->table('store_assistants')
+        // Delete any existing assistant assignment for this store (since 1 store can only have 1 assistant)
+        $db->table('store_assistants')
             ->where('store_id', $store)
-            ->where('user_id', $userRow->id)
-            ->exists();
+            ->delete();
 
-        if (! $exists) {
-            $db->table('store_assistants')->insert([
-                'store_id' => $store,
-                'user_id' => $userRow->id,
-                'assigned_by' => $userRow->id,
-                'assigned_at' => now(),
-                'created_at' => now(),
-            ]);
-        }
+        $db->table('store_assistants')->insert([
+            'store_id' => $store,
+            'user_id' => $userRow->id,
+            'assigned_by' => $userRow->id,
+            'assigned_at' => now(),
+            'created_at' => now(),
+        ]);
 
         $auditLogger->log(
             $request,

@@ -42,7 +42,7 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final storeAsync = ref.watch(myStoreProvider);
+    final storeAsync = ref.watch(managedStoreProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Store Orders')),

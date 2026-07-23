@@ -32,11 +32,11 @@ type StoreShowProps = {
     };
     metrics: Record<string, number>;
     recentProducts: ProductRow[];
-    assistants?: AssistantRow[];
+    assistant?: AssistantRow | null;
     candidateUsers?: CandidateUser[];
 };
 
-export default function StoreShow({ store, metrics, recentProducts, assistants = [], candidateUsers = [] }: StoreShowProps) {
+export default function StoreShow({ store, metrics, recentProducts, assistant = null, candidateUsers = [] }: StoreShowProps) {
     const handleAssignAssistant = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -113,12 +113,12 @@ export default function StoreShow({ store, metrics, recentProducts, assistants =
                     </Card>
                 </div>
 
-                {/* Section Asisten UMK */}
+                {/* Section Asisten UMK (1 Store = 1 Assistant) */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                             <CardTitle className="text-base">Asisten UMK (Pendamping Toko)</CardTitle>
-                            <p className="text-xs text-muted-foreground mt-1">Daftar pengguna yang ditugaskan sebagai asisten pendamping untuk toko UMK ini.</p>
+                            <p className="text-xs text-muted-foreground mt-1">Setiap toko UMK dapat ditugaskan 1 orang Asisten Pendamping. Satu asisten dapat mendampingi beberapa toko.</p>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -128,17 +128,17 @@ export default function StoreShow({ store, metrics, recentProducts, assistants =
                                 required
                                 className="flex-1 h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             >
-                                <option value="">-- Pilih Pengguna untuk Dijadikan Asisten UMK --</option>
+                                <option value="">-- {assistant ? 'Pilih Pengguna Baru untuk Menggantikan Asisten Saat Ini' : 'Pilih Pengguna untuk Dijadikan Asisten UMK Toko Ini'} --</option>
                                 {candidateUsers.map((user) => (
                                     <option key={user.id} value={user.id}>
                                         {user.full_name} ({user.role}) - {user.phone || 'Tanpa No HP'}
                                     </option>
                                 ))}
                             </select>
-                            <Button type="submit" size="sm">Tugaskan Sebagai Asisten</Button>
+                            <Button type="submit" size="sm">{assistant ? 'Ganti Asisten' : 'Tugaskan Asisten'}</Button>
                         </form>
 
-                        {assistants.length === 0 ? (
+                        {!assistant ? (
                             <p className="text-xs text-muted-foreground py-2 italic text-center">Belum ada Asisten UMK yang ditugaskan untuk toko ini.</p>
                         ) : (
                             <div className="overflow-x-auto">
@@ -152,28 +152,26 @@ export default function StoreShow({ store, metrics, recentProducts, assistants =
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {assistants.map((assistant) => (
-                                            <tr key={assistant.id} className="border-b last:border-0">
-                                                <td className="py-2.5 font-medium">{assistant.full_name}</td>
-                                                <td className="py-2.5">{assistant.phone || '-'}</td>
-                                                <td className="py-2.5">
-                                                    <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 ring-1 ring-inset ring-purple-600/20">
-                                                        {assistant.role}
-                                                    </span>
-                                                </td>
-                                                <td className="py-2.5">
-                                                    <ConfirmActionDialog
-                                                        title="Hapus Penugasan Asisten"
-                                                        description={`Apakah Anda yakin ingin menghapus penugasan ${assistant.full_name} sebagai asisten toko ${store.name}?`}
-                                                        actionLabel="Hapus Penugasan"
-                                                        triggerLabel="Hapus"
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        onConfirm={() => router.delete(`/stores/${store.id}/assistants/${assistant.id}`)}
-                                                    />
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        <tr className="border-b last:border-0">
+                                            <td className="py-2.5 font-medium">{assistant.full_name}</td>
+                                            <td className="py-2.5">{assistant.phone || '-'}</td>
+                                            <td className="py-2.5">
+                                                <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 ring-1 ring-inset ring-purple-600/20">
+                                                    {assistant.role}
+                                                </span>
+                                            </td>
+                                            <td className="py-2.5">
+                                                <ConfirmActionDialog
+                                                    title="Hapus Penugasan Asisten"
+                                                    description={`Apakah Anda yakin ingin menghapus penugasan ${assistant.full_name} sebagai asisten toko ${store.name}?`}
+                                                    actionLabel="Hapus Penugasan"
+                                                    triggerLabel="Hapus Penugasan"
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onConfirm={() => router.delete(`/stores/${store.id}/assistants/${assistant.id}`)}
+                                                />
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>

@@ -343,56 +343,67 @@ class AccountPage extends ConsumerWidget {
   }
 
   Future<void> openAssistantArea(BuildContext context, WidgetRef ref) async {
-    final user = ref.read(appUserProvider).asData?.value;
+    final user = await ref.read(appUserProvider.future);
 
-    if (user?.role == 'buyer') {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (dialogCtx) => AlertDialog(
-          title: const Text('Daftar Sebagai Asisten UMK'),
-          content: const Text(
-            'Sebagai Asisten UMK, Anda akan dapat mendampingi toko UMK dalam mengelola produk, pesanan, dan membuat konten promosi.\n\nApakah Anda ingin mengaktifkan akun Asisten UMK?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx, false),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogCtx, true),
-              child: const Text('Aktifkan Akun Asisten'),
-            ),
-          ],
-        ),
-      );
+    if (!context.mounted) return;
 
-      if (confirm == true) {
-        try {
-          final service = ref.read(assistantServiceProvider);
-          await service.becomeAssistant();
-          ref.invalidate(appUserProvider);
-
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Selamat! Akun Anda telah diubah menjadi Asisten UMK.',
-                ),
-              ),
-            );
-            context.push('/assistant/dashboard');
-          }
-        } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Gagal mengubah peran: $e')));
-          }
-        }
-      }
+    if (user != null && user.isAssistant) {
+      context.push('/assistant/dashboard');
       return;
     }
 
-    context.push('/assistant/dashboard');
+    if (user != null && user.isSeller) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Akun Penjual UMK tidak dapat diubah menjadi Asisten UMK.'),
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Daftar Sebagai Asisten UMK'),
+        content: const Text(
+          'Sebagai Asisten UMK, Anda akan dapat mendampingi toko UMK dalam mengelola produk, pesanan, dan membuat konten promosi.\n\nApakah Anda ingin mengaktifkan akun Asisten UMK?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('Aktifkan Akun Asisten'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final service = ref.read(assistantServiceProvider);
+        await service.becomeAssistant();
+        ref.invalidate(appUserProvider);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Selamat! Akun Anda telah diubah menjadi Asisten UMK.',
+              ),
+            ),
+          );
+          context.push('/assistant/dashboard');
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Gagal mengubah peran: $e')));
+        }
+      }
+    }
   }
 }

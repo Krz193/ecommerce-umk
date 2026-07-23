@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/store/providers/store_provider.dart';
 
 class AssistantDashboardPage extends ConsumerWidget {
   const AssistantDashboardPage({super.key});
@@ -34,7 +36,11 @@ class AssistantDashboardPage extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, color: Colors.red, size: 48),
                 const SizedBox(height: 12),
-                Text('Gagal memuat profil asisten: $err'),
+                Text(
+                  formatUserFriendlyError(err),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () => ref.invalidate(assistantProfileProvider),
@@ -264,10 +270,39 @@ class AssistantDashboardPage extends ConsumerWidget {
                       _buildMenuCard(
                         context,
                         title: 'Profil Asisten',
-                        subtitle: 'Kelola Akun Asisten',
+                        subtitle: 'Lihat Akun Asisten',
                         icon: Icons.badge_outlined,
                         color: Colors.blue.shade700,
                         onTap: () => context.push('/assistant/profile'),
+                      ),
+                      _buildMenuCard(
+                        context,
+                        title: 'Profil Toko UMK',
+                        subtitle: 'Kelola Informasi Toko',
+                        icon: Icons.storefront_outlined,
+                        color: Colors.deepOrange.shade700,
+                        onTap: () async {
+                          final targetStoreId = activeStore?.storeId;
+                          if (targetStoreId == null) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Belum ada Toko UMK yang didampingi.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+
+                          final storeService = ref.read(storeServiceProvider);
+                          final store =
+                              await storeService.getStoreById(targetStoreId);
+                          if (store != null && context.mounted) {
+                            context.push('/seller/edit-store', extra: store);
+                          }
+                        },
                       ),
                       _buildMenuCard(
                         context,

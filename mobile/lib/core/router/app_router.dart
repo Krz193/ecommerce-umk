@@ -20,7 +20,10 @@ import 'package:mobile/features/order/orders_page.dart';
 import 'package:mobile/features/order/order_detail_page.dart';
 import 'package:mobile/features/payment/payment_page.dart';
 import 'package:mobile/features/auth/register_page.dart';
+import 'package:mobile/features/store/models/store_model.dart';
+import 'package:mobile/features/store/seller_edit_store_page.dart';
 import 'package:mobile/features/store/seller_onboarding_page.dart';
+import 'package:mobile/features/store/seller_reviews_page.dart';
 import 'package:mobile/features/store/seller_store_dashboard_page.dart';
 import 'package:mobile/features/store/store_public_page.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
@@ -148,6 +151,19 @@ final appRouter = GoRouter(
     ),
 
     GoRoute(
+      path: '/edit-profile',
+      builder: (context, state) => const EditProfilePage(),
+    ),
+
+    GoRoute(
+      path: '/seller/edit-store',
+      builder: (context, state) {
+        final store = state.extra as StoreModel;
+        return SellerEditStorePage(store: store);
+      },
+    ),
+
+    GoRoute(
       path: '/seller/onboarding',
       builder: (context, state) {
         return const SellerOnboardingPage();
@@ -204,6 +220,13 @@ final appRouter = GoRouter(
         final orderId = state.pathParameters['id']!;
 
         return SellerOrderDetailPage(orderId: orderId);
+      },
+    ),
+
+    GoRoute(
+      path: '/seller/reviews',
+      builder: (context, state) {
+        return const SellerReviewsPage();
       },
     ),
 

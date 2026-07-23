@@ -23,7 +23,7 @@ class AssistantService {
             id,
             name,
             logo_url,
-            city
+            address
           )
         ''')
         .eq('user_id', userId)

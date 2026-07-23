@@ -3,6 +3,8 @@ import 'package:mobile/features/assistant/models/assistance_log_model.dart';
 import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/services/assistant_service.dart';
+import 'package:mobile/features/store/models/store_model.dart';
+import 'package:mobile/features/store/providers/store_provider.dart';
 
 final assistantServiceProvider = Provider<AssistantService>((ref) {
   return AssistantService();
@@ -45,3 +47,20 @@ final storeContentsProvider = FutureProvider.autoDispose
       final service = ref.watch(assistantServiceProvider);
       return service.getStoreContents(storeId: storeId);
     });
+
+final handledStoreProvider = FutureProvider.autoDispose<StoreModel?>((ref) async {
+  final selectedStore = ref.watch(selectedStoreProvider);
+  String? storeId = selectedStore?.storeId;
+
+  if (storeId == null) {
+    final stores = await ref.watch(assignedStoresProvider.future);
+    storeId = stores.firstOrNull?.storeId;
+  }
+
+  if (storeId != null) {
+    final storeService = ref.read(storeServiceProvider);
+    return storeService.getStoreById(storeId);
+  }
+
+  return null;
+});
