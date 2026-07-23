@@ -19,9 +19,18 @@ class AppTheme {
     ),
 
     textTheme: GoogleFonts.poppinsTextTheme().copyWith(
-      displayLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-      titleLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-      titleMedium: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+      displayLarge: TextStyle(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.bold,
+      ),
+      titleLarge: TextStyle(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.bold,
+      ),
+      titleMedium: TextStyle(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
       bodyLarge: TextStyle(color: AppColors.textPrimary),
       bodyMedium: TextStyle(color: AppColors.textPrimary),
       bodySmall: TextStyle(color: AppColors.textSecondary),
@@ -116,7 +125,10 @@ class AppTheme {
 
     chipTheme: ChipThemeData(
       backgroundColor: AppColors.primaryLight,
-      labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+      labelStyle: const TextStyle(
+        color: AppColors.primary,
+        fontWeight: FontWeight.w600,
+      ),
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),

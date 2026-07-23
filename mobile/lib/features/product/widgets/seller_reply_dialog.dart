@@ -114,7 +114,11 @@ class _SellerReplyDialogState extends ConsumerState<SellerReplyDialog> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.person_outline, size: 16, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.person_outline,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           widget.review.userName ?? "Pembeli",
@@ -129,7 +133,9 @@ class _SellerReplyDialogState extends ConsumerState<SellerReplyDialog> {
                           children: List.generate(
                             5,
                             (i) => Icon(
-                              i < widget.review.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                              i < widget.review.rating
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
                               color: Colors.amber.shade700,
                               size: 14,
                             ),
@@ -156,10 +162,17 @@ class _SellerReplyDialogState extends ConsumerState<SellerReplyDialog> {
                 controller: replyController,
                 enabled: !isSubmitting,
                 maxLines: 3,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                ),
                 decoration: InputDecoration(
-                  hintText: 'Tuliskan ucapan terima kasih atau tanggapan Anda di sini...',
-                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  hintText:
+                      'Tuliskan ucapan terima kasih atau tanggapan Anda di sini...',
+                  hintStyle: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
                   fillColor: AppColors.background,
                   filled: true,
                   border: OutlineInputBorder(
@@ -173,7 +186,9 @@ class _SellerReplyDialogState extends ConsumerState<SellerReplyDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton(
-                    onPressed: isSubmitting ? null : () => Navigator.of(context).pop(false),
+                    onPressed: isSubmitting
+                        ? null
+                        : () => Navigator.of(context).pop(false),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: Colors.grey.shade300),
                       foregroundColor: AppColors.textSecondary,
@@ -198,7 +213,10 @@ class _SellerReplyDialogState extends ConsumerState<SellerReplyDialog> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text('Kirim Balasan'),
                   ),

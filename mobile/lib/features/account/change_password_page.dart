@@ -66,9 +66,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ubah Kata Sandi'),
-      ),
+      appBar: AppBar(title: const Text('Ubah Kata Sandi')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

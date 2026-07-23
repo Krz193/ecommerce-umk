@@ -19,6 +19,8 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('stores/{store}', [StoreModerationController::class, 'show'])->name('admin.stores.show');
     Route::patch('stores/{store}/approve', [StoreModerationController::class, 'approve'])->name('admin.stores.approve');
     Route::patch('stores/{store}/suspend', [StoreModerationController::class, 'suspend'])->name('admin.stores.suspend');
+    Route::post('stores/{store}/assistants', [StoreModerationController::class, 'assignAssistant'])->name('admin.stores.assistants.assign');
+    Route::delete('stores/{store}/assistants/{user}', [StoreModerationController::class, 'removeAssistant'])->name('admin.stores.assistants.remove');
 
     Route::get('products', [ProductModerationController::class, 'index'])->name('admin.products.index');
     Route::get('products/{product}', [ProductModerationController::class, 'show'])->name('admin.products.show');

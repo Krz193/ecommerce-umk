@@ -121,7 +121,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                     controller: searchController,
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: AppColors.primary,
+                      ),
                       hintText: 'Cari produk UMK favorit Anda...',
                       suffixIcon: searchQuery.isEmpty
                           ? null
@@ -157,8 +160,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                         selectedColor: AppColors.primaryLight,
                         checkmarkColor: AppColors.primary,
                         labelStyle: TextStyle(
-                          color: inStockOnly ? AppColors.primaryHover : AppColors.textPrimary,
-                          fontWeight: inStockOnly ? FontWeight.bold : FontWeight.normal,
+                          color: inStockOnly
+                              ? AppColors.primaryHover
+                              : AppColors.textPrimary,
+                          fontWeight: inStockOnly
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           fontSize: 13,
                         ),
                         onSelected: (value) {
@@ -177,7 +184,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<_ProductSort>(
                             value: sort,
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.primary,
+                            ),
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 13,
@@ -210,10 +220,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                         ),
                       ),
-                      if (searchQuery.isNotEmpty || selectedCategoryId != null || inStockOnly || minPrice != null || maxPrice != null)
+                      if (searchQuery.isNotEmpty ||
+                          selectedCategoryId != null ||
+                          inStockOnly ||
+                          minPrice != null ||
+                          maxPrice != null)
                         TextButton.icon(
                           onPressed: clearFilters,
-                          icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
+                          icon: const Icon(
+                            Icons.filter_alt_off_outlined,
+                            size: 16,
+                          ),
                           label: const Text('Reset'),
                         ),
                     ],
@@ -233,8 +250,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 selected: selectedCategoryId == null,
                                 selectedColor: AppColors.primaryLight,
                                 labelStyle: TextStyle(
-                                  color: selectedCategoryId == null ? AppColors.primaryHover : AppColors.textPrimary,
-                                  fontWeight: selectedCategoryId == null ? FontWeight.bold : FontWeight.normal,
+                                  color: selectedCategoryId == null
+                                      ? AppColors.primaryHover
+                                      : AppColors.textPrimary,
+                                  fontWeight: selectedCategoryId == null
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                   fontSize: 13,
                                 ),
                                 onSelected: (_) {
@@ -245,7 +266,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                               const SizedBox(width: 8),
                               ...categories.map((category) {
-                                final isSelected = selectedCategoryId == category.id;
+                                final isSelected =
+                                    selectedCategoryId == category.id;
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: ChoiceChip(
@@ -253,8 +275,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     selected: isSelected,
                                     selectedColor: AppColors.primaryLight,
                                     labelStyle: TextStyle(
-                                      color: isSelected ? AppColors.primaryHover : AppColors.textPrimary,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected
+                                          ? AppColors.primaryHover
+                                          : AppColors.textPrimary,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
                                       fontSize: 13,
                                     ),
                                     onSelected: (_) {
@@ -280,7 +306,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                   if (recommended.isNotEmpty) ...[
                     const Row(
                       children: [
-                        Icon(Icons.recommend_rounded, color: AppColors.primary, size: 22),
+                        Icon(
+                          Icons.recommend_rounded,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
                         SizedBox(width: 6),
                         Text(
                           'Rekomendasi Produk',
@@ -298,7 +328,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: recommended.length,
-                        separatorBuilder: (context, index) => const SizedBox(width: 12),
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(width: 12),
                         itemBuilder: (context, index) {
                           return SizedBox(
                             width: 160,
@@ -316,7 +347,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                   // Main Product Title
                   const Row(
                     children: [
-                      Icon(Icons.grid_view_rounded, color: AppColors.primary, size: 20),
+                      Icon(
+                        Icons.grid_view_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Semua Produk',
@@ -358,12 +393,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: visible.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.65,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.65,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                          ),
                       itemBuilder: (context, index) {
                         return _ShopeeProductCard(product: visible[index]);
                       },
@@ -399,10 +435,7 @@ class _ShopeeProductCard extends ConsumerWidget {
   final ProductModel product;
   final bool isRecommended;
 
-  const _ShopeeProductCard({
-    required this.product,
-    this.isRecommended = false,
-  });
+  const _ShopeeProductCard({required this.product, this.isRecommended = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -433,7 +466,9 @@ class _ShopeeProductCard extends ConsumerWidget {
               child: Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                     child: product.thumbnailUrl != null
                         ? Image.network(
                             product.thumbnailUrl!,
@@ -451,7 +486,10 @@ class _ShopeeProductCard extends ConsumerWidget {
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(8),
@@ -471,7 +509,10 @@ class _ShopeeProductCard extends ConsumerWidget {
                       top: 8,
                       right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.error,
                           borderRadius: BorderRadius.circular(8),
@@ -534,12 +575,16 @@ class _ShopeeProductCard extends ConsumerWidget {
                     children: [
                       Icon(
                         Icons.star_rounded,
-                        color: stats.totalReviews > 0 ? Colors.amber.shade700 : Colors.grey.shade400,
+                        color: stats.totalReviews > 0
+                            ? Colors.amber.shade700
+                            : Colors.grey.shade400,
                         size: 14,
                       ),
                       const SizedBox(width: 2),
                       Text(
-                        stats.totalReviews > 0 ? '${stats.averageRating}' : 'New',
+                        stats.totalReviews > 0
+                            ? '${stats.averageRating}'
+                            : 'New',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -551,7 +596,9 @@ class _ShopeeProductCard extends ConsumerWidget {
                         product.stock > 0 ? 'Stok: ${product.stock}' : 'Habis',
                         style: TextStyle(
                           fontSize: 11,
-                          color: product.stock > 0 ? AppColors.textSecondary : AppColors.error,
+                          color: product.stock > 0
+                              ? AppColors.textSecondary
+                              : AppColors.error,
                         ),
                       ),
                     ],

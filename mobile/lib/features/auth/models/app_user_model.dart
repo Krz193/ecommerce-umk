@@ -19,6 +19,7 @@ class AppUserModel {
 
   bool get isBuyer => role == 'buyer';
   bool get isSeller => role == 'seller';
+  bool get isAssistant => role == 'assistant';
   bool get isAdmin => role == 'admin';
 
   factory AppUserModel.fromMap(Map<String, dynamic> map) {

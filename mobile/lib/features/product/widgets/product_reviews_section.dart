@@ -77,14 +77,21 @@ class ProductReviewsSection extends ConsumerWidget {
               ),
               if (stats.totalReviews > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.star_rounded, color: Colors.amber.shade700, size: 18),
+                      Icon(
+                        Icons.star_rounded,
+                        color: Colors.amber.shade700,
+                        size: 18,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${stats.averageRating}',
@@ -96,7 +103,10 @@ class ProductReviewsSection extends ConsumerWidget {
                       ),
                       Text(
                         ' (${stats.totalReviews})',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -121,7 +131,10 @@ class ProductReviewsSection extends ConsumerWidget {
                       SizedBox(height: 8),
                       Text(
                         'Belum ada ulasan untuk produk ini.',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
@@ -192,7 +205,11 @@ class ProductReviewsSection extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.star_rounded, color: Colors.amber.shade700, size: 14),
+                Icon(
+                  Icons.star_rounded,
+                  color: Colors.amber.shade700,
+                  size: 14,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ClipRRect(
@@ -212,7 +229,10 @@ class ProductReviewsSection extends ConsumerWidget {
                   width: 24,
                   child: Text(
                     '$count',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                     textAlign: TextAlign.end,
                   ),
                 ),
@@ -242,7 +262,11 @@ class ProductReviewsSection extends ConsumerWidget {
                   ? NetworkImage(review.userAvatarUrl!)
                   : null,
               child: review.userAvatarUrl == null
-                  ? const Icon(Icons.person_rounded, size: 20, color: AppColors.primary)
+                  ? const Icon(
+                      Icons.person_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    )
                   : null,
             ),
             const SizedBox(width: 10),
@@ -260,7 +284,10 @@ class ProductReviewsSection extends ConsumerWidget {
                   ),
                   Text(
                     DateFormatter.format(review.createdAt),
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -269,7 +296,9 @@ class ProductReviewsSection extends ConsumerWidget {
               children: List.generate(
                 5,
                 (i) => Icon(
-                  i < review.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                  i < review.rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
                   color: Colors.amber.shade700,
                   size: 18,
                 ),
@@ -295,7 +324,9 @@ class ProductReviewsSection extends ConsumerWidget {
             decoration: BoxDecoration(
               color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,7 +336,11 @@ class ProductReviewsSection extends ConsumerWidget {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.storefront_rounded, size: 14, color: AppColors.primary),
+                        Icon(
+                          Icons.storefront_rounded,
+                          size: 14,
+                          color: AppColors.primary,
+                        ),
                         SizedBox(width: 4),
                         Text(
                           'Respon Penjual',
@@ -320,7 +355,10 @@ class ProductReviewsSection extends ConsumerWidget {
                     if (review.sellerRepliedAt != null)
                       Text(
                         DateFormatter.format(review.sellerRepliedAt!),
-                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                   ],
                 ),
@@ -351,7 +389,10 @@ class ProductReviewsSection extends ConsumerWidget {
               icon: const Icon(Icons.reply_rounded, size: 16),
               label: Text(
                 review.sellerReply != null ? 'Edit Balasan' : 'Balas Ulasan',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

@@ -186,10 +186,17 @@ class _ProductReviewDialogState extends ConsumerState<ProductReviewDialog> {
                         ? null
                         : () => setState(() => rating = starValue),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
                       child: Icon(
-                        isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                        color: isSelected ? Colors.amber.shade700 : Colors.grey.shade400,
+                        isSelected
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        color: isSelected
+                            ? Colors.amber.shade700
+                            : Colors.grey.shade400,
                         size: 38,
                       ),
                     ),
@@ -198,7 +205,10 @@ class _ProductReviewDialogState extends ConsumerState<ProductReviewDialog> {
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(20),
@@ -217,10 +227,16 @@ class _ProductReviewDialogState extends ConsumerState<ProductReviewDialog> {
                 controller: commentController,
                 enabled: !isSubmitting,
                 maxLines: 3,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Tuliskan ulasan produk Anda di sini (opsional)...',
-                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  hintStyle: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
                   fillColor: AppColors.background,
                   filled: true,
                   border: OutlineInputBorder(
@@ -235,14 +251,19 @@ class _ProductReviewDialogState extends ConsumerState<ProductReviewDialog> {
                   if (isEditing) ...[
                     IconButton(
                       onPressed: isSubmitting ? null : _delete,
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: AppColors.error,
+                      ),
                       tooltip: 'Hapus Ulasan',
                     ),
                     const SizedBox(width: 8),
                   ],
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: isSubmitting ? null : () => Navigator.of(context).pop(false),
+                      onPressed: isSubmitting
+                          ? null
+                          : () => Navigator.of(context).pop(false),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: Colors.grey.shade300),
                         foregroundColor: AppColors.textSecondary,

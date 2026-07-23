@@ -46,10 +46,7 @@ class AuthService {
     try {
       final response = await _supabase
           .from('users')
-          .update({
-            'full_name': fullName,
-            'phone': blankToNull(phone),
-          })
+          .update({'full_name': fullName, 'phone': blankToNull(phone)})
           .eq('id', user.id)
           .select('id, full_name, phone, avatar_url, role')
           .single();

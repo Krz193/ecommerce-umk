@@ -5,6 +5,7 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
+import 'package:mobile/features/assistant/providers/assistant_providers.dart';
 
 class AccountPage extends ConsumerWidget {
   const AccountPage({super.key});
@@ -40,6 +41,7 @@ class AccountPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appUser = ref.watch(appUserProvider);
+    final currentUser = appUser.asData?.value;
 
     return Scaffold(
       appBar: AppBar(
@@ -71,7 +73,9 @@ class AccountPage extends ConsumerWidget {
                 final emailDisplay = user?.email.isNotEmpty == true
                     ? user!.email
                     : (supabase.auth.currentUser?.email ?? user?.phone ?? '');
-                final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+                final initial = displayName.isNotEmpty
+                    ? displayName[0].toUpperCase()
+                    : 'U';
 
                 return Row(
                   children: [
@@ -110,13 +114,20 @@ class AccountPage extends ConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primaryLight,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              user?.role == 'seller' ? 'Penjual UMK 🏬' : 'Pembeli 🛒',
+                              user?.role == 'seller'
+                                  ? 'Penjual UMK 🏬'
+                                  : user?.role == 'assistant'
+                                  ? 'Asisten UMK 🤝'
+                                  : 'Pembeli 🛒',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -195,6 +206,24 @@ class AccountPage extends ConsumerWidget {
                 title: 'Toko UMK Saya',
                 subtitle: 'Kelola produk, stok, dan pesanan toko',
                 onTap: () => openSellerArea(context, ref),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Section 3.5: Area Asisten UMK
+          buildSectionTitle('Pendampingan UMK'),
+          const SizedBox(height: 10),
+          buildActionCard(
+            children: [
+              buildActionTile(
+                icon: Icons.handshake_outlined,
+                iconColor: Colors.purple.shade700,
+                title: 'Dashboard Asisten UMK',
+                subtitle: currentUser?.role == 'assistant'
+                    ? 'Pendampingan toko UMK, log aksi, & CRUD konten'
+                    : 'Daftar atau masuk sebagai Asisten Pendamping UMK',
+                onTap: () => openAssistantArea(context, ref),
               ),
             ],
           ),
@@ -295,10 +324,7 @@ class AccountPage extends ConsumerWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textMuted,
-            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -314,5 +340,59 @@ class AccountPage extends ConsumerWidget {
     }
 
     context.push('/seller/store');
+  }
+
+  Future<void> openAssistantArea(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(appUserProvider).asData?.value;
+
+    if (user?.role == 'buyer') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (dialogCtx) => AlertDialog(
+          title: const Text('Daftar Sebagai Asisten UMK'),
+          content: const Text(
+            'Sebagai Asisten UMK, Anda akan dapat mendampingi toko UMK dalam mengelola produk, pesanan, dan membuat konten promosi.\n\nApakah Anda ingin mengaktifkan akun Asisten UMK?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx, false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogCtx, true),
+              child: const Text('Aktifkan Akun Asisten'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        try {
+          final service = ref.read(assistantServiceProvider);
+          await service.becomeAssistant();
+          ref.invalidate(appUserProvider);
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Selamat! Akun Anda telah diubah menjadi Asisten UMK.',
+                ),
+              ),
+            );
+            context.push('/assistant/dashboard');
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Gagal mengubah peran: $e')));
+          }
+        }
+      }
+      return;
+    }
+
+    context.push('/assistant/dashboard');
   }
 }

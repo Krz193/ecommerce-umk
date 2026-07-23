@@ -1014,17 +1014,16 @@ class _OrderItemReviewButton extends ConsumerWidget {
             ),
           ),
           icon: Icon(
-            existingReview != null ? Icons.edit_note_rounded : Icons.star_rate_rounded,
+            existingReview != null
+                ? Icons.edit_note_rounded
+                : Icons.star_rate_rounded,
             size: 20,
           ),
           label: Text(
             existingReview != null
                 ? 'Edit Ulasan Saya (${existingReview.rating}★)'
                 : 'Beri Ulasan Produk Ini',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
         ),
       ),

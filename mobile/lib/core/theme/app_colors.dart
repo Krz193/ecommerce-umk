@@ -14,7 +14,9 @@ class AppColors {
   static const surface = Colors.white;
 
   // Text
-  static const textPrimary = Color(0xFF111827); // Deep Charcoal/Black for legibility
+  static const textPrimary = Color(
+    0xFF111827,
+  ); // Deep Charcoal/Black for legibility
   static const textSecondary = Color(0xFF6B7280); // Muted Slate Gray
   static const textMuted = Color(0xFF9CA3AF);
 

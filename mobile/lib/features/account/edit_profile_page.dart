@@ -88,9 +88,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     final appUser = ref.watch(appUserProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profil Saya'),
-      ),
+      appBar: AppBar(title: const Text('Edit Profil Saya')),
       body: appUser.when(
         data: (user) {
           if (user == null) {
