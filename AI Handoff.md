@@ -57,6 +57,8 @@ Project saat ini sudah memiliki:
 * buyer confirm received foundation implemented
 * seller order management lifecycle manually validated
 * seller quick stock adjustment validated
+* product star rating & buyer review CRUD and seller review response implemented for Excel B59 and B32
+* Asisten UMK side implementation (Profile Asisten B74, Log Asistensi Otomatis B75, CRUD Content UMK B76) completed for Excel rows 73-76
 
 Core buyer transactional commerce flow sudah berjalan end-to-end.
 

@@ -64,6 +64,7 @@ Current repo verification:
 * seller product characteristics implemented for MVP Excel B25 with type, size, and color fields
 * buyer home simple recommendation section implemented for MVP Excel B46
 * buyer and seller cancellation/refund request flow implemented for MVP Excel B55 and B31
+* buyer product star & review CRUD and seller review response implemented for MVP Excel B59 and B32
 
 ---
 
