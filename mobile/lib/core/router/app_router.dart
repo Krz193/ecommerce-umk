@@ -32,6 +32,7 @@ import 'package:mobile/features/assistant/screens/assistant_dashboard_page.dart'
 import 'package:mobile/features/assistant/screens/assistant_profile_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_form_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_list_page.dart';
+import 'package:mobile/features/explore/explore_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -46,6 +47,10 @@ final appRouter = GoRouter(
     final isAuthRoute =
         state.matchedLocation == '/login' ||
         state.matchedLocation == '/register';
+
+    if (state.matchedLocation == '/') {
+      return isLoggedIn ? '/home' : '/login';
+    }
 
     if (!isLoggedIn && !isAuthRoute) {
       return '/login';
@@ -75,6 +80,13 @@ final appRouter = GoRouter(
       },
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+
+        GoRoute(
+          path: '/explore',
+          builder: (context, state) {
+            return const ExplorePage();
+          },
+        ),
 
         GoRoute(
           path: '/orders',
@@ -237,6 +249,15 @@ final appRouter = GoRouter(
         final orderId = state.pathParameters['id']!;
 
         return OrderDetailPage(orderId: orderId);
+      },
+    ),
+
+    GoRoute(
+      path: '/store/:id',
+      builder: (context, state) {
+        final storeId = state.pathParameters['id']!;
+
+        return StorePublicPage(storeId: storeId);
       },
     ),
 

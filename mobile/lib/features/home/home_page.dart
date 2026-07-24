@@ -8,6 +8,7 @@ import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/product/providers/category_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:mobile/features/product/providers/product_review_providers.dart';
+import 'package:mobile/features/explore/explore_providers.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -145,6 +146,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                       });
                     },
                   ),
+
+                  const SizedBox(height: 12),
+
+                  // Top Promo Banner Slider
+                  _buildPromoBannerCarousel(context, ref),
 
                   const SizedBox(height: 12),
 
@@ -412,6 +418,127 @@ class _HomePageState extends ConsumerState<HomePage> {
             error: (error, stackTrace) => Center(child: Text(error.toString())),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
+    );
+  }
+
+  Widget _buildPromoBannerCarousel(BuildContext context, WidgetRef ref) {
+    final bannersAsync = ref.watch(publicHomeBannersProvider);
+
+    return bannersAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (err, stack) => const SizedBox.shrink(),
+      data: (banners) {
+        if (banners.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          height: 140,
+          margin: const EdgeInsets.only(bottom: 4),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: banners.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final banner = banners[index];
+              return Container(
+                width: 280,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    if (banner.mediaUrls.isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          banner.mediaUrls.first,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withAlpha(180),
+                            Colors.black.withAlpha(40),
+                          ],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              banner.contentTypeLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            banner.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            banner.storeName ?? 'Toko UMK',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            context.push('/store/${banner.storeId}');
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

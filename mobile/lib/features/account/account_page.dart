@@ -355,7 +355,9 @@ class AccountPage extends ConsumerWidget {
     if (user != null && user.isSeller) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Akun Penjual UMK tidak dapat diubah menjadi Asisten UMK.'),
+          content: Text(
+            'Akun Penjual UMK tidak dapat diubah menjadi Asisten UMK.',
+          ),
         ),
       );
       return;

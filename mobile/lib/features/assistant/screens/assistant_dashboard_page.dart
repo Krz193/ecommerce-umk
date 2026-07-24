@@ -297,8 +297,9 @@ class AssistantDashboardPage extends ConsumerWidget {
                           }
 
                           final storeService = ref.read(storeServiceProvider);
-                          final store =
-                              await storeService.getStoreById(targetStoreId);
+                          final store = await storeService.getStoreById(
+                            targetStoreId,
+                          );
                           if (store != null && context.mounted) {
                             context.push('/seller/edit-store', extra: store);
                           }

@@ -54,7 +54,7 @@ class AssignedStoreInfo {
       storeId: map['store_id'] ?? store['id'] ?? '',
       storeName: store['name'] ?? 'Toko UMK',
       storeLogoUrl: store['logo_url'],
-      storeCity: store['city'],
+      storeCity: store['address'],
       assignedAt: map['assigned_at'] != null
           ? DateTime.parse(map['assigned_at'])
           : DateTime.now(),
