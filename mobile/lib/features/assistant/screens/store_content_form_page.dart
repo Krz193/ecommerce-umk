@@ -168,7 +168,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           SnackBar(
             content: Text(
               widget.existingContent == null
-                  ? 'Konten berhasil dibuat & dicatat ke log!'
+                  ? 'Konten berhasil dibuat dan dipublikasikan!'
                   : 'Konten berhasil diperbarui!',
             ),
           ),
@@ -261,7 +261,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                     initialValue: _productId,
                     decoration: const InputDecoration(
                       labelText: 'Produk yang Dipromosikan (Opsional)',
-                      hintText: 'Pilih produk untuk Direct CTA Pembeli',
+                      hintText: 'Pilih produk yang ingin ditautkan langsung ke pembeli',
                       border: OutlineInputBorder(),
                     ),
                     items: [
@@ -318,7 +318,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Unggah gambar spanduk, foto produk promo, atau gambar pendukung narasi (disimpan di Supabase Storage).',
+                'Unggah gambar spanduk, foto produk promo, atau gambar pendukung cerita (format gambar JPG, PNG, atau WEBP).',
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 10),

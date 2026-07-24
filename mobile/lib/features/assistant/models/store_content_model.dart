@@ -69,6 +69,16 @@ class StoreContentModel {
     );
   }
 
+  String? get displayCoverUrl {
+    if (mediaUrls.isNotEmpty && mediaUrls.first.isNotEmpty) {
+      return mediaUrls.first;
+    }
+    if (productThumbnailUrl != null && productThumbnailUrl!.isNotEmpty) {
+      return productThumbnailUrl;
+    }
+    return null;
+  }
+
   String get contentTypeLabel {
     switch (contentType) {
       case 'banner':

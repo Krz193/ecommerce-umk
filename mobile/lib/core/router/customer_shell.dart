@@ -8,25 +8,25 @@ class CustomerShell extends StatelessWidget {
 
   static const tabs = [
     _CustomerTab(
-      label: 'Home',
+      label: 'Beranda',
       icon: Icons.home_outlined,
       activeIcon: Icons.home,
       path: '/home',
     ),
     _CustomerTab(
-      label: 'Explore',
+      label: 'Jelajah',
       icon: Icons.explore_outlined,
       activeIcon: Icons.explore,
       path: '/explore',
     ),
     _CustomerTab(
-      label: 'Orders',
+      label: 'Pesanan',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
       path: '/orders',
     ),
     _CustomerTab(
-      label: 'Account',
+      label: 'Akun',
       icon: Icons.person_outline,
       activeIcon: Icons.person,
       path: '/account',

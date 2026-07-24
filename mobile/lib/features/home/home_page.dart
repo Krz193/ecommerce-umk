@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -102,7 +104,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Pasar UMK',
+          'E-commerce UMK',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: const [CartActionButton()],
@@ -161,7 +163,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       FilterChip(
-                        label: const Text('Tersedia (In stock)'),
+                        label: const Text('Stok Tersedia'),
                         selected: inStockOnly,
                         selectedColor: AppColors.primaryLight,
                         checkmarkColor: AppColors.primary,
@@ -433,49 +435,81 @@ class _HomePageState extends ConsumerState<HomePage> {
         return Container(
           height: 140,
           margin: const EdgeInsets.only(bottom: 4),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: banners.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 12),
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: banners.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final banner = banners[index];
+              final coverUrl = banner.displayCoverUrl;
+              final hasPhoto = coverUrl != null;
+
               return Container(
                 width: 280,
                 decoration: BoxDecoration(
+                  color: hasPhoto ? const Color(0xFF0F172A) : AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(16),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  border: Border.all(
+                    color: hasPhoto
+                        ? Colors.transparent
+                        : AppColors.primary.withAlpha(60),
                   ),
                 ),
                 child: Stack(
                   children: [
-                    if (banner.mediaUrls.isNotEmpty)
+                    // Cover Image if uploaded or product thumbnail fallback
+                    if (hasPhoto)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: Image.network(
-                          banner.mediaUrls.first,
+                          coverUrl,
                           width: double.infinity,
                           height: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               const SizedBox.shrink(),
                         ),
-                      ),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.black.withAlpha(180),
-                            Colors.black.withAlpha(40),
-                          ],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
+                      )
+                    else
+                      // Flat Vector Icon Watermark Placeholder (Light Theme)
+                      Positioned(
+                        right: -10,
+                        bottom: -10,
+                        child: Icon(
+                          banner.contentType == 'promo'
+                              ? Icons.local_offer_rounded
+                              : banner.contentType == 'storytelling'
+                                  ? Icons.auto_stories_rounded
+                                  : Icons.campaign_rounded,
+                          size: 110,
+                          color: AppColors.primary.withAlpha(35),
                         ),
                       ),
-                    ),
+
+                    // Gradient Overlay for Readability (Only on Photo)
+                    if (hasPhoto)
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withAlpha(190),
+                              Colors.black.withAlpha(60),
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
+                      ),
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
@@ -503,8 +537,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                           const SizedBox(height: 4),
                           Text(
                             banner.title,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: hasPhoto
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
@@ -513,8 +549,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                           Text(
                             banner.storeName ?? 'Toko UMK',
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: hasPhoto
+                                  ? Colors.white70
+                                  : AppColors.textSecondary,
                               fontSize: 11,
                             ),
                           ),
@@ -537,7 +575,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               );
             },
           ),
-        );
+        ),
+      );
       },
     );
   }

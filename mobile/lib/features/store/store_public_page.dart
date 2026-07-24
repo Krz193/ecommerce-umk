@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
+import 'package:mobile/core/utils/date_formatter.dart';
+import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/explore/explore_providers.dart';
 import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/store/models/store_model.dart';
@@ -62,35 +64,40 @@ class StorePublicPage extends ConsumerWidget {
                             const SizedBox(width: 14),
                         itemBuilder: (context, index) {
                           final item = contents[index];
-                          final hasMedia = item.mediaUrls.isNotEmpty;
                           final hasProduct = item.productId != null &&
                               item.productId!.isNotEmpty;
+
+                          final coverUrl = item.displayCoverUrl;
+                          final hasPhoto = coverUrl != null;
 
                           return Container(
                             width: 280,
                             decoration: BoxDecoration(
+                              color: hasPhoto
+                                  ? const Color(0xFF0F172A)
+                                  : AppColors.primaryLight,
                               borderRadius: BorderRadius.circular(16),
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                              border: Border.all(
+                                color: hasPhoto
+                                    ? Colors.transparent
+                                    : AppColors.primary.withAlpha(60),
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withAlpha(25),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
+                                  color: Colors.black.withAlpha(12),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
                             child: Stack(
                               children: [
-                                // Cover Image Preview if available
-                                if (hasMedia)
+                                // Cover Image Preview or Flat Vector Icon Placeholder
+                                if (hasPhoto)
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(16),
                                     child: Image.network(
-                                      item.mediaUrls.first,
+                                      coverUrl,
                                       width: double.infinity,
                                       height: double.infinity,
                                       fit: BoxFit.cover,
@@ -98,23 +105,38 @@ class StorePublicPage extends ConsumerWidget {
                                           (context, error, stackTrace) =>
                                               const SizedBox.shrink(),
                                     ),
-                                  ),
-
-                                // Dark Overlay Gradient
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.black.withAlpha(210),
-                                        Colors.black.withAlpha(80),
-                                        Colors.transparent,
-                                      ],
-                                      begin: Alignment.bottomCenter,
-                                      end: Alignment.topCenter,
+                                  )
+                                else
+                                  Positioned(
+                                    right: -10,
+                                    bottom: -10,
+                                    child: Icon(
+                                      item.contentType == 'promo'
+                                          ? Icons.local_offer_rounded
+                                          : item.contentType == 'storytelling'
+                                              ? Icons.auto_stories_rounded
+                                              : Icons.campaign_rounded,
+                                      size: 110,
+                                      color: AppColors.primary.withAlpha(35),
                                     ),
                                   ),
-                                ),
+
+                                // Dark Overlay Gradient (Only on photo)
+                                if (hasPhoto)
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.black.withAlpha(210),
+                                          Colors.black.withAlpha(80),
+                                          Colors.transparent,
+                                        ],
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                      ),
+                                    ),
+                                  ),
 
                                 // Content Details & CTA
                                 Padding(
@@ -123,18 +145,20 @@ class StorePublicPage extends ConsumerWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // Top Content Type Badge
-                                      Row(
+                                      // Top Content Type & Promo Badges (Wrap to prevent overflow)
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
                                         children: [
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
+                                              horizontal: 8,
+                                              vertical: 3,
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppColors.primary,
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(10),
                                             ),
                                             child: Text(
                                               item.contentTypeLabel,
@@ -145,7 +169,6 @@ class StorePublicPage extends ConsumerWidget {
                                               ),
                                             ),
                                           ),
-                                          const Spacer(),
                                           if (hasProduct)
                                             Container(
                                               padding:
@@ -174,8 +197,10 @@ class StorePublicPage extends ConsumerWidget {
                                       // Content Title & Body Snippet
                                       Text(
                                         item.title,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: hasPhoto
+                                              ? Colors.white
+                                              : AppColors.textPrimary,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
                                           height: 1.2,
@@ -188,8 +213,10 @@ class StorePublicPage extends ConsumerWidget {
                                         const SizedBox(height: 2),
                                         Text(
                                           item.body!,
-                                          style: const TextStyle(
-                                            color: Colors.white70,
+                                          style: TextStyle(
+                                            color: hasPhoto
+                                                ? Colors.white70
+                                                : AppColors.textSecondary,
                                             fontSize: 11,
                                           ),
                                           maxLines: 2,
@@ -249,7 +276,7 @@ class StorePublicPage extends ConsumerWidget {
                                         const SizedBox(height: 8),
                                       ],
 
-                                      // CTA Action InkWell
+                                      // CTA Action Button
                                       SizedBox(
                                         width: double.infinity,
                                         height: 34,
@@ -259,18 +286,23 @@ class StorePublicPage extends ConsumerWidget {
                                               context.push(
                                                 '/products/${item.productId}',
                                               );
+                                            } else {
+                                              _showContentDetailModal(
+                                                context,
+                                                item,
+                                              );
                                             }
                                           },
                                           icon: Icon(
                                             hasProduct
                                                 ? Icons.shopping_cart_outlined
-                                                : Icons.arrow_forward_rounded,
+                                                : Icons.article_outlined,
                                             size: 14,
                                           ),
                                           label: Text(
                                             hasProduct
                                                 ? 'Lihat Produk 🛒'
-                                                : 'Lihat Promo',
+                                                : 'Detail Promosi',
                                             style:
                                                 const TextStyle(fontSize: 12),
                                           ),
@@ -318,10 +350,19 @@ class StorePublicPage extends ConsumerWidget {
                   );
                 }
 
-                return Column(
-                  children: products.map((product) {
-                    return buildProductCard(context, product);
-                  }).toList(),
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.70,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    return buildProductCard(context, products[index]);
+                  },
                 );
               },
               error: (error, stackTrace) => Text(error.toString()),
@@ -354,11 +395,11 @@ class StorePublicPage extends ConsumerWidget {
           ],
           if (store.phone?.isNotEmpty == true) ...[
             const SizedBox(height: 8),
-            Text('Phone: ${store.phone}'),
+            Text('Telepon: ${store.phone}'),
           ],
           if (store.address?.isNotEmpty == true) ...[
             const SizedBox(height: 8),
-            Text('Address: ${store.address}'),
+            Text('Alamat: ${store.address}'),
           ],
         ],
       ),
@@ -366,59 +407,266 @@ class StorePublicPage extends ConsumerWidget {
   }
 
   Widget buildProductCard(BuildContext context, ProductModel product) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
+    return GestureDetector(
       onTap: () {
         context.push('/products/${product.id}');
       },
       child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (product.thumbnailUrl != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  product.thumbnailUrl!,
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 160,
-                      color: Colors.grey.shade200,
-                      alignment: Alignment.center,
-                      child: const Text('Image unavailable'),
-                    );
-                  },
-                ),
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child: product.thumbnailUrl != null
+                        ? Image.network(
+                            product.thumbnailUrl!,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey.shade100,
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.image_outlined,
+                                  color: AppColors.textMuted,
+                                  size: 32,
+                                ),
+                              );
+                            },
+                          )
+                        : Container(
+                            color: Colors.grey.shade100,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.image_outlined,
+                              color: AppColors.textMuted,
+                              size: 32,
+                            ),
+                          ),
+                  ),
+                  if (product.stock <= 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Habis',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-            ],
-            Text(
-              product.name,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            Text(CurrencyFormatter.format(product.price)),
-            const SizedBox(height: 4),
-            Text(
-              product.stock > 0 ? 'Stock: ${product.stock}' : 'Out of stock',
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (product.categoryName != null) ...[
+                    Text(
+                      product.categoryName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primaryHover,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      height: 1.25,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    CurrencyFormatter.format(product.price),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    product.stock > 0 ? 'Stok: ${product.stock}' : 'Stok Habis',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            if (product.categoryName != null) ...[
-              const SizedBox(height: 4),
-              Text(product.categoryName!),
-            ],
           ],
         ),
       ),
+    );
+  }
+
+  void _showContentDetailModal(BuildContext context, StoreContentModel item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: ListView(
+                controller: scrollController,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          item.contentTypeLabel,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        DateFormatter.format(item.createdAt),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.storeName ?? 'Toko UMK',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (item.mediaUrls.isNotEmpty) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        item.mediaUrls.first,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (item.body != null && item.body!.isNotEmpty) ...[
+                    Text(
+                      item.body!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Tutup Detail'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

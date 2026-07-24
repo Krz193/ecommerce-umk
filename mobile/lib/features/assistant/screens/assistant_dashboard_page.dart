@@ -247,8 +247,8 @@ class AssistantDashboardPage extends ConsumerWidget {
                     children: [
                       _buildMenuCard(
                         context,
-                        title: 'Content UMK',
-                        subtitle: 'CRUD Konten Promosi',
+                        title: 'Konten Promosi',
+                        subtitle: 'Kelola Konten & Promosi',
                         icon: Icons.article_outlined,
                         color: Colors.orange.shade700,
                         onTap: activeStore == null
@@ -259,8 +259,8 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                       _buildMenuCard(
                         context,
-                        title: 'Log Asistensi',
-                        subtitle: 'Pencatatan Otomatis',
+                        title: 'Riwayat Pendampingan',
+                        subtitle: 'Catatan Aktivitas Pendampingan',
                         icon: Icons.history_edu,
                         color: Colors.purple.shade700,
                         onTap: () => context.push(

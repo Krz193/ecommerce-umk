@@ -263,7 +263,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               ),
             ],
 
-            // Media Gallery Preview
+            // Media Gallery Preview (Only if photo uploaded)
             if (item.mediaUrls.isNotEmpty) ...[
               const SizedBox(height: 12),
               ClipRRect(
@@ -273,12 +273,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                   child: Image.network(
                     item.mediaUrls.first,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey.shade100,
-                      child: const Center(
-                        child: Icon(Icons.broken_image, color: Colors.grey),
-                      ),
-                    ),
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox.shrink(),
                   ),
                 ),
               ),
@@ -296,12 +292,40 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.shopping_bag_outlined,
-                      color: AppColors.primary,
-                      size: 20,
+                    // Small Product Banner Thumbnail Image
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: item.productThumbnailUrl != null &&
+                              item.productThumbnailUrl!.isNotEmpty
+                          ? Image.network(
+                              item.productThumbnailUrl!,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                width: 44,
+                                height: 44,
+                                color: AppColors.primary.withAlpha(30),
+                                child: const Icon(
+                                  Icons.shopping_bag_outlined,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 44,
+                              height: 44,
+                              color: AppColors.primary.withAlpha(30),
+                              child: const Icon(
+                                Icons.shopping_bag_outlined,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                            ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,23 +351,32 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                         ],
                       ),
                     ),
-                    ElevatedButton(
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
                       onPressed: () {
                         context.push('/products/${item.productId}');
                       },
+                      icon: const Icon(
+                        Icons.shopping_cart_outlined,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Beli',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
+                          horizontal: 10,
                           vertical: 6,
                         ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text(
-                        'Beli 🛒',
-                        style: TextStyle(fontSize: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ],

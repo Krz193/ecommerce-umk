@@ -51,9 +51,9 @@ final publicHomeBannersProvider =
         )
       ''')
           .eq('is_active', true)
-          .inFilter('content_type', ['banner', 'promo'])
+          .eq('content_type', 'promo')
           .order('created_at', ascending: false)
-          .limit(5);
+          .limit(10);
 
       final List<dynamic> data = response as List<dynamic>;
       return data.map((json) => StoreContentModel.fromMap(json)).toList();

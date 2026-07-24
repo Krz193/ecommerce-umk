@@ -47,7 +47,7 @@ class MyApp extends ConsumerWidget {
     });
 
     return MaterialApp.router(
-      title: 'Marketplace UMK',
+      title: 'E-commerce UMK',
       debugShowCheckedModeBanner: false,
       routerConfig: appRouter,
       theme: AppTheme.lightTheme,
