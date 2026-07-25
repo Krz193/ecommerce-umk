@@ -117,6 +117,12 @@ class AssistantService {
           *,
           stores (
             name
+          ),
+          products (
+            id,
+            name,
+            price,
+            thumbnail_url
           )
         ''')
         .eq('store_id', storeId)
@@ -132,6 +138,7 @@ class AssistantService {
     required String contentType,
     String? body,
     List<String>? mediaUrls,
+    String? productId,
     bool isActive = true,
   }) async {
     final userId = supabase.auth.currentUser?.id;
@@ -146,6 +153,7 @@ class AssistantService {
           'content_type': contentType,
           'body': body,
           'media_urls': mediaUrls ?? [],
+          'product_id': productId,
           'is_active': isActive,
         })
         .select()
@@ -173,6 +181,7 @@ class AssistantService {
     required String contentType,
     String? body,
     List<String>? mediaUrls,
+    String? productId,
     required bool isActive,
   }) async {
     await supabase
@@ -182,6 +191,7 @@ class AssistantService {
           'content_type': contentType,
           'body': body,
           'media_urls': mediaUrls ?? [],
+          'product_id': productId,
           'is_active': isActive,
           'updated_at': DateTime.now().toIso8601String(),
         })

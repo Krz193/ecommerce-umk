@@ -15,7 +15,9 @@ final myStoreProvider = FutureProvider.autoDispose<StoreModel?>((ref) async {
   return storeService.getMyStore();
 });
 
-final managedStoreProvider = FutureProvider.autoDispose<StoreModel?>((ref) async {
+final managedStoreProvider = FutureProvider.autoDispose<StoreModel?>((
+  ref,
+) async {
   final user = ref.watch(appUserProvider).asData?.value;
 
   if (user?.isAssistant == true) {

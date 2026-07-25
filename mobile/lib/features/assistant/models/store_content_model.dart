@@ -10,6 +10,10 @@ class StoreContentModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? storeName;
+  final String? productId;
+  final String? productName;
+  final int? productPrice;
+  final String? productThumbnailUrl;
 
   StoreContentModel({
     required this.id,
@@ -23,10 +27,15 @@ class StoreContentModel {
     required this.createdAt,
     required this.updatedAt,
     this.storeName,
+    this.productId,
+    this.productName,
+    this.productPrice,
+    this.productThumbnailUrl,
   });
 
   factory StoreContentModel.fromMap(Map<String, dynamic> map) {
     final store = map['stores'] as Map<String, dynamic>?;
+    final product = map['products'] as Map<String, dynamic>?;
     final media = map['media_urls'];
     List<String> parsedMedia = [];
     if (media is List) {
@@ -49,7 +58,25 @@ class StoreContentModel {
           ? DateTime.parse(map['updated_at'])
           : DateTime.now(),
       storeName: store?['name'],
+      productId: map['product_id'] ?? product?['id'],
+      productName: product?['name'],
+      productPrice: product?['price'] is int
+          ? product!['price'] as int
+          : (product?['price'] != null
+              ? int.tryParse(product!['price'].toString())
+              : null),
+      productThumbnailUrl: product?['thumbnail_url'],
     );
+  }
+
+  String? get displayCoverUrl {
+    if (mediaUrls.isNotEmpty && mediaUrls.first.isNotEmpty) {
+      return mediaUrls.first;
+    }
+    if (productThumbnailUrl != null && productThumbnailUrl!.isNotEmpty) {
+      return productThumbnailUrl;
+    }
+    return null;
   }
 
   String get contentTypeLabel {

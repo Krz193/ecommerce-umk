@@ -1,6 +1,10 @@
 /// Utility helper to translate raw technical errors (PostgrestException, SocketException)
 /// into user-friendly Indonesian messages for end users.
-String formatUserFriendlyError(Object? error, {String defaultMessage = 'Terjadi kendala saat memuat data. Silakan coba lagi.'}) {
+String formatUserFriendlyError(
+  Object? error, {
+  String defaultMessage =
+      'Terjadi kendala saat memuat data. Silakan coba lagi.',
+}) {
   if (error == null) return defaultMessage;
   final msg = error.toString();
 
@@ -12,7 +16,9 @@ String formatUserFriendlyError(Object? error, {String defaultMessage = 'Terjadi 
     return 'Gagal memuat profil toko: Silakan dorong pembaruan migrasi database (supabase db push).';
   }
 
-  if (msg.contains('PostgrestException') || msg.contains('SocketException') || msg.contains('TimeoutException')) {
+  if (msg.contains('PostgrestException') ||
+      msg.contains('SocketException') ||
+      msg.contains('TimeoutException')) {
     return 'Gagal terhubung ke server. Silakan periksa koneksi internet Anda dan coba lagi.';
   }
 

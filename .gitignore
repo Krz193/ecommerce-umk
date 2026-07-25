@@ -25,3 +25,5 @@ admin/.env.example
 
 # Supabase temp CLI
 supabase/.temp/cli-latest
+
+.agents/*.zip

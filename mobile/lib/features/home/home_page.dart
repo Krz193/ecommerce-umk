@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/product/providers/category_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:mobile/features/product/providers/product_review_providers.dart';
+import 'package:mobile/features/explore/explore_providers.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -101,7 +104,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Pasar UMK',
+          'E-commerce UMK',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: const [CartActionButton()],
@@ -148,6 +151,11 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   const SizedBox(height: 12),
 
+                  // Top Promo Banner Slider
+                  _buildPromoBannerCarousel(context, ref),
+
+                  const SizedBox(height: 12),
+
                   // Filters & Sort Bar
                   Wrap(
                     spacing: 8,
@@ -155,7 +163,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       FilterChip(
-                        label: const Text('Tersedia (In stock)'),
+                        label: const Text('Stok Tersedia'),
                         selected: inStockOnly,
                         selectedColor: AppColors.primaryLight,
                         checkmarkColor: AppColors.primary,
@@ -412,6 +420,164 @@ class _HomePageState extends ConsumerState<HomePage> {
             error: (error, stackTrace) => Center(child: Text(error.toString())),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
+    );
+  }
+
+  Widget _buildPromoBannerCarousel(BuildContext context, WidgetRef ref) {
+    final bannersAsync = ref.watch(publicHomeBannersProvider);
+
+    return bannersAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (err, stack) => const SizedBox.shrink(),
+      data: (banners) {
+        if (banners.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          height: 140,
+          margin: const EdgeInsets.only(bottom: 4),
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: banners.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final banner = banners[index];
+              final coverUrl = banner.displayCoverUrl;
+              final hasPhoto = coverUrl != null;
+
+              return Container(
+                width: 280,
+                decoration: BoxDecoration(
+                  color: hasPhoto ? const Color(0xFF0F172A) : AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: hasPhoto
+                        ? Colors.transparent
+                        : AppColors.primary.withAlpha(60),
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Cover Image if uploaded or product thumbnail fallback
+                    if (hasPhoto)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          coverUrl,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox.shrink(),
+                        ),
+                      )
+                    else
+                      // Flat Vector Icon Watermark Placeholder (Light Theme)
+                      Positioned(
+                        right: -10,
+                        bottom: -10,
+                        child: Icon(
+                          banner.contentType == 'promo'
+                              ? Icons.local_offer_rounded
+                              : banner.contentType == 'storytelling'
+                                  ? Icons.auto_stories_rounded
+                                  : Icons.campaign_rounded,
+                          size: 110,
+                          color: AppColors.primary.withAlpha(35),
+                        ),
+                      ),
+
+                    // Gradient Overlay for Readability (Only on Photo)
+                    if (hasPhoto)
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withAlpha(190),
+                              Colors.black.withAlpha(60),
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              banner.contentTypeLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            banner.title,
+                            style: TextStyle(
+                              color: hasPhoto
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            banner.storeName ?? 'Toko UMK',
+                            style: TextStyle(
+                              color: hasPhoto
+                                  ? Colors.white70
+                                  : AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            context.push('/store/${banner.storeId}');
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      },
     );
   }
 

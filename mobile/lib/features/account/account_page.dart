@@ -159,7 +159,12 @@ class AccountPage extends ConsumerWidget {
                 subtitle: 'Nama lengkap, email, dan nomor HP',
                 onTap: () => context.push('/account/edit'),
               ),
-              const Divider(height: 1, indent: 48),
+              Divider(
+                height: 1,
+                indent: 66,
+                endIndent: 16,
+                color: Colors.grey.shade200,
+              ),
               buildActionTile(
                 icon: Icons.location_on_outlined,
                 iconColor: AppColors.primary,
@@ -167,7 +172,12 @@ class AccountPage extends ConsumerWidget {
                 subtitle: 'Atur alamat utama untuk checkout',
                 onTap: () => context.push('/addresses'),
               ),
-              const Divider(height: 1, indent: 48),
+              Divider(
+                height: 1,
+                indent: 66,
+                endIndent: 16,
+                color: Colors.grey.shade200,
+              ),
               buildActionTile(
                 icon: Icons.receipt_long_outlined,
                 iconColor: AppColors.primary,
@@ -221,7 +231,7 @@ class AccountPage extends ConsumerWidget {
                 iconColor: Colors.purple.shade700,
                 title: 'Dashboard Asisten UMK',
                 subtitle: currentUser?.role == 'assistant'
-                    ? 'Pendampingan toko UMK, log aksi, & CRUD konten'
+                    ? 'Pendampingan toko UMK, riwayat, & konten promosi'
                     : 'Daftar atau masuk sebagai Asisten Pendamping UMK',
                 onTap: () => openAssistantArea(context, ref),
               ),
@@ -355,7 +365,9 @@ class AccountPage extends ConsumerWidget {
     if (user != null && user.isSeller) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Akun Penjual UMK tidak dapat diubah menjadi Asisten UMK.'),
+          content: Text(
+            'Akun Penjual UMK tidak dapat diubah menjadi Asisten UMK.',
+          ),
         ),
       );
       return;

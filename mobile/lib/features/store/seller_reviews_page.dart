@@ -8,9 +8,9 @@ import 'package:mobile/features/store/providers/store_provider.dart';
 
 final storeReviewsProvider = FutureProvider.family
     .autoDispose<List<Map<String, dynamic>>, String>((ref, storeId) async {
-  final response = await supabase
-      .from('product_reviews')
-      .select('''
+      final response = await supabase
+          .from('product_reviews')
+          .select('''
         *,
         user:users (
           id,
@@ -23,11 +23,11 @@ final storeReviewsProvider = FutureProvider.family
           store_id
         )
       ''')
-      .eq('products.store_id', storeId)
-      .order('created_at', ascending: false);
+          .eq('products.store_id', storeId)
+          .order('created_at', ascending: false);
 
-  return List<Map<String, dynamic>>.from(response as List);
-});
+      return List<Map<String, dynamic>>.from(response as List);
+    });
 
 class SellerReviewsPage extends ConsumerWidget {
   const SellerReviewsPage({super.key});
@@ -113,8 +113,7 @@ class SellerReviewsPage extends ConsumerWidget {
                         final review = ProductReviewModel.fromJson(raw);
                         final productMap =
                             raw['product'] as Map<String, dynamic>? ?? {};
-                        final productName =
-                            productMap['name'] ?? 'Produk UMK';
+                        final productName = productMap['name'] ?? 'Produk UMK';
                         final displayName = review.userName ?? 'Pembeli';
 
                         return Card(
@@ -232,9 +231,8 @@ class SellerReviewsPage extends ConsumerWidget {
                                     onPressed: () {
                                       showDialog(
                                         context: context,
-                                        builder: (_) => SellerReplyDialog(
-                                          review: review,
-                                        ),
+                                        builder: (_) =>
+                                            SellerReplyDialog(review: review),
                                       ).then((_) {
                                         ref.invalidate(
                                           storeReviewsProvider(store.id),

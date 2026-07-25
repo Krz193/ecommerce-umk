@@ -15,7 +15,7 @@ class AssistanceLogPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Log Asistensi Otomatis'),
+        title: const Text('Riwayat Pendampingan UMK'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -31,7 +31,7 @@ class AssistanceLogPage extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, color: Colors.red, size: 48),
               const SizedBox(height: 12),
-              Text('Gagal memuat log asistensi: $err'),
+              Text('Gagal memuat riwayat pendampingan: $err'),
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () =>
@@ -54,7 +54,7 @@ class AssistanceLogPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Belum Ada Log Aktivitas Asistensi',
+                    'Belum Ada Catatan Pendampingan',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),

@@ -99,51 +99,51 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
   String notificationText(dynamic order) {
     if (order.paymentStatus == 'pending') {
-      return 'Complete payment for ${order.orderNumber}';
+      return 'Selesaikan pembayaran untuk pesanan ${order.orderNumber}';
     }
 
     if (order.paymentStatus == 'paid' && order.status == 'processing') {
-      return '${order.orderNumber} is being prepared by the seller';
+      return 'Pesanan ${order.orderNumber} sedang disiapkan oleh penjual';
     }
 
     if (order.status == 'shipped') {
-      return '${order.orderNumber} has been shipped';
+      return 'Pesanan ${order.orderNumber} sedang dalam pengiriman';
     }
 
     if (order.status == 'completed') {
-      return '${order.orderNumber} is completed';
+      return 'Pesanan ${order.orderNumber} telah selesai';
     }
 
     if (order.paymentStatus == 'expired' || order.paymentStatus == 'failed') {
-      return '${order.orderNumber} payment was not completed';
+      return 'Pembayaran pesanan ${order.orderNumber} tidak selesai';
     }
 
-    return '${order.orderNumber} status updated';
+    return 'Status pesanan ${order.orderNumber} diperbarui';
   }
 
   String displayStatus(dynamic order) {
     if (order.paymentStatus == 'pending') {
-      return 'Waiting payment';
+      return 'Menunggu Pembayaran';
     }
 
     if (order.paymentStatus == 'paid' && order.status == 'processing') {
-      return 'Processing';
+      return 'Diproses Penjual';
     }
 
     if (order.status == 'shipped') {
-      return 'Shipped';
+      return 'Dikirim';
     }
 
     if (order.status == 'completed') {
-      return 'Completed';
+      return 'Selesai';
     }
 
     if (order.paymentStatus == 'expired') {
-      return 'Payment expired';
+      return 'Pembayaran Kadaluarsa';
     }
 
     if (order.paymentStatus == 'failed') {
-      return 'Payment failed';
+      return 'Pembayaran Gagal';
     }
 
     return order.status;
@@ -154,7 +154,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     final ordersAsync = ref.watch(ordersProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Orders')),
+      appBar: AppBar(title: const Text('Pesanan Saya')),
 
       body: ordersAsync.when(
         data: (orders) {
@@ -165,7 +165,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
           }
 
           if (orders.isEmpty) {
-            return const Center(child: Text('No orders yet'));
+            return const Center(child: Text('Belum ada pesanan'));
           }
 
           return RefreshIndicator(
