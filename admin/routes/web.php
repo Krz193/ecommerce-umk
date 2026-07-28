@@ -10,7 +10,7 @@ use App\Http\Controllers\Admin\StoreModerationController;
 use App\Http\Controllers\Admin\UserLookupController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::redirect('/', '/login')->name('home');
 
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
