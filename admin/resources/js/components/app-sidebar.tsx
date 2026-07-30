@@ -1,5 +1,16 @@
 import { Link } from '@inertiajs/react';
-import { ClipboardList, LayoutDashboard, PackageSearch, ReceiptText, ScrollText, Store, Users } from 'lucide-react';
+import {
+    ClipboardList,
+    FolderTree,
+    LayoutDashboard,
+    Megaphone,
+    PackageSearch,
+    ReceiptText,
+    ScrollText,
+    ShieldCheck,
+    Store,
+    Users,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -13,48 +24,83 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import type { NavItem } from '@/types';
+import type { NavGroup, NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+const navGroups: NavGroup[] = [
     {
-        title: 'Dashboard',
-        href: '/dashboard',
-        icon: LayoutDashboard,
+        title: 'Utama',
+        items: [
+            {
+                title: 'Dashboard',
+                href: '/dashboard',
+                icon: LayoutDashboard,
+            },
+            {
+                title: 'Laporan Summary',
+                href: '/reports',
+                icon: ScrollText,
+            },
+        ],
     },
     {
-        title: 'Stores',
-        href: '/stores',
-        icon: Store,
+        title: 'Kelola Toko & Produk',
+        items: [
+            {
+                title: 'Kategori Produk',
+                href: '/categories',
+                icon: FolderTree,
+            },
+            {
+                title: 'Toko UMK',
+                href: '/stores',
+                icon: Store,
+            },
+            {
+                title: 'Produk UMK',
+                href: '/products',
+                icon: PackageSearch,
+            },
+            {
+                title: 'Transaksi & Orders',
+                href: '/orders',
+                icon: ReceiptText,
+            },
+            {
+                title: 'Konten & Promosi UMK',
+                href: '/store-contents',
+                icon: Megaphone,
+            },
+        ],
     },
     {
-        title: 'Products',
-        href: '/products',
-        icon: PackageSearch,
+        title: 'Bantuan & Dispute',
+        items: [
+            {
+                title: 'Refund & Cases',
+                href: '/refund-cases',
+                icon: ClipboardList,
+            },
+        ],
     },
     {
-        title: 'Orders',
-        href: '/orders',
-        icon: ReceiptText,
-    },
-    {
-        title: 'Users',
-        href: '/users',
-        icon: Users,
-    },
-    {
-        title: 'Refund Cases',
-        href: '/refund-cases',
-        icon: ClipboardList,
-    },
-    {
-        title: 'Reports',
-        href: '/reports',
-        icon: ScrollText,
-    },
-    {
-        title: 'Audit Logs',
-        href: '/audit-logs',
-        icon: ScrollText,
+        title: 'Pengguna & Log',
+        items: [
+            {
+                title: 'Manajemen User',
+                href: '/users',
+                icon: Users,
+            },
+            {
+                title: 'Roles & Permissions',
+                href: '/roles',
+                icon: ShieldCheck,
+            },
+            {
+                title: 'Audit Logs',
+                href: '/audit-logs',
+                icon: ScrollText,
+            },
+        ],
     },
 ];
 
@@ -76,7 +122,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain groups={navGroups} />
             </SidebarContent>
 
             <SidebarFooter>

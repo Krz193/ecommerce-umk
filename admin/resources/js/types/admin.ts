@@ -27,6 +27,32 @@ export type StoreRow = {
     owner_phone: string | null;
 };
 
+export type CategoryRow = {
+    id: string;
+    name: string;
+    slug: string;
+    icon_url: string | null;
+    is_active: boolean;
+    created_at: string;
+    products_count: number;
+};
+
+export type StoreContentRow = {
+    id: string;
+    store_id: string;
+    product_id: string | null;
+    title: string;
+    content_type: 'banner' | 'promo' | 'storytelling' | 'social' | 'educational';
+    body: string | null;
+    is_active: boolean;
+    created_at: string;
+    store_name: string;
+    product_name: string | null;
+    creator_name: string | null;
+};
+
+
+
 export type ProductRow = {
     id: string;
     name: string;

@@ -27,3 +27,4 @@ admin/.env.example
 supabase/.temp/cli-latest
 
 .agents/*.zip
+.markdowns
