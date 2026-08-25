@@ -18,12 +18,16 @@ class OrderStatusService {
     required String orderId,
     required String shippingProvider,
     required String trackingNumber,
+    String? driverName,
+    String? driverPhone,
   }) {
     return updateOrderStatus(
       orderId: orderId,
       status: 'shipped',
       shippingProvider: shippingProvider,
       trackingNumber: trackingNumber,
+      driverName: driverName,
+      driverPhone: driverPhone,
     );
   }
 
@@ -36,16 +40,17 @@ class OrderStatusService {
     required String status,
     String? shippingProvider,
     String? trackingNumber,
+    String? driverName,
+    String? driverPhone,
   }) async {
-    final body = <String, dynamic>{'order_id': orderId, 'status': status};
-
-    if (shippingProvider != null) {
-      body['shipping_provider'] = shippingProvider;
-    }
-
-    if (trackingNumber != null) {
-      body['tracking_number'] = trackingNumber;
-    }
+    final body = <String, dynamic>{
+      'order_id': orderId,
+      'status': status,
+      'shipping_provider': ?shippingProvider,
+      'tracking_number': ?trackingNumber,
+      'driver_name': ?driverName,
+      'driver_phone': ?driverPhone,
+    };
 
     final response = await _supabase.functions.invoke(
       'update-order-status',

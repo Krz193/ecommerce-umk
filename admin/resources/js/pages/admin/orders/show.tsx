@@ -20,6 +20,13 @@ type OrderDetail = {
     shipping_postal_code: string | null;
     shipping_provider: string | null;
     tracking_number: string | null;
+    courier_name: string | null;
+    courier_code: string | null;
+    courier_service_type: string | null;
+    waybill_id: string | null;
+    driver_name: string | null;
+    driver_phone: string | null;
+    tracking_status: string | null;
     placed_at: string | null;
     paid_at: string | null;
     completed_at: string | null;
@@ -96,10 +103,14 @@ export default function OrderShow({ order, items }: OrderShowProps) {
                         </CardContent>
                     </Card>
                     <Card>
-                        <CardHeader><CardTitle>Shipment</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>Shipment & Logistics</CardTitle></CardHeader>
                         <CardContent className="space-y-3 text-sm">
-                            <Info label="Provider" value={order.shipping_provider || '-'} />
-                            <Info label="Tracking Number" value={order.tracking_number || '-'} />
+                            <Info label="Courier / Expedition" value={order.courier_name || order.shipping_provider || '-'} />
+                            <Info label="Shipping Fee" value={formatCurrency(order.shipping_cost)} />
+                            <Info label="Tracking / Waybill" value={order.waybill_id || order.tracking_number || '-'} />
+                            {order.driver_name && <Info label="Driver Name" value={order.driver_name} />}
+                            {order.driver_phone && <Info label="Driver Phone" value={order.driver_phone} />}
+                            {order.tracking_status && <Info label="Tracking Status" value={order.tracking_status.toUpperCase()} />}
                             <Info label="Placed At" value={formatDate(order.placed_at)} />
                             <Info label="Order Paid At" value={formatDate(order.paid_at)} />
                             <Info label="Completed At" value={formatDate(order.completed_at)} />

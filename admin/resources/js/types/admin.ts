@@ -115,3 +115,19 @@ export type RefundCaseRow = {
     resolved_at: string | null;
     created_at: string;
 };
+
+export type SystemFeedbackRow = {
+    id: string;
+    user_id: string;
+    user_role: string;
+    category: 'saran' | 'masukan' | 'kendala_sistem' | 'bantuan_operasional' | 'lainnya';
+    subject: string;
+    message: string;
+    status: 'pending' | 'in_review' | 'resolved' | 'rejected';
+    admin_notes: string | null;
+    created_at: string;
+    updated_at: string;
+    user_name: string | null;
+    user_phone: string | null;
+    user_username: string | null;
+};

@@ -184,6 +184,10 @@ serve(async (req) => {
             updates.shipped_at = shippedAt;
             updates.shipping_provider = shippingProvider;
             updates.tracking_number = trackingNumber;
+            updates.waybill_id = trackingNumber;
+            updates.tracking_status = "on_delivery";
+            if (body.driver_name) updates.driver_name = body.driver_name;
+            if (body.driver_phone) updates.driver_phone = body.driver_phone;
         }
 
         if (status === "completed") {

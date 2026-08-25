@@ -7,10 +7,17 @@ class CheckoutService {
   Future<Map<String, dynamic>> checkout({
     required String cartId,
     required String addressId,
+    Map<String, dynamic>? selectedCourier,
   }) async {
+    final payload = <String, dynamic>{
+      'cart_id': cartId,
+      'address_id': addressId,
+      'selected_courier': ?selectedCourier,
+    };
+
     final response = await _supabase.functions.invoke(
       'checkout',
-      body: {'cart_id': cartId, 'address_id': addressId},
+      body: payload,
     );
 
     if (response.status != 200) {
