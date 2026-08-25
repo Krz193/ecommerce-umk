@@ -295,7 +295,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                     // Small Product Banner Thumbnail Image
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: item.productThumbnailUrl != null &&
+                      child:
+                          item.productThumbnailUrl != null &&
                               item.productThumbnailUrl!.isNotEmpty
                           ? Image.network(
                               item.productThumbnailUrl!,
@@ -304,15 +305,15 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Container(
-                                width: 44,
-                                height: 44,
-                                color: AppColors.primary.withAlpha(30),
-                                child: const Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
+                                    width: 44,
+                                    height: 44,
+                                    color: AppColors.primary.withAlpha(30),
+                                    child: const Icon(
+                                      Icons.shopping_bag_outlined,
+                                      color: AppColors.primary,
+                                      size: 20,
+                                    ),
+                                  ),
                             )
                           : Container(
                               width: 44,
@@ -361,10 +362,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                         size: 14,
                         color: Colors.white,
                       ),
-                      label: const Text(
-                        'Beli',
-                        style: TextStyle(fontSize: 12),
-                      ),
+                      label: const Text('Beli', style: TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,

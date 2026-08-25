@@ -2,8 +2,11 @@ import { Link } from '@inertiajs/react';
 import {
     ClipboardList,
     FolderTree,
+    GraduationCap,
+    HeartHandshake,
     LayoutDashboard,
     Megaphone,
+    MessageSquareText,
     PackageSearch,
     ReceiptText,
     ScrollText,
@@ -79,6 +82,21 @@ const navGroups: NavGroup[] = [
                 title: 'Refund & Cases',
                 href: '/refund-cases',
                 icon: ClipboardList,
+            },
+            {
+                title: 'Pelatihan UMK',
+                href: '/trainings',
+                icon: GraduationCap,
+            },
+            {
+                title: 'Donasi UMK',
+                href: '/donations',
+                icon: HeartHandshake,
+            },
+            {
+                title: 'Kritik & Masukan',
+                href: '/system-feedbacks',
+                icon: MessageSquareText,
             },
         ],
     },

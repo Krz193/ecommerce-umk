@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StoreContentController;
+use App\Http\Controllers\Admin\SystemFeedbackController;
 
 Route::redirect('/', '/login')->name('home');
 
@@ -76,6 +77,24 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::post('refund-cases', [RefundCaseController::class, 'store'])->name('admin.refund-cases.store');
     Route::get('refund-cases/{refundCase}', [RefundCaseController::class, 'show'])->name('admin.refund-cases.show');
     Route::patch('refund-cases/{refundCase}', [RefundCaseController::class, 'update'])->name('admin.refund-cases.update');
+
+    // System Feedback & Helpdesk (Excel B13 & B33)
+    Route::get('system-feedbacks', [SystemFeedbackController::class, 'index'])->name('admin.system-feedbacks.index');
+    Route::patch('system-feedbacks/{systemFeedback}', [SystemFeedbackController::class, 'update'])->name('admin.system-feedbacks.update');
+    Route::delete('system-feedbacks/{systemFeedback}', [SystemFeedbackController::class, 'destroy'])->name('admin.system-feedbacks.destroy');
+
+    // Trainings & Pelatihan UMK (Excel A8 & A9)
+    Route::get('trainings', [App\Http\Controllers\Admin\TrainingController::class, 'index'])->name('admin.trainings.index');
+    Route::post('trainings', [App\Http\Controllers\Admin\TrainingController::class, 'store'])->name('admin.trainings.store');
+    Route::patch('trainings/{training}', [App\Http\Controllers\Admin\TrainingController::class, 'update'])->name('admin.trainings.update');
+    Route::delete('trainings/{training}', [App\Http\Controllers\Admin\TrainingController::class, 'destroy'])->name('admin.trainings.destroy');
+    Route::post('trainings/{training}/participants', [App\Http\Controllers\Admin\TrainingController::class, 'addParticipant'])->name('admin.trainings.participants.add');
+    Route::delete('trainings/{training}/participants/{participant}', [App\Http\Controllers\Admin\TrainingController::class, 'removeParticipant'])->name('admin.trainings.participants.remove');
+
+    // Donasi UMK (Excel A11 & A20)
+    Route::get('donations', [App\Http\Controllers\Admin\DonationController::class, 'index'])->name('admin.donations.index');
+    Route::patch('donations/{donation}', [App\Http\Controllers\Admin\DonationController::class, 'update'])->name('admin.donations.update');
+    Route::delete('donations/{donation}', [App\Http\Controllers\Admin\DonationController::class, 'destroy'])->name('admin.donations.destroy');
 
     Route::get('reports', [ReportController::class, 'index'])->name('admin.reports.index');
     Route::get('audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');

@@ -33,6 +33,8 @@ import 'package:mobile/features/assistant/screens/assistant_profile_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_form_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_list_page.dart';
 import 'package:mobile/features/explore/explore_page.dart';
+import 'package:mobile/features/feedback/screens/feedback_page.dart';
+import 'package:mobile/features/training/screens/training_list_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -113,6 +115,13 @@ final appRouter = GoRouter(
           path: '/account/change-password',
           builder: (context, state) {
             return const ChangePasswordPage();
+          },
+        ),
+
+        GoRoute(
+          path: '/feedback',
+          builder: (context, state) {
+            return const FeedbackPage();
           },
         ),
       ],
@@ -315,6 +324,10 @@ final appRouter = GoRouter(
           existingContent: existingContent,
         );
       },
+    ),
+    GoRoute(
+      path: '/trainings',
+      builder: (context, state) => const TrainingListPage(),
     ),
   ],
 );
