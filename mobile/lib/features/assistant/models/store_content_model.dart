@@ -63,8 +63,8 @@ class StoreContentModel {
       productPrice: product?['price'] is int
           ? product!['price'] as int
           : (product?['price'] != null
-              ? int.tryParse(product!['price'].toString())
-              : null),
+                ? int.tryParse(product!['price'].toString())
+                : null),
       productThumbnailUrl: product?['thumbnail_url'],
     );
   }
