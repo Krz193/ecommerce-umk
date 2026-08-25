@@ -48,7 +48,7 @@ serve(async (req) => {
         // Parse request body
         const body = await req.json();
 
-        const {cart_id, address_id} = body;
+        const {cart_id, address_id, selected_courier} = body;
 
         // Validate required fields
         if (!cart_id || !address_id) {
@@ -257,7 +257,7 @@ serve(async (req) => {
             subtotal += Number(item.product.price) * item.quantity;
         }
 
-        const shippingCost = 0;
+        const shippingCost = selected_courier?.price ? Math.max(0, Number(selected_courier.price)) : 0;
         const applicationFee = 0;
 
         const totalAmount = subtotal + shippingCost + applicationFee;
@@ -331,7 +331,13 @@ serve(async (req) => {
                 shipping_phone: address.recipient_phone,
                 shipping_address: address.full_address,
                 shipping_city: address.city,
-                shipping_postal_code: address.postal_code
+                shipping_postal_code: address.postal_code,
+
+                courier_name: selected_courier?.courier_name || (selected_courier?.courier_code ? selected_courier.courier_code.toUpperCase() : "Kurir Standar"),
+                courier_code: selected_courier?.courier_code || "manual",
+                courier_service_code: selected_courier?.courier_service_code || "reg",
+                courier_service_type: selected_courier?.service_type || "standard",
+                tracking_status: "pending"
             })
             .select()
             .single();
@@ -491,12 +497,20 @@ serve(async (req) => {
                 phone: address.recipient_phone
             },
 
-            item_details: cartItems.map((item) => ({
-                id: item.product.id,
-                name: item.product.name,
-                price: Number(item.product.price),
-                quantity: item.quantity
-            }))
+            item_details: [
+                ...cartItems.map((item) => ({
+                    id: item.product.id,
+                    name: (item.product.name || 'Produk').slice(0, 50),
+                    price: Number(item.product.price),
+                    quantity: item.quantity
+                })),
+                ...(shippingCost > 0 ? [{
+                    id: "SHIPPING_FEE",
+                    name: `Ongkir (${selected_courier?.courier_name ?? 'Kurir'} - ${selected_courier?.courier_service_name ?? 'Layanan'})`.slice(0, 50),
+                    price: shippingCost,
+                    quantity: 1
+                }] : [])
+            ]
         };
 
         console.log(

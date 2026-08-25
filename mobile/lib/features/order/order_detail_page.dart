@@ -885,11 +885,16 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
 
   Widget buildShipmentProgress(OrderDetailModel order) {
     final hasShipment =
-        order.shippingProvider != null || order.trackingNumber != null;
+        order.courierName != null ||
+        order.shippingProvider != null ||
+        order.waybillId != null;
     final isShipped = ['shipped', 'completed'].contains(order.status);
+    final courierDisplay =
+        order.courierName ?? order.shippingProvider ?? 'Kurir Standar';
+    final waybillDisplay = order.waybillId ?? order.trackingNumber ?? '-';
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
@@ -898,27 +903,49 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Shipment Progress',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              Icon(
+                order.isInstantCourier
+                    ? Icons.two_wheeler
+                    : Icons.local_shipping,
+                color: order.isInstantCourier ? Colors.green : Colors.blue,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Status Pengiriman Logistik',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
             isShipped
-                ? 'Package has been shipped.'
-                : 'Waiting for seller shipment.',
+                ? 'Paket sedang dalam proses pengiriman.'
+                : 'Menunggu penjual memproses dan mengirim pesanan.',
+            style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
           ),
-          const SizedBox(height: 8),
-          buildReceiptRow('Courier', order.shippingProvider ?? '-'),
-          buildReceiptRow('Tracking Number', order.trackingNumber ?? '-'),
+          const SizedBox(height: 10),
+          buildReceiptRow('Ekspedisi / Ojek', courierDisplay),
+          buildReceiptRow('No. Resi / Tracking ID', waybillDisplay),
+          if (order.driverName != null && order.driverName!.isNotEmpty)
+            buildReceiptRow('Nama Driver', order.driverName!),
+          if (order.driverPhone != null && order.driverPhone!.isNotEmpty)
+            buildReceiptRow('No. Telepon Driver', order.driverPhone!),
+          if (order.trackingStatus != null && order.trackingStatus!.isNotEmpty)
+            buildReceiptRow(
+              'Status Logistik',
+              order.trackingStatus!.toUpperCase(),
+            ),
           if (order.shippedAt != null)
             buildReceiptRow(
-              'Shipped At',
+              'Waktu Dikirim',
               DateFormatter.formatDateTime(order.shippedAt.toString()),
             ),
           if (!hasShipment)
             const Text(
-              'Courier and tracking number will appear after seller ships the order.',
+              'Detail kurir dan resi otomatis terupdate saat toko request pickup / kirim barang.',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
         ],

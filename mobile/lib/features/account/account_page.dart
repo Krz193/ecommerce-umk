@@ -235,11 +235,34 @@ class AccountPage extends ConsumerWidget {
                     : 'Daftar atau masuk sebagai Asisten Pendamping UMK',
                 onTap: () => openAssistantArea(context, ref),
               ),
+              buildActionTile(
+                icon: Icons.school_outlined,
+                iconColor: Colors.teal.shade700,
+                title: 'Pelatihan & Pembinaan UMK',
+                subtitle: 'Jadwal webinar & program pengembangan bisnis UMK',
+                onTap: () => context.push('/trainings'),
+              ),
             ],
           ),
           const SizedBox(height: 24),
 
-          // Section 4: Logout
+          // Section 4: Bantuan & Masukan Sistem (Excel B33 / B13)
+          buildSectionTitle('Bantuan & Masukan'),
+          const SizedBox(height: 10),
+          buildActionCard(
+            children: [
+              buildActionTile(
+                icon: Icons.support_agent_rounded,
+                iconColor: AppColors.primary,
+                title: 'Pusat Bantuan & Masukan',
+                subtitle: 'Kirim kritik, saran, atau kendala sistem ke admin',
+                onTap: () => context.push('/feedback'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Section 5: Logout
           buildActionCard(
             children: [
               buildActionTile(

@@ -64,7 +64,8 @@ class StorePublicPage extends ConsumerWidget {
                             const SizedBox(width: 14),
                         itemBuilder: (context, index) {
                           final item = contents[index];
-                          final hasProduct = item.productId != null &&
+                          final hasProduct =
+                              item.productId != null &&
                               item.productId!.isNotEmpty;
 
                           final coverUrl = item.displayCoverUrl;
@@ -114,8 +115,8 @@ class StorePublicPage extends ConsumerWidget {
                                       item.contentType == 'promo'
                                           ? Icons.local_offer_rounded
                                           : item.contentType == 'storytelling'
-                                              ? Icons.auto_stories_rounded
-                                              : Icons.campaign_rounded,
+                                          ? Icons.auto_stories_rounded
+                                          : Icons.campaign_rounded,
                                       size: 110,
                                       color: AppColors.primary.withAlpha(35),
                                     ),
@@ -173,9 +174,9 @@ class StorePublicPage extends ConsumerWidget {
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 3,
-                                              ),
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: Colors.amber.shade700,
                                                 borderRadius:
@@ -234,8 +235,9 @@ class StorePublicPage extends ConsumerWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: Colors.white.withAlpha(230),
-                                            borderRadius:
-                                                BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
                                           ),
                                           child: Row(
                                             children: [
@@ -303,8 +305,9 @@ class StorePublicPage extends ConsumerWidget {
                                             hasProduct
                                                 ? 'Lihat Produk 🛒'
                                                 : 'Detail Promosi',
-                                            style:
-                                                const TextStyle(fontSize: 12),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
                                           ),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: AppColors.primary,
@@ -529,10 +532,7 @@ class StorePublicPage extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Text(
                     product.stock > 0 ? 'Stok: ${product.stock}' : 'Stok Habis',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ),

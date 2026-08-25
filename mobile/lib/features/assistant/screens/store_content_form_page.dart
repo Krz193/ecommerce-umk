@@ -92,14 +92,17 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           '${DateTime.now().millisecondsSinceEpoch}_${image.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')}';
       final storagePath = 'contents/${widget.storeId}/$fileName';
 
-      await supabase.storage.from('store-contents').uploadBinary(
+      await supabase.storage
+          .from('store-contents')
+          .uploadBinary(
             storagePath,
             bytes,
             fileOptions: FileOptions(contentType: 'image/$cleanExt'),
           );
 
-      final publicUrl =
-          supabase.storage.from('store-contents').getPublicUrl(storagePath);
+      final publicUrl = supabase.storage
+          .from('store-contents')
+          .getPublicUrl(storagePath);
 
       setState(() {
         _mediaUrls.add(publicUrl);
@@ -177,9 +180,9 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menyimpan konten: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menyimpan konten: $e')));
       }
     } finally {
       if (mounted) {
@@ -193,7 +196,9 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingContent != null;
-    final productsAsync = ref.watch(publicStoreProductsProvider(widget.storeId));
+    final productsAsync = ref.watch(
+      publicStoreProductsProvider(widget.storeId),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -261,7 +266,8 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                     initialValue: _productId,
                     decoration: const InputDecoration(
                       labelText: 'Produk yang Dipromosikan (Opsional)',
-                      hintText: 'Pilih produk yang ingin ditautkan langsung ke pembeli',
+                      hintText:
+                          'Pilih produk yang ingin ditautkan langsung ke pembeli',
                       border: OutlineInputBorder(),
                     ),
                     items: [
@@ -344,11 +350,11 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Container(
-                                width: 100,
-                                height: 100,
-                                color: Colors.grey.shade200,
-                                child: const Icon(Icons.broken_image),
-                              ),
+                                    width: 100,
+                                    height: 100,
+                                    color: Colors.grey.shade200,
+                                    child: const Icon(Icons.broken_image),
+                                  ),
                             ),
                           ),
                           Positioned(

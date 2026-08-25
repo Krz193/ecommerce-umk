@@ -243,4 +243,174 @@ class StoreModerationController extends Controller
 
         return back()->with('success', 'Penugasan Asisten UMK berhasil dihapus.');
     }
+
+    public function store(Request $request, AdminAuditLogger $auditLogger): RedirectResponse
+    {
+        $validated = $request->validate([
+            'owner_id' => ['required', 'string', 'uuid'],
+            'name' => ['required', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string'],
+            'payout_account_name' => ['nullable', 'string', 'max:255'],
+            'payout_account_number' => ['nullable', 'string', 'max:255'],
+            'payout_provider' => ['nullable', 'string', 'max:255'],
+            'status' => ['required', 'string', 'in:pending,active,suspended'],
+        ]);
+
+        $db = DB::connection('marketplace');
+
+        $owner = $db->table('users')->where('id', $validated['owner_id'])->firstOrFail();
+
+        $slug = filled($validated['slug'] ?? null)
+            ? \Illuminate\Support\Str::slug($validated['slug'])
+            : \Illuminate\Support\Str::slug($validated['name']);
+
+        $exists = $db->table('stores')->where('slug', $slug)->exists();
+        if ($exists) {
+            return back()->withErrors(['slug' => 'Slug toko sudah digunakan.']);
+        }
+
+        $id = (string) \Illuminate\Support\Str::uuid();
+
+        $db->table('stores')->insert([
+            'id' => $id,
+            'owner_id' => $owner->id,
+            'name' => $validated['name'],
+            'slug' => $slug,
+            'description' => $validated['description'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'payout_account_name' => $validated['payout_account_name'] ?? null,
+            'payout_account_number' => $validated['payout_account_number'] ?? null,
+            'payout_provider' => $validated['payout_provider'] ?? null,
+            'status' => $validated['status'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        if ($owner->role === 'buyer') {
+            $db->table('users')->where('id', $owner->id)->update([
+                'role' => 'seller',
+                'updated_at' => now(),
+            ]);
+        }
+
+        $auditLogger->log(
+            $request,
+            'store.create',
+            'store',
+            $id,
+            "Toko {$validated['name']} dibuat secara manual oleh admin.",
+            [
+                'name' => $validated['name'],
+                'owner_id' => $owner->id,
+                'status' => $validated['status'],
+            ],
+        );
+
+        return back()->with('success', 'Toko UMK berhasil dibuat oleh Admin.');
+    }
+
+    public function update(Request $request, AdminAuditLogger $auditLogger, string $store): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string'],
+            'payout_account_name' => ['nullable', 'string', 'max:255'],
+            'payout_account_number' => ['nullable', 'string', 'max:255'],
+            'payout_provider' => ['nullable', 'string', 'max:255'],
+            'status' => ['required', 'string', 'in:pending,active,suspended'],
+        ]);
+
+        $db = DB::connection('marketplace');
+        $existing = $db->table('stores')->where('id', $store)->firstOrFail();
+
+        $slug = filled($validated['slug'] ?? null)
+            ? \Illuminate\Support\Str::slug($validated['slug'])
+            : \Illuminate\Support\Str::slug($validated['name']);
+
+        $slugExists = $db->table('stores')
+            ->where('slug', $slug)
+            ->where('id', '!=', $store)
+            ->exists();
+
+        if ($slugExists) {
+            return back()->withErrors(['slug' => 'Slug toko sudah digunakan oleh toko lain.']);
+        }
+
+        $db->table('stores')->where('id', $store)->update([
+            'name' => $validated['name'],
+            'slug' => $slug,
+            'description' => $validated['description'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'payout_account_name' => $validated['payout_account_name'] ?? null,
+            'payout_account_number' => $validated['payout_account_number'] ?? null,
+            'payout_provider' => $validated['payout_provider'] ?? null,
+            'status' => $validated['status'],
+            'updated_at' => now(),
+        ]);
+
+        $auditLogger->log(
+            $request,
+            'store.update',
+            'store',
+            $store,
+            "Informasi toko {$validated['name']} diperbarui oleh admin.",
+            [
+                'previous_name' => $existing->name,
+                'name' => $validated['name'],
+                'status' => $validated['status'],
+            ],
+        );
+
+        return back()->with('success', 'Informasi Toko UMK berhasil diperbarui.');
+    }
+
+    public function destroy(Request $request, AdminAuditLogger $auditLogger, string $store): RedirectResponse
+    {
+        $db = DB::connection('marketplace');
+        $existing = $db->table('stores')->where('id', $store)->firstOrFail();
+
+        $ordersCount = $db->table('orders')->where('store_id', $store)->count();
+
+        if ($ordersCount > 0) {
+            // Cannot hard delete if store has active order records, suspend instead
+            $db->table('stores')->where('id', $store)->update([
+                'status' => 'suspended',
+                'suspended_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $auditLogger->log(
+                $request,
+                'store.purge_blocked_suspended',
+                'store',
+                $store,
+                "Toko {$existing->name} disuspen (bukan dihapus) karena memiliki {$ordersCount} transaksi.",
+                ['store_name' => $existing->name],
+            );
+
+            return back()->with('success', "Toko disuspen karena memiliki {$ordersCount} riwayat transaksi.");
+        }
+
+        $db->table('stores')->where('id', $store)->delete();
+
+        $auditLogger->log(
+            $request,
+            'store.delete',
+            'store',
+            $store,
+            "Toko {$existing->name} dihapus permanen oleh admin.",
+            ['store_name' => $existing->name],
+        );
+
+        return back()->with('success', 'Toko UMK berhasil dihapus.');
+    }
 }
+

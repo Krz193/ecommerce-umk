@@ -448,135 +448,137 @@ class _HomePageState extends ConsumerState<HomePage> {
               physics: const BouncingScrollPhysics(),
               itemCount: banners.length,
               separatorBuilder: (context, index) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final banner = banners[index];
-              final coverUrl = banner.displayCoverUrl;
-              final hasPhoto = coverUrl != null;
+              itemBuilder: (context, index) {
+                final banner = banners[index];
+                final coverUrl = banner.displayCoverUrl;
+                final hasPhoto = coverUrl != null;
 
-              return Container(
-                width: 280,
-                decoration: BoxDecoration(
-                  color: hasPhoto ? const Color(0xFF0F172A) : AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
+                return Container(
+                  width: 280,
+                  decoration: BoxDecoration(
                     color: hasPhoto
-                        ? Colors.transparent
-                        : AppColors.primary.withAlpha(60),
+                        ? const Color(0xFF0F172A)
+                        : AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: hasPhoto
+                          ? Colors.transparent
+                          : AppColors.primary.withAlpha(60),
+                    ),
                   ),
-                ),
-                child: Stack(
-                  children: [
-                    // Cover Image if uploaded or product thumbnail fallback
-                    if (hasPhoto)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          coverUrl,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const SizedBox.shrink(),
-                        ),
-                      )
-                    else
-                      // Flat Vector Icon Watermark Placeholder (Light Theme)
-                      Positioned(
-                        right: -10,
-                        bottom: -10,
-                        child: Icon(
-                          banner.contentType == 'promo'
-                              ? Icons.local_offer_rounded
-                              : banner.contentType == 'storytelling'
-                                  ? Icons.auto_stories_rounded
-                                  : Icons.campaign_rounded,
-                          size: 110,
-                          color: AppColors.primary.withAlpha(35),
-                        ),
-                      ),
-
-                    // Gradient Overlay for Readability (Only on Photo)
-                    if (hasPhoto)
-                      Container(
-                        decoration: BoxDecoration(
+                  child: Stack(
+                    children: [
+                      // Cover Image if uploaded or product thumbnail fallback
+                      if (hasPhoto)
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.black.withAlpha(190),
-                              Colors.black.withAlpha(60),
-                            ],
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
+                          child: Image.network(
+                            coverUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const SizedBox.shrink(),
+                          ),
+                        )
+                      else
+                        // Flat Vector Icon Watermark Placeholder (Light Theme)
+                        Positioned(
+                          right: -10,
+                          bottom: -10,
+                          child: Icon(
+                            banner.contentType == 'promo'
+                                ? Icons.local_offer_rounded
+                                : banner.contentType == 'storytelling'
+                                ? Icons.auto_stories_rounded
+                                : Icons.campaign_rounded,
+                            size: 110,
+                            color: AppColors.primary.withAlpha(35),
                           ),
                         ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+
+                      // Gradient Overlay for Readability (Only on Photo)
+                      if (hasPhoto)
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withAlpha(190),
+                                Colors.black.withAlpha(60),
+                              ],
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
                             ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              banner.contentTypeLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                banner.contentTypeLabel,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            banner.title,
-                            style: TextStyle(
-                              color: hasPhoto
-                                  ? Colors.white
-                                  : AppColors.textPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                            const SizedBox(height: 4),
+                            Text(
+                              banner.title,
+                              style: TextStyle(
+                                color: hasPhoto
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            banner.storeName ?? 'Toko UMK',
-                            style: TextStyle(
-                              color: hasPhoto
-                                  ? Colors.white70
-                                  : AppColors.textSecondary,
-                              fontSize: 11,
+                            Text(
+                              banner.storeName ?? 'Toko UMK',
+                              style: TextStyle(
+                                color: hasPhoto
+                                    ? Colors.white70
+                                    : AppColors.textSecondary,
+                                fontSize: 11,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            context.push('/store/${banner.storeId}');
-                          },
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
+                      Positioned.fill(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              context.push('/store/${banner.storeId}');
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }
