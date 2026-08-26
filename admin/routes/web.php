@@ -18,7 +18,7 @@ use App\Http\Controllers\Admin\SystemFeedbackController;
 Route::redirect('/', '/login')->name('home');
 
 
-Route::middleware(['auth', 'verified', 'admin'])->group(function () {
+Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
 
     // UMK Content & Promotions CRUD
