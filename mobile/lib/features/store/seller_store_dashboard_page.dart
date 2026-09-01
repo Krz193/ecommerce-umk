@@ -11,6 +11,7 @@ import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/product/providers/seller_product_provider.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
+import 'package:mobile/features/store/seller_reviews_page.dart';
 
 class SellerStoreDashboardPage extends ConsumerWidget {
   const SellerStoreDashboardPage({super.key});
@@ -80,7 +81,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
 
               children: [
-                _buildStoreSummary(store),
+                _buildStoreSummary(store, ref),
 
                 const SizedBox(height: 16),
 
@@ -113,6 +114,17 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                   subtitle: 'Manage incoming orders',
                   onTap: () {
                     context.push('/seller/orders');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.star_outline_rounded,
+                  title: 'Ulasan & Rating Toko',
+                  subtitle: 'Kelola ulasan pembeli dan balas komentar',
+                  onTap: () {
+                    context.push('/seller/reviews');
                   },
                 ),
               ],
@@ -224,6 +236,8 @@ class SellerStoreReportsPage extends ConsumerWidget {
               children: [
                 _buildExportPanel(context, storeName, products, orders),
                 const SizedBox(height: 12),
+                _buildCartInsights(ref, storeId),
+                const SizedBox(height: 12),
                 _buildProductMetrics(products),
                 const SizedBox(height: 12),
                 _buildGoodsReport(products),
@@ -254,6 +268,69 @@ class SellerStoreReportsPage extends ConsumerWidget {
       loading: () {
         return const LinearProgressIndicator();
       },
+    );
+  }
+
+  Widget _buildCartInsights(WidgetRef ref, String storeId) {
+    final insightsAsync = ref.watch(storeCartInsightsProvider(storeId));
+
+    return insightsAsync.when(
+      data: (insights) {
+        final totalItems = insights['total_items_in_carts'] ?? 0;
+        final totalValue = insights['total_potential_value'] ?? 0;
+        final uniqueBuyers = insights['unique_potential_buyers'] ?? 0;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.blue.shade100),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.shopping_cart_checkout, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Potensi Keranjang Pembeli',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMetricItem(
+                    title: 'Total Barang',
+                    value: totalItems.toString(),
+                    color: Colors.blue.shade900,
+                  ),
+                  _buildMetricItem(
+                    title: 'Potensi Nilai',
+                    value: CurrencyFormatter.format(totalValue),
+                    color: Colors.green.shade700,
+                  ),
+                  _buildMetricItem(
+                    title: 'Calon Pembeli',
+                    value: uniqueBuyers.toString(),
+                    color: Colors.purple.shade700,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      error: (_, __) => const SizedBox.shrink(),
+      loading: () => const Center(child: CircularProgressIndicator()),
     );
   }
 
@@ -1030,20 +1107,46 @@ class SellerStoreReportsPage extends ConsumerWidget {
       child: Text(error.toString()),
     );
   }
+
+  Widget _buildMetricItem({
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-Widget _buildStoreSummary(StoreModel store) {
+Widget _buildStoreSummary(StoreModel store, WidgetRef ref) {
+  final reviewsAsync = ref.watch(storeReviewsProvider(store.id));
+  
   return Container(
     padding: const EdgeInsets.all(16),
-
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
     ),
-
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-
       children: [
         Row(
           children: [
@@ -1056,9 +1159,50 @@ Widget _buildStoreSummary(StoreModel store) {
                 ),
               ),
             ),
-
             _buildStatusBadge(store.status),
           ],
+        ),
+
+        // Store Rating Summary
+        reviewsAsync.when(
+          data: (reviews) {
+            if (reviews.isEmpty) return const SizedBox.shrink();
+            final approvedReviews = reviews.where((r) => r['is_approved'] == true).toList();
+            if (approvedReviews.isEmpty) return const SizedBox.shrink();
+
+            final totalRating = approvedReviews.fold<double>(
+              0,
+              (sum, r) => sum + (r['rating'] as num),
+            );
+            final avgRating = totalRating / approvedReviews.length;
+
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${avgRating.toStringAsFixed(1)} / 5.0',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '(${approvedReviews.length} ulasan)',
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
         ),
 
         if (store.phone != null) ...[

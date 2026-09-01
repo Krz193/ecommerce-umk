@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/features/product/models/product_review_model.dart';
+import 'package:mobile/features/product/providers/product_review_providers.dart';
 import 'package:mobile/features/product/widgets/seller_reply_dialog.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -219,27 +220,64 @@ class SellerReviewsPage extends ConsumerWidget {
                                   ),
                                 ],
                                 const SizedBox(height: 10),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton.icon(
-                                    icon: const Icon(Icons.reply, size: 16),
-                                    label: Text(
-                                      review.sellerReply == null
-                                          ? 'Balas Ulasan'
-                                          : 'Edit Balasan',
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Switch(
+                                          value: review.isApproved,
+                                          onChanged: (val) async {
+                                            try {
+                                              await ref
+                                                  .read(productReviewServiceProvider)
+                                                  .toggleReviewApproval(
+                                                    reviewId: review.id,
+                                                    isApproved: val,
+                                                  );
+                                              ref.invalidate(storeReviewsProvider(store.id));
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text(e.toString())),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          activeThumbColor: AppColors.primary,
+                                        ),
+                                        Text(
+                                          review.isApproved ? 'Tampil' : 'Sembunyi',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: review.isApproved
+                                                ? AppColors.primary
+                                                : Colors.grey,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (_) =>
-                                            SellerReplyDialog(review: review),
-                                      ).then((_) {
-                                        ref.invalidate(
-                                          storeReviewsProvider(store.id),
-                                        );
-                                      });
-                                    },
-                                  ),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.reply, size: 16),
+                                      label: Text(
+                                        review.sellerReply == null
+                                            ? 'Balas Ulasan'
+                                            : 'Edit Balasan',
+                                      ),
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (_) =>
+                                              SellerReplyDialog(review: review),
+                                        ).then((_) {
+                                          ref.invalidate(
+                                            storeReviewsProvider(store.id),
+                                          );
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

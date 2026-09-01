@@ -120,6 +120,21 @@ class StoreService {
       }
 
       throw StoreException(error.message);
+    } catch (e) {
+      throw StoreException('Terjadi kesalahan yang tidak terduga.');
+    }
+  }
+
+  Future<Map<String, dynamic>> getSellerCartInsights(String storeId) async {
+    try {
+      final response = await _supabase.rpc(
+        'get_seller_cart_insights',
+        params: {'p_store_id': storeId},
+      );
+      
+      return Map<String, dynamic>.from(response as Map);
+    } catch (e) {
+      throw StoreException('Gagal mengambil insight keranjang: $e');
     }
   }
 }
