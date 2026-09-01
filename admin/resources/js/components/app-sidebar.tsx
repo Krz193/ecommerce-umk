@@ -11,6 +11,7 @@ import {
     ReceiptText,
     ScrollText,
     ShieldCheck,
+    Star,
     Store,
     Users,
 } from 'lucide-react';
@@ -72,6 +73,11 @@ const navGroups: NavGroup[] = [
                 title: 'Konten & Promosi UMK',
                 href: '/store-contents',
                 icon: Megaphone,
+            },
+            {
+                title: 'Rekomendasi Produk',
+                href: '/recommendations',
+                icon: Star,
             },
         ],
     },
