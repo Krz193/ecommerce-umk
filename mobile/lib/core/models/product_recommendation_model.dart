@@ -27,8 +27,8 @@ class ProductRecommendationModel {
       badgeText: json['badge_text'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
-      product: json['product'] != null 
-          ? ProductModel.fromJson(json['product']) 
+      product: json['product'] != null
+          ? ProductModel.fromJson(json['product'])
           : null,
     );
   }

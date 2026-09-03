@@ -119,14 +119,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final orderData = result['order'];
       if (orderData != null && orderData['id'] != null) {
         try {
-          await supabase.rpc('set_order_shipping_details', params: {
-            'p_order_id': orderData['id'],
-            'p_courier_name': selectedCourier.displayName,
-            'p_courier_code': selectedCourier.courierCode,
-            'p_courier_service_code': selectedCourier.courierServiceCode,
-            'p_courier_service_type': selectedCourier.serviceType,
-            'p_shipping_cost': selectedCourier.price,
-          });
+          await supabase.rpc(
+            'set_order_shipping_details',
+            params: {
+              'p_order_id': orderData['id'],
+              'p_courier_name': selectedCourier.displayName,
+              'p_courier_code': selectedCourier.courierCode,
+              'p_courier_service_code': selectedCourier.courierServiceCode,
+              'p_courier_service_type': selectedCourier.serviceType,
+              'p_shipping_cost': selectedCourier.price,
+            },
+          );
 
           // Record donation if donor opted in (Excel A58)
           if (selectedDonationAmount > 0) {
@@ -852,8 +855,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       : '+ ${CurrencyFormatter.format(amount)}',
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight:
-                        isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     color: isSelected ? Colors.green.shade900 : Colors.black87,
                   ),
                 ),
@@ -872,4 +876,3 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     );
   }
 }
-

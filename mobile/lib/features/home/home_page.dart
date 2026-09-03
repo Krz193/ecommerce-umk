@@ -115,7 +115,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           .when(
             data: (products) {
               final visible = visibleProducts(products);
-              final recommendedAsync = ref.watch(productRecommendationsProvider);
+              final recommendedAsync = ref.watch(
+                productRecommendationsProvider,
+              );
 
               return ListView(
                 padding: const EdgeInsets.all(16),
@@ -314,8 +316,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   // Recommended Products Horizontal Scroll
                   recommendedAsync.when(
                     data: (recommendedItems) {
-                      if (recommendedItems.isEmpty) return const SizedBox.shrink();
-                      
+                      if (recommendedItems.isEmpty)
+                        return const SizedBox.shrink();
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -347,8 +350,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   const SizedBox(width: 12),
                               itemBuilder: (context, index) {
                                 final recommendation = recommendedItems[index];
-                                if (recommendation.product == null) return const SizedBox.shrink();
-                                
+                                if (recommendation.product == null)
+                                  return const SizedBox.shrink();
+
                                 return SizedBox(
                                   width: 160,
                                   child: Stack(
@@ -357,12 +361,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         product: recommendation.product!,
                                         isRecommended: true,
                                       ),
-                                      if (recommendation.badgeText != null && recommendation.badgeText!.isNotEmpty)
+                                      if (recommendation.badgeText != null &&
+                                          recommendation.badgeText!.isNotEmpty)
                                         Positioned(
                                           top: 0,
                                           left: 0,
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
                                             decoration: const BoxDecoration(
                                               color: Colors.amber,
                                               borderRadius: BorderRadius.only(
@@ -391,7 +399,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                       );
                     },
                     error: (error, stack) => const SizedBox.shrink(),
-                    loading: () => const Center(child: CircularProgressIndicator()),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
                   ),
 
                   // Main Product Title
