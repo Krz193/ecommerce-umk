@@ -187,4 +187,29 @@ class ProductReviewService {
       throw ProductReviewException('Gagal memberikan balasan ulasan: $e');
     }
   }
+
+  /// Toggle review approval (hide/show review) by Seller
+  Future<ProductReviewModel> toggleReviewApproval({
+    required String reviewId,
+    required bool isApproved,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('product_reviews')
+          .update({'is_approved': isApproved})
+          .eq('id', reviewId)
+          .select('''
+            *,
+            users:user_id (
+              full_name,
+              avatar_url
+            )
+          ''')
+          .single();
+
+      return ProductReviewModel.fromJson(response);
+    } catch (e) {
+      throw ProductReviewException('Gagal mengubah status ulasan: $e');
+    }
+  }
 }

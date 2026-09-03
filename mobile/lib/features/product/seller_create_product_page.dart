@@ -85,7 +85,7 @@ class _SellerCreateProductPageState
 
     if (selectedCategoryId == null) {
       setState(() {
-        errorMessage = 'Category required';
+        errorMessage = 'Kategori produk wajib dipilih';
       });
 
       return;
@@ -100,13 +100,13 @@ class _SellerCreateProductPageState
       final store = await ref.read(myStoreProvider.future);
 
       if (store == null) {
-        throw Exception('Create a store before adding products');
+        throw Exception('Buka toko terlebih dahulu sebelum menambahkan produk');
       }
 
       final slug = makeSlug(nameController.text);
 
       if (slug.isEmpty) {
-        throw Exception('Product name must contain letters or numbers');
+        throw Exception('Nama produk harus berisi huruf atau angka yang valid');
       }
 
       final sellerProductService = ref.read(sellerProductServiceProvider);
@@ -140,7 +140,7 @@ class _SellerCreateProductPageState
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Product draft created. Add images before publishing.'),
+          content: Text('Draf produk berhasil dibuat. Silakan tambahkan foto sebelum menayangkan produk.'),
         ),
       );
 
@@ -173,7 +173,7 @@ class _SellerCreateProductPageState
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Product')),
+      appBar: AppBar(title: const Text('Tambah Produk Baru')),
 
       body: SafeArea(
         child: SingleChildScrollView(
@@ -188,10 +188,13 @@ class _SellerCreateProductPageState
               children: [
                 TextFormField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Product Name'),
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Produk',
+                    hintText: 'Contoh: Kripik Singkong Balado 250gr',
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Product name required';
+                      return 'Nama produk wajib diisi';
                     }
 
                     return null;
@@ -216,16 +219,19 @@ class _SellerCreateProductPageState
 
                 TextFormField(
                   controller: priceController,
-                  decoration: const InputDecoration(labelText: 'Price'),
+                  decoration: const InputDecoration(
+                    labelText: 'Harga Jual (Rp)',
+                    hintText: 'Contoh: 25000',
+                  ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Price required';
+                      return 'Harga wajib diisi';
                     }
 
                     if (int.parse(value.trim()) <= 0) {
-                      return 'Price must be greater than 0';
+                      return 'Harga harus lebih dari Rp 0';
                     }
 
                     return null;
@@ -236,36 +242,46 @@ class _SellerCreateProductPageState
 
                 TextFormField(
                   controller: stockController,
-                  decoration: const InputDecoration(labelText: 'Stock'),
+                  decoration: const InputDecoration(
+                    labelText: 'Jumlah Stok Awal',
+                    hintText: 'Contoh: 50',
+                  ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Stock required';
+                      return 'Stok awal wajib diisi';
                     }
 
                     if (int.parse(value.trim()) < 0) {
-                      return 'Stock cannot be negative';
+                      return 'Stok tidak boleh minus';
                     }
 
                     return null;
                   },
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 const Text(
-                  'Characteristics',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  'Varian & Karakteristik Produk',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
+
+                Text(
+                  'Isi varian untuk memudahkan pembeli memilih (opsional)',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+
+                const SizedBox(height: 12),
 
                 TextFormField(
                   controller: productTypeController,
                   decoration: const InputDecoration(
-                    labelText: 'Type',
-                    hintText: 'Example: food, shirt, craft',
+                    labelText: 'Jenis / Tipe',
+                    hintText: 'Contoh: Makanan, Pakaian, Kerajinan',
                   ),
                 ),
 
@@ -274,8 +290,8 @@ class _SellerCreateProductPageState
                 TextFormField(
                   controller: sizeController,
                   decoration: const InputDecoration(
-                    labelText: 'Size',
-                    hintText: 'Example: S, M, 250g, 1 pack',
+                    labelText: 'Ukuran / Takaran',
+                    hintText: 'Contoh: S, M, L, 250gr, 1 Liter',
                   ),
                 ),
 
@@ -284,16 +300,19 @@ class _SellerCreateProductPageState
                 TextFormField(
                   controller: colorController,
                   decoration: const InputDecoration(
-                    labelText: 'Color',
-                    hintText: 'Example: red, black, natural',
+                    labelText: 'Warna / Rasa',
+                    hintText: 'Contoh: Merah, Cokelat, Original',
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 TextFormField(
                   controller: descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description'),
+                  decoration: const InputDecoration(
+                    labelText: 'Deskripsi Produk',
+                    hintText: 'Jelaskan keunggulan produk, bahan baku, dan cara pakai...',
+                  ),
                   minLines: 3,
                   maxLines: 5,
                 ),
@@ -319,7 +338,7 @@ class _SellerCreateProductPageState
                           height: 20,
                           child: CircularProgressIndicator(),
                         )
-                      : const Text('Create Product'),
+                      : const Text('Simpan Draf & Lanjut ke Foto'),
                 ),
               ],
             ),
@@ -337,13 +356,13 @@ class _SellerCreateProductPageState
 
     return DropdownButtonFormField<String>(
       initialValue: value,
-      decoration: const InputDecoration(labelText: 'Category'),
+      decoration: const InputDecoration(labelText: 'Pilih Kategori Produk'),
       items: categories.map((category) {
         return DropdownMenuItem(value: category.id, child: Text(category.name));
       }).toList(),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Category required';
+          return 'Kategori produk wajib dipilih';
         }
 
         return null;

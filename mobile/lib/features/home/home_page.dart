@@ -11,6 +11,7 @@ import 'package:mobile/features/product/providers/category_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
 import 'package:mobile/features/product/providers/product_review_providers.dart';
 import 'package:mobile/features/explore/explore_providers.dart';
+import 'package:mobile/core/providers/product_recommendation_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -114,7 +115,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           .when(
             data: (products) {
               final visible = visibleProducts(products);
-              final recommended = recommendedProducts(products);
+              final recommendedAsync = ref.watch(
+                productRecommendationsProvider,
+              );
 
               return ListView(
                 padding: const EdgeInsets.all(16),
@@ -311,46 +314,96 @@ class _HomePageState extends ConsumerState<HomePage> {
                   const SizedBox(height: 20),
 
                   // Recommended Products Horizontal Scroll
-                  if (recommended.isNotEmpty) ...[
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.recommend_rounded,
-                          color: AppColors.primary,
-                          size: 22,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Rekomendasi Produk',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                  recommendedAsync.when(
+                    data: (recommendedItems) {
+                      if (recommendedItems.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.recommend_rounded,
+                                color: AppColors.primary,
+                                size: 22,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Rekomendasi Produk',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 240,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: recommended.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(width: 12),
-                        itemBuilder: (context, index) {
-                          return SizedBox(
-                            width: 160,
-                            child: _ShopeeProductCard(
-                              product: recommended[index],
-                              isRecommended: true,
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 240,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: recommendedItems.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (context, index) {
+                                final recommendation = recommendedItems[index];
+                                if (recommendation.product == null) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                return SizedBox(
+                                  width: 160,
+                                  child: Stack(
+                                    children: [
+                                      _ShopeeProductCard(
+                                        product: recommendation.product!,
+                                        isRecommended: true,
+                                      ),
+                                      if (recommendation.badgeText != null &&
+                                          recommendation.badgeText!.isNotEmpty)
+                                        Positioned(
+                                          top: 0,
+                                          left: 0,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.amber,
+                                              borderRadius: BorderRadius.only(
+                                                topLeft: Radius.circular(8),
+                                                bottomRight: Radius.circular(8),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              recommendation.badgeText!,
+                                              style: const TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      );
+                    },
+                    error: (error, stack) => const SizedBox.shrink(),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                  ),
 
                   // Main Product Title
                   const Row(

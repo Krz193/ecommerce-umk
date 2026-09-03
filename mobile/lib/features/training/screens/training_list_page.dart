@@ -23,7 +23,9 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
     if (store == null || user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hanya mitra toko UMK yang dapat mendaftar pelatihan.')),
+        const SnackBar(
+          content: Text('Hanya mitra toko UMK yang dapat mendaftar pelatihan.'),
+        ),
       );
       return;
     }
@@ -44,13 +46,17 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Toko "${store.name}" berhasil terdaftar di "${training.title}"!')),
+        SnackBar(
+          content: Text(
+            'Toko "${store.name}" berhasil terdaftar di "${training.title}"!',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mendaftar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal mendaftar: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -65,9 +71,7 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
     final trainingsAsync = ref.watch(trainingsListProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Program Pelatihan UMK'),
-      ),
+      appBar: AppBar(title: const Text('Program Pelatihan UMK')),
       body: trainingsAsync.when(
         data: (trainings) {
           if (trainings.isEmpty) {
@@ -77,17 +81,27 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade400),
+                    Icon(
+                      Icons.school_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Belum Ada Jadwal Pelatihan',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Program pembinaan & webinar bisnis baru akan diumumkan di sini.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
@@ -138,11 +152,16 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: training.status == 'upcoming'
                         ? Colors.blue.shade50
-                        : (training.status == 'completed' ? Colors.grey.shade100 : Colors.orange.shade50),
+                        : (training.status == 'completed'
+                              ? Colors.grey.shade100
+                              : Colors.orange.shade50),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -152,13 +171,18 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                       fontWeight: FontWeight.bold,
                       color: training.status == 'upcoming'
                           ? Colors.blue.shade800
-                          : (training.status == 'completed' ? Colors.grey.shade700 : Colors.orange.shade800),
+                          : (training.status == 'completed'
+                                ? Colors.grey.shade700
+                                : Colors.orange.shade800),
                     ),
                   ),
                 ),
                 if (isEnrolled)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green.shade50,
                       borderRadius: BorderRadius.circular(6),
@@ -166,11 +190,19 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
+                        Icon(
+                          Icons.check_circle,
+                          size: 14,
+                          color: Colors.green.shade700,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           'Terdaftar',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
                         ),
                       ],
                     ),
@@ -182,7 +214,8 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
               training.title,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            if (training.description != null && training.description!.isNotEmpty) ...[
+            if (training.description != null &&
+                training.description!.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
                 training.description!,
@@ -205,7 +238,11 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: Colors.grey,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -218,7 +255,11 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.videocam_outlined, size: 16, color: Colors.blue),
+                const Icon(
+                  Icons.videocam_outlined,
+                  size: 16,
+                  color: Colors.blue,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -235,19 +276,28 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                   ? OutlinedButton.icon(
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Link pelatihan: ${training.locationOrUrl}')),
+                          SnackBar(
+                            content: Text(
+                              'Link pelatihan: ${training.locationOrUrl}',
+                            ),
+                          ),
                         );
                       },
                       icon: const Icon(Icons.link, size: 18),
                       label: const Text('Buka Info / Link Pelatihan'),
                     )
                   : ElevatedButton.icon(
-                      onPressed: isProcessing ? null : () => handleRegister(training),
+                      onPressed: isProcessing
+                          ? null
+                          : () => handleRegister(training),
                       icon: isProcessing
                           ? const SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Icon(Icons.how_to_reg_outlined, size: 18),
                       label: const Text('Daftar Ikuti Pelatihan'),

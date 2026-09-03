@@ -9,8 +9,7 @@ use App\Http\Controllers\Admin\RefundCaseController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\StoreModerationController;
 use App\Http\Controllers\Admin\UserLookupController;
-use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Admin\ProductRecommendationController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StoreContentController;
 use App\Http\Controllers\Admin\SystemFeedbackController;
@@ -18,7 +17,7 @@ use App\Http\Controllers\Admin\SystemFeedbackController;
 Route::redirect('/', '/login')->name('home');
 
 
-Route::middleware(['auth', 'verified', 'admin'])->group(function () {
+Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
 
     // UMK Content & Promotions CRUD
@@ -27,6 +26,11 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::patch('store-contents/{storeContent}', [StoreContentController::class, 'update'])->name('admin.store-contents.update');
     Route::delete('store-contents/{storeContent}', [StoreContentController::class, 'destroy'])->name('admin.store-contents.destroy');
 
+    // Product Recommendations
+    Route::get('recommendations', [ProductRecommendationController::class, 'index'])->name('admin.recommendations.index');
+    Route::post('recommendations', [ProductRecommendationController::class, 'store'])->name('admin.recommendations.store');
+    Route::patch('recommendations/{recommendation}', [ProductRecommendationController::class, 'update'])->name('admin.recommendations.update');
+    Route::delete('recommendations/{recommendation}', [ProductRecommendationController::class, 'destroy'])->name('admin.recommendations.destroy');
 
     // Dynamic Roles & Permissions (RBAC)
     Route::get('roles', [RoleController::class, 'index'])->name('admin.roles.index');

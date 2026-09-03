@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/feedback/models/system_feedback_model.dart';
 import 'package:mobile/features/feedback/providers/feedback_provider.dart';
 
@@ -446,10 +446,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage>
   }
 
   Widget _buildHistoryCard(SystemFeedbackModel item) {
-    final formattedDate = DateFormat(
-      'dd MMM yyyy, HH:mm',
-      'id_ID',
-    ).format(item.createdAt);
+    final formattedDate = DateFormatter.format(item.createdAt);
 
     return Container(
       padding: const EdgeInsets.all(16),
