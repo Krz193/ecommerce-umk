@@ -423,7 +423,13 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  order.status.toUpperCase(),
+                  switch (order.status) {
+                    'processing' => 'PERLU DIKIRIM',
+                    'shipped' => 'SEDANG DIKIRIM',
+                    'completed' => 'SELESAI',
+                    'cancelled' => 'DIBATALKAN',
+                    _ => order.status.toUpperCase(),
+                  },
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -457,7 +463,13 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
               const Icon(Icons.check_circle, color: Colors.green, size: 16),
               const SizedBox(width: 6),
               Text(
-                'Pembayaran: ${order.paymentStatus.toUpperCase()}',
+                'Pembayaran: ${switch (order.paymentStatus) {
+                  'paid' => 'LUNAS (Sudah Dibayar)',
+                  'pending' => 'MENUNGGU PEMBAYARAN',
+                  'failed' => 'GAGAL BAYAR',
+                  'expired' => 'KEDALUWARSA',
+                  _ => order.paymentStatus.toUpperCase(),
+                }}',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,

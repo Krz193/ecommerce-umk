@@ -150,7 +150,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
       final slug = makeSlug(nameController.text);
 
       if (slug.isEmpty) {
-        throw Exception('Product name must contain letters or numbers');
+        throw Exception('Nama produk harus berisi huruf atau angka yang valid');
       }
 
       final sellerProductService = ref.read(sellerProductServiceProvider);
@@ -186,7 +186,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Product updated')));
+      ).showSnackBar(const SnackBar(content: Text('Perubahan produk berhasil disimpan')));
 
       context.pop();
     } catch (error) {
@@ -239,7 +239,9 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            nextStatus == 'published' ? 'Product published' : 'Product drafted',
+            nextStatus == 'published'
+                ? 'Produk berhasil ditayangkan'
+                : 'Produk dialihkan ke draf',
           ),
         ),
       );
@@ -313,7 +315,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Product image uploaded')));
+      ).showSnackBar(const SnackBar(content: Text('Foto produk berhasil diunggah')));
     } catch (error) {
       if (!mounted) {
         return;
@@ -360,7 +362,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Thumbnail selected')));
+      ).showSnackBar(const SnackBar(content: Text('Foto sampul utama berhasil dipilih')));
     } catch (error) {
       if (!mounted) {
         return;
@@ -407,7 +409,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Product image deleted')));
+      ).showSnackBar(const SnackBar(content: Text('Foto produk berhasil dihapus')));
     } catch (error) {
       if (!mounted) {
         return;
@@ -683,12 +685,12 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
     final storeAsync = ref.watch(myStoreProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Product')),
+      appBar: AppBar(title: const Text('Ubah & Kelola Produk')),
 
       body: storeAsync.when(
         data: (store) {
           if (store == null) {
-            return const Center(child: Text('Create a store first'));
+            return const Center(child: Text('Buka toko terlebih dahulu'));
           }
 
           final productsAsync = ref.watch(sellerProductsProvider(store.id));
@@ -698,7 +700,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
               final product = findProduct(products);
 
               if (product == null) {
-                return const Center(child: Text('Product not found'));
+                return const Center(child: Text('Produk tidak ditemukan'));
               }
 
               initializeForm(product);
@@ -739,10 +741,13 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
             children: [
               TextFormField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Product Name'),
+                decoration: const InputDecoration(
+                  labelText: 'Nama Produk',
+                  hintText: 'Contoh: Kripik Singkong Balado 250gr',
+                ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Product name required';
+                    return 'Nama produk wajib diisi';
                   }
 
                   return null;
@@ -753,16 +758,19 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
               TextFormField(
                 controller: priceController,
-                decoration: const InputDecoration(labelText: 'Price'),
+                decoration: const InputDecoration(
+                  labelText: 'Harga Jual (Rp)',
+                  hintText: 'Contoh: 25000',
+                ),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Price required';
+                    return 'Harga wajib diisi';
                   }
 
                   if (int.parse(value.trim()) <= 0) {
-                    return 'Price must be greater than 0';
+                    return 'Harga harus lebih dari Rp 0';
                   }
 
                   return null;
@@ -783,20 +791,27 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                 },
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
               const Text(
-                'Characteristics',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Varian & Karakteristik Produk',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
+
+              Text(
+                'Isi varian untuk memudahkan pembeli memilih (opsional)',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+
+              const SizedBox(height: 12),
 
               TextFormField(
                 controller: productTypeController,
                 decoration: const InputDecoration(
-                  labelText: 'Type',
-                  hintText: 'Example: food, shirt, craft',
+                  labelText: 'Jenis / Tipe',
+                  hintText: 'Contoh: Makanan, Pakaian, Kerajinan',
                 ),
               ),
 
@@ -805,8 +820,8 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
               TextFormField(
                 controller: sizeController,
                 decoration: const InputDecoration(
-                  labelText: 'Size',
-                  hintText: 'Example: S, M, 250g, 1 pack',
+                  labelText: 'Ukuran / Takaran',
+                  hintText: 'Contoh: S, M, L, 250gr, 1 Liter',
                 ),
               ),
 
@@ -815,22 +830,23 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
               TextFormField(
                 controller: colorController,
                 decoration: const InputDecoration(
-                  labelText: 'Color',
-                  hintText: 'Example: red, black, natural',
+                  labelText: 'Warna / Rasa',
+                  hintText: 'Contoh: Merah, Cokelat, Original',
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
               const Text(
-                'Inventory',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Kelola Stok Barang',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
-              const Text(
-                'Current stock is read-only here. Use Stock In for new goods, Adjust Stock for correction, or Stock Opname for physical count results.',
+              Text(
+                'Jumlah stok otomatis terhitung dari riwayat pergerakan barang. Gunakan tombol di bawah untuk menambah atau memeriksa stok.',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
 
               const SizedBox(height: 12),
@@ -839,9 +855,9 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                 controller: stockController,
                 readOnly: true,
                 decoration: const InputDecoration(
-                  labelText: 'Current Stock',
+                  labelText: 'Stok Saat Ini (Otomatis)',
                   helperText:
-                      'This value changes through inventory actions below.',
+                      'Nilai stok ini diperbarui melalui aksi barang masuk / penyesuaian stok di bawah.',
                 ),
                 keyboardType: TextInputType.number,
               ),
@@ -863,7 +879,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.add_box_outlined),
-                    label: const Text('Record Stock In'),
+                    label: const Text('Catat Barang Masuk (+)'),
                   ),
                   OutlinedButton.icon(
                     onPressed: isAdjustingStock
@@ -876,7 +892,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.tune_outlined),
-                    label: const Text('Adjust Stock'),
+                    label: const Text('Sesuaikan Stok'),
                   ),
                   OutlinedButton.icon(
                     onPressed: isRecordingStockOpname
@@ -889,7 +905,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.fact_check_outlined),
-                    label: const Text('Stock Opname'),
+                    label: const Text('Pemeriksaan Fisik (Opname)'),
                   ),
                 ],
               ),
@@ -902,7 +918,10 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
               TextFormField(
                 controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(
+                  labelText: 'Deskripsi Produk',
+                  hintText: 'Jelaskan keunggulan produk, bahan baku, dan cara pakai...',
+                ),
                 minLines: 3,
                 maxLines: 5,
               ),
@@ -913,7 +932,34 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
               const SizedBox(height: 16),
 
-              Text('Current status: ${product.status}'),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      product.status == 'published'
+                          ? Icons.check_circle
+                          : Icons.pending_outlined,
+                      color: product.status == 'published'
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        product.status == 'published'
+                            ? 'Status: Aktif (Tayang & dapat dibeli)'
+                            : 'Status: Draf (Belum tampil di etalase)',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               const SizedBox(height: 24),
 
@@ -936,7 +982,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                         height: 20,
                         child: CircularProgressIndicator(),
                       )
-                    : const Text('Save Changes'),
+                    : const Text('Simpan Perubahan Produk'),
               ),
 
               const SizedBox(height: 12),
@@ -953,8 +999,8 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                       )
                     : Text(
                         product.status == 'published'
-                            ? 'Move to Draft'
-                            : 'Publish Product',
+                            ? 'Alihkan ke Draf (Sembunyikan)'
+                            : 'Tayangkan Produk Sekarang',
                       ),
               ),
             ],
@@ -979,12 +1025,12 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Stock Movement History',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Riwayat Pergerakan Stok',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               if (movements.isEmpty)
-                const Text('No stock movement record yet')
+                const Text('Belum ada catatan mutasi stok')
               else
                 ...movements.map(buildStockMovementTile),
             ],
@@ -1005,10 +1051,10 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
     final isStockOpname =
         movement.note != null && movement.note!.startsWith('Stock opname');
     final title = isStockIn
-        ? '+${movement.quantity} stock in'
+        ? '+${movement.quantity} barang masuk'
         : isStockOpname
-        ? 'Stock opname'
-        : 'Stock adjusted';
+        ? 'Pemeriksaan fisik (Opname)'
+        : 'Penyesuaian stok';
     final icon = isStockIn
         ? Icons.add_box_outlined
         : isStockOpname
@@ -1038,8 +1084,8 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
           children: [
             const Expanded(
               child: Text(
-                'Product Images',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Foto Produk',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
             OutlinedButton.icon(
@@ -1050,14 +1096,15 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.upload),
-              label: const Text('Upload'),
+                  : const Icon(Icons.upload, size: 16),
+              label: const Text('Unggah Foto'),
             ),
           ],
         ),
         const SizedBox(height: 8),
         const Text(
-          'Upload product photos, then choose one uploaded image as thumbnail.',
+          'Unggah foto produk yang jelas, lalu pilih salah satu foto sebagai foto sampul utama.',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
         const SizedBox(height: 12),
         if (images.isEmpty)
@@ -1067,7 +1114,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Text('No product images yet'),
+            child: const Text('Belum ada foto produk yang diunggah'),
           ),
         ...images.map((image) {
           final isThumbnail = product.thumbnailUrl == image.imageUrl;
@@ -1080,6 +1127,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isThumbnail ? Colors.green : Colors.transparent,
+                width: isThumbnail ? 2 : 1,
               ),
             ),
             child: Column(
@@ -1096,7 +1144,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                         height: 180,
                         color: Colors.grey.shade200,
                         alignment: Alignment.center,
-                        child: const Text('Image failed to load'),
+                        child: const Text('Gambar gagal dimuat'),
                       );
                     },
                   ),
@@ -1106,12 +1154,18 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                   children: [
                     if (isThumbnail)
                       const Expanded(
-                        child: Text(
-                          'Thumbnail',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            SizedBox(width: 6),
+                            Text(
+                              'Foto Sampul Utama',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     else
@@ -1120,12 +1174,12 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
                           onPressed: isUpdatingStatus
                               ? null
                               : () => setThumbnail(product, image.id),
-                          child: const Text('Set Thumbnail'),
+                          child: const Text('Jadikan Sampul Utama'),
                         ),
                       ),
                     const SizedBox(width: 8),
                     IconButton(
-                      tooltip: 'Delete image',
+                      tooltip: 'Hapus foto',
                       onPressed: isUploadingImage
                           ? null
                           : () => deleteImage(product, image.id),
@@ -1149,13 +1203,13 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
     return DropdownButtonFormField<String>(
       initialValue: value,
-      decoration: const InputDecoration(labelText: 'Category'),
+      decoration: const InputDecoration(labelText: 'Pilih Kategori Produk'),
       items: categories.map((category) {
         return DropdownMenuItem(value: category.id, child: Text(category.name));
       }).toList(),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Category required';
+          return 'Kategori produk wajib dipilih';
         }
 
         return null;
@@ -1212,7 +1266,7 @@ class _StockInDialogState extends State<_StockInDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Record Stock In'),
+      title: const Text('Catat Barang Masuk (+)'),
       content: Form(
         key: formKey,
         child: Column(
@@ -1220,16 +1274,19 @@ class _StockInDialogState extends State<_StockInDialog> {
           children: [
             TextFormField(
               controller: quantityController,
-              decoration: const InputDecoration(labelText: 'Incoming Quantity'),
+              decoration: const InputDecoration(
+                labelText: 'Jumlah Barang Masuk',
+                hintText: 'Contoh: 20',
+              ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Quantity required';
+                  return 'Jumlah barang masuk wajib diisi';
                 }
 
                 if (int.parse(value.trim()) <= 0) {
-                  return 'Quantity must be greater than 0';
+                  return 'Jumlah harus lebih dari 0';
                 }
 
                 return null;
@@ -1239,8 +1296,8 @@ class _StockInDialogState extends State<_StockInDialog> {
             TextFormField(
               controller: noteController,
               decoration: const InputDecoration(
-                labelText: 'Note',
-                hintText: 'Supplier, invoice, or restock note',
+                labelText: 'Keterangan Restock (Opsional)',
+                hintText: 'Pemasok, nota kulakan, atau batch produksi',
               ),
               minLines: 2,
               maxLines: 3,
@@ -1253,9 +1310,9 @@ class _StockInDialogState extends State<_StockInDialog> {
           onPressed: () {
             Navigator.of(context).pop();
           },
-          child: const Text('Cancel'),
+          child: const Text('Batal'),
         ),
-        FilledButton(onPressed: submit, child: const Text('Save')),
+        FilledButton(onPressed: submit, child: const Text('Simpan')),
       ],
     );
   }
@@ -1318,7 +1375,7 @@ class _StockAdjustmentDialogState extends State<_StockAdjustmentDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Adjust Stock'),
+      title: const Text('Sesuaikan Jumlah Stok'),
       content: Form(
         key: formKey,
         child: Column(
@@ -1327,18 +1384,18 @@ class _StockAdjustmentDialogState extends State<_StockAdjustmentDialog> {
             TextFormField(
               controller: stockController,
               decoration: const InputDecoration(
-                labelText: 'New Stock Quantity',
-                helperText: 'Use this only for correction or stock opname.',
+                labelText: 'Jumlah Stok Baru',
+                helperText: 'Gunakan ini untuk koreksi salah input atau retur.',
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'New stock quantity required';
+                  return 'Jumlah stok baru wajib diisi';
                 }
 
                 if (int.parse(value.trim()) == widget.currentStock) {
-                  return 'New stock must be different';
+                  return 'Jumlah stok baru harus berbeda dari stok saat ini';
                 }
 
                 return null;
@@ -1348,14 +1405,14 @@ class _StockAdjustmentDialogState extends State<_StockAdjustmentDialog> {
             TextFormField(
               controller: reasonController,
               decoration: const InputDecoration(
-                labelText: 'Adjustment Reason',
-                hintText: 'Stock opname, damaged item, or input correction',
+                labelText: 'Alasan Penyesuaian',
+                hintText: 'Contoh: Barang rusak, kedaluwarsa, atau salah hitung',
               ),
               minLines: 2,
               maxLines: 3,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Reason required';
+                  return 'Alasan penyesuaian wajib diisi';
                 }
 
                 return null;
@@ -1369,9 +1426,9 @@ class _StockAdjustmentDialogState extends State<_StockAdjustmentDialog> {
           onPressed: () {
             Navigator.of(context).pop();
           },
-          child: const Text('Cancel'),
+          child: const Text('Batal'),
         ),
-        FilledButton(onPressed: submit, child: const Text('Save')),
+        FilledButton(onPressed: submit, child: const Text('Simpan')),
       ],
     );
   }
@@ -1434,7 +1491,7 @@ class _StockOpnameDialogState extends State<_StockOpnameDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Stock Opname'),
+      title: const Text('Pemeriksaan Fisik Stok (Opname)'),
       content: Form(
         key: formKey,
         child: Column(
@@ -1443,24 +1500,24 @@ class _StockOpnameDialogState extends State<_StockOpnameDialog> {
             TextFormField(
               readOnly: true,
               initialValue: widget.currentStock.toString(),
-              decoration: const InputDecoration(labelText: 'System Stock'),
+              decoration: const InputDecoration(labelText: 'Jumlah Stok di Sistem'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: countedStockController,
               decoration: const InputDecoration(
-                labelText: 'Physical Stock Count',
-                helperText: 'Enter the counted quantity from stock opname.',
+                labelText: 'Jumlah Fisik Hasil Hitungan Nyata',
+                helperText: 'Masukkan jumlah barang yang nyata ada di rak/gudang.',
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Physical stock count required';
+                  return 'Jumlah fisik hasil hitung wajib diisi';
                 }
 
                 if (int.parse(value.trim()) == widget.currentStock) {
-                  return 'Counted stock must be different to create opname';
+                  return 'Hasil hitung harus berbeda dari stok sistem untuk dicatat sebagai selisih';
                 }
 
                 return null;
@@ -1470,8 +1527,8 @@ class _StockOpnameDialogState extends State<_StockOpnameDialog> {
             TextFormField(
               controller: noteController,
               decoration: const InputDecoration(
-                labelText: 'Stock Opname Note',
-                hintText: 'Shelf count, missing item, damaged item, etc.',
+                labelText: 'Catatan Pemeriksaan Stok (Opsional)',
+                hintText: 'Keterangan rak, selisih barang, atau tanggal opname',
               ),
               minLines: 2,
               maxLines: 3,
@@ -1484,9 +1541,9 @@ class _StockOpnameDialogState extends State<_StockOpnameDialog> {
           onPressed: () {
             Navigator.of(context).pop();
           },
-          child: const Text('Cancel'),
+          child: const Text('Batal'),
         ),
-        FilledButton(onPressed: submit, child: const Text('Save')),
+        FilledButton(onPressed: submit, child: const Text('Simpan Hasil')),
       ],
     );
   }

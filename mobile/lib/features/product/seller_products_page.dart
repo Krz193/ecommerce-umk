@@ -20,7 +20,7 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
     final storeAsync = ref.watch(managedStoreProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
+      appBar: AppBar(title: const Text('Daftar Produk Toko')),
 
       floatingActionButton: storeAsync.maybeWhen(
         data: (store) {
@@ -28,11 +28,12 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
             return null;
           }
 
-          return FloatingActionButton(
+          return FloatingActionButton.extended(
             onPressed: () {
               context.push('/seller/products/create');
             },
-            child: const Icon(Icons.add),
+            icon: const Icon(Icons.add),
+            label: const Text('Tambah Produk'),
           );
         },
         orElse: () => null,
@@ -49,15 +50,16 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Create a store before adding products',
+                      'Buka atau daftarkan toko terlebih dahulu sebelum menambahkan produk.',
                       textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
                         context.go('/seller/onboarding');
                       },
-                      child: const Text('Create Store'),
+                      child: const Text('Buka Toko UMK Sekarang'),
                     ),
                   ],
                 ),
@@ -78,19 +80,26 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Text(
-                          'No products yet',
+                          'Belum Ada Produk Ditambahkan',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Mulai tambahkan produk jualan toko Anda agar pembeli dapat melihat dan memesan.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
                           onPressed: () {
                             context.push('/seller/products/create');
                           },
-                          child: const Text('Add Product'),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Tambah Produk Pertama'),
                         ),
                       ],
                     ),
@@ -132,6 +141,18 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
   }
 
   Widget buildProductCard(ProductModel product) {
+    final statusLabel = switch (product.status) {
+      'published' => 'Aktif',
+      'draft' => 'Draf',
+      'archived' => 'Diarsipkan',
+      _ => product.status,
+    };
+    final statusColor = switch (product.status) {
+      'published' => Colors.green,
+      'draft' => Colors.orange,
+      _ => Colors.grey,
+    };
+
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () {
@@ -173,21 +194,45 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
                   child: Text(
                     product.name,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                Text(product.status),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 20),
               ],
             ),
             const SizedBox(height: 8),
-            Text(CurrencyFormatter.format(product.price)),
+            Text(
+              CurrencyFormatter.format(product.price),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: Colors.black87,
+              ),
+            ),
             if (product.categoryName != null) ...[
-              const SizedBox(height: 8),
-              Text('Category: ${product.categoryName}'),
+              const SizedBox(height: 6),
+              Text(
+                'Kategori: ${product.categoryName}',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
             ],
             if (hasCharacteristics(product)) ...[
               const SizedBox(height: 8),
@@ -196,11 +241,11 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
                 runSpacing: 8,
                 children: [
                   if (product.productType?.isNotEmpty == true)
-                    Chip(label: Text('Type: ${product.productType}')),
+                    Chip(label: Text('Jenis: ${product.productType}')),
                   if (product.size?.isNotEmpty == true)
-                    Chip(label: Text('Size: ${product.size}')),
+                    Chip(label: Text('Ukuran: ${product.size}')),
                   if (product.color?.isNotEmpty == true)
-                    Chip(label: Text('Color: ${product.color}')),
+                    Chip(label: Text('Warna: ${product.color}')),
                 ],
               ),
             ],
@@ -212,15 +257,15 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
               children: [
                 buildStockBadge(product.stock),
                 Text(
-                  'Current stock: ${product.stock}',
+                  'Sisa stok: ${product.stock} pcs',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 OutlinedButton.icon(
                   onPressed: () {
                     context.push('/seller/products/${product.id}/edit');
                   },
-                  icon: const Icon(Icons.inventory_2_outlined),
-                  label: const Text('Manage Inventory'),
+                  icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                  label: const Text('Kelola & Ubah'),
                 ),
               ],
             ),
@@ -232,9 +277,9 @@ class _SellerProductsPageState extends ConsumerState<SellerProductsPage> {
 
   Widget buildStockBadge(int stock) {
     final (label, color) = switch (stock) {
-      0 => ('Out of stock', Colors.red),
-      <= 5 => ('Low stock', Colors.orange),
-      _ => ('In stock', Colors.green),
+      0 => ('Stok Habis', Colors.red),
+      <= 5 => ('Stok Menipis', Colors.orange),
+      _ => ('Stok Aman', Colors.green),
     };
 
     return Container(

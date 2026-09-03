@@ -22,7 +22,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Store'),
+        title: const Text('Toko Saya'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -50,7 +50,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                   children: [
                     const Text(
-                      'No store yet',
+                      'Belum Ada Toko Terdaftar',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 20,
@@ -64,7 +64,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                       onPressed: () {
                         context.go('/seller/onboarding');
                       },
-                      child: const Text('Create Store'),
+                      child: const Text('Buka Toko UMK Sekarang'),
                     ),
                   ],
                 ),
@@ -87,8 +87,8 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                 _buildActionTile(
                   icon: Icons.inventory_2_outlined,
-                  title: 'Products',
-                  subtitle: 'Manage store products',
+                  title: 'Kelola Produk',
+                  subtitle: 'Atur katalog produk dan stok barang toko',
                   onTap: () {
                     context.push('/seller/products');
                   },
@@ -98,9 +98,9 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                 _buildActionTile(
                   icon: Icons.analytics_outlined,
-                  title: 'Reports',
+                  title: 'Laporan Toko',
                   subtitle:
-                      'View store metrics, stock alerts, and sales reports',
+                      'Pantau ringkasan penjualan, transaksi, dan performa',
                   onTap: () {
                     context.push('/seller/reports');
                   },
@@ -110,8 +110,8 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                 _buildActionTile(
                   icon: Icons.receipt_long_outlined,
-                  title: 'Orders',
-                  subtitle: 'Manage incoming orders',
+                  title: 'Pesanan Masuk',
+                  subtitle: 'Kelola dan proses pesanan dari pembeli',
                   onTap: () {
                     context.push('/seller/orders');
                   },
@@ -151,7 +151,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Store Reports'),
+        title: const Text('Laporan Penjualan Toko'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -167,13 +167,14 @@ class SellerStoreReportsPage extends ConsumerWidget {
       body: storeAsync.when(
         data: (store) {
           if (store == null) {
-            return const Center(child: Text('No store yet'));
+            return const Center(child: Text('Belum ada toko'));
           }
 
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(sellerProductsProvider(store.id));
               ref.invalidate(sellerOrdersProvider(store.id));
+              ref.invalidate(storeCartInsightsProvider(store.id));
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -211,7 +212,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Operational metrics, goods report, financial report, buyer report, shipment report, and stock alerts.',
+            'Ringkasan operasional toko, data barang, laporan keuangan, pelanggan, pengiriman, dan stok menipis.',
           ),
         ],
       ),
@@ -236,7 +237,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
               children: [
                 _buildExportPanel(context, storeName, products, orders),
                 const SizedBox(height: 12),
-                _buildCartInsights(ref, storeId),
+                _buildCartInsights(context, ref, storeId),
                 const SizedBox(height: 12),
                 _buildProductMetrics(products),
                 const SizedBox(height: 12),
@@ -271,7 +272,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildCartInsights(WidgetRef ref, String storeId) {
+  Widget _buildCartInsights(BuildContext context, WidgetRef ref, String storeId) {
     final insightsAsync = ref.watch(storeCartInsightsProvider(storeId));
 
     return insightsAsync.when(
@@ -279,6 +280,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
         final totalItems = insights['total_items_in_carts'] ?? 0;
         final totalValue = insights['total_potential_value'] ?? 0;
         final uniqueBuyers = insights['unique_potential_buyers'] ?? 0;
+        final breakdown = (insights['product_breakdown'] as List<dynamic>?) ?? [];
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -325,12 +327,284 @@ class SellerStoreReportsPage extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (totalItems > 0 && breakdown.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Divider(color: Colors.blue.shade100, height: 1),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => _showProductBreakdownSheet(context, breakdown),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.inventory_2_outlined,
+                                size: 16, color: Colors.blue.shade800),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Lihat Rincian ${breakdown.length} Produk di Keranjang',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Icon(Icons.arrow_forward_ios_rounded,
+                            size: 13, color: Colors.blue.shade800),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );
       },
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       loading: () => const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  void _showProductBreakdownSheet(
+    BuildContext context,
+    List<dynamic> items,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.65,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.shopping_cart_outlined,
+                            color: Colors.blue),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Rincian Produk di Keranjang',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Produk toko yang sedang disimpan calon pembeli',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final item = items[index] as Map<String, dynamic>;
+                      final name = item['product_name'] ?? 'Produk';
+                      final imageUrl = item['product_image'] as String?;
+                      final price = (item['price'] as num?)?.toInt() ?? 0;
+                      final stock = (item['stock'] as num?)?.toInt() ?? 0;
+                      final totalQty = (item['total_quantity'] as num?)?.toInt() ?? 0;
+                      final totalValue = (item['total_potential_value'] as num?)?.toInt() ?? 0;
+                      final buyerCount = (item['unique_buyers'] as num?)?.toInt() ?? 0;
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: imageUrl != null && imageUrl.isNotEmpty
+                                  ? Image.network(
+                                      imageUrl,
+                                      width: 56,
+                                      height: 56,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => Container(
+                                        width: 56,
+                                        height: 56,
+                                        color: Colors.grey.shade200,
+                                        child: const Icon(
+                                          Icons.inventory_2_outlined,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 56,
+                                      height: 56,
+                                      color: Colors.grey.shade200,
+                                      child: const Icon(
+                                        Icons.inventory_2_outlined,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    CurrencyFormatter.format(price),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '$totalQty di keranjang',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue.shade900,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple.shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '$buyerCount calon pembeli',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.purple.shade800,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Stok: $stock',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade800,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Potensi',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  CurrencyFormatter.format(totalValue),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -350,12 +624,12 @@ class SellerStoreReportsPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Export CSV',
+            'Unduh Laporan Toko (Excel / CSV)',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Download detailed report files that can be opened in Excel.',
+            'Unduh data laporan lengkap yang dapat langsung dibuka di Microsoft Excel atau Google Spreadsheet.',
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -367,28 +641,28 @@ class SellerStoreReportsPage extends ConsumerWidget {
                   _exportGoodsReport(context, storeName, products);
                 },
                 icon: const Icon(Icons.inventory_2_outlined),
-                label: const Text('Goods'),
+                label: const Text('Data Barang'),
               ),
               OutlinedButton.icon(
                 onPressed: () {
                   _exportFinancialReport(context, storeName, orders);
                 },
                 icon: const Icon(Icons.payments_outlined),
-                label: const Text('Financial'),
+                label: const Text('Keuangan'),
               ),
               OutlinedButton.icon(
                 onPressed: () {
                   _exportBuyerReport(context, storeName, orders);
                 },
                 icon: const Icon(Icons.people_alt_outlined),
-                label: const Text('Buyer'),
+                label: const Text('Pelanggan'),
               ),
               OutlinedButton.icon(
                 onPressed: () {
                   _exportShipmentReport(context, storeName, orders);
                 },
                 icon: const Icon(Icons.local_shipping_outlined),
-                label: const Text('Shipment'),
+                label: const Text('Pengiriman'),
               ),
             ],
           ),
@@ -645,28 +919,28 @@ class SellerStoreReportsPage extends ConsumerWidget {
     final outOfStock = products.where((product) => product.stock == 0).length;
 
     return _buildMetricPanel(
-      title: 'Product Metrics',
+      title: 'Ringkasan Produk',
       metrics: [
         _DashboardMetric(
-          label: 'Total',
+          label: 'Total Produk',
           value: products.length.toString(),
           icon: Icons.inventory_2_outlined,
           color: Colors.blue,
         ),
         _DashboardMetric(
-          label: 'Published',
+          label: 'Aktif / Tayang',
           value: published.toString(),
           icon: Icons.visibility_outlined,
           color: Colors.green,
         ),
         _DashboardMetric(
-          label: 'Draft',
+          label: 'Draf',
           value: draft.toString(),
           icon: Icons.edit_note,
           color: Colors.orange,
         ),
         _DashboardMetric(
-          label: 'Low/Out',
+          label: 'Stok Kritis / Habis',
           value: '${lowStock + outOfStock}',
           icon: Icons.warning_amber_outlined,
           color: lowStock + outOfStock > 0 ? Colors.red : Colors.green,
@@ -691,28 +965,28 @@ class SellerStoreReportsPage extends ConsumerWidget {
         .length;
 
     return _buildMetricPanel(
-      title: 'Order Metrics',
+      title: 'Status Pesanan',
       metrics: [
         _DashboardMetric(
-          label: 'Ready Ship',
+          label: 'Siap Kirim',
           value: processing.toString(),
           icon: Icons.local_shipping_outlined,
           color: processing > 0 ? Colors.blue : Colors.grey,
         ),
         _DashboardMetric(
-          label: 'Shipped',
+          label: 'Dikirim',
           value: shipped.toString(),
           icon: Icons.inventory_outlined,
           color: shipped > 0 ? Colors.deepPurple : Colors.grey,
         ),
         _DashboardMetric(
-          label: 'Completed',
+          label: 'Selesai',
           value: completed.toString(),
           icon: Icons.check_circle_outline,
           color: Colors.green,
         ),
         _DashboardMetric(
-          label: 'Pending Pay',
+          label: 'Belum Bayar',
           value: pendingPayment.toString(),
           icon: Icons.payments_outlined,
           color: pendingPayment > 0 ? Colors.orange : Colors.grey,
@@ -745,31 +1019,31 @@ class SellerStoreReportsPage extends ConsumerWidget {
     final pendingPaymentValue = _sumOrderAmount(pendingPaymentOrders);
 
     return _buildMetricPanel(
-      title: 'Financial Report',
+      title: 'Laporan Keuangan',
       metrics: [
         _DashboardMetric(
-          label: 'Paid Revenue',
+          label: 'Pendapatan Masuk',
           value: _compactRupiah(paidRevenue),
           icon: Icons.account_balance_wallet_outlined,
           color: Colors.green,
           tooltip: CurrencyFormatter.format(paidRevenue),
         ),
         _DashboardMetric(
-          label: 'Completed',
+          label: 'Pesanan Selesai',
           value: _compactRupiah(completedRevenue),
           icon: Icons.verified_outlined,
           color: Colors.teal,
           tooltip: CurrencyFormatter.format(completedRevenue),
         ),
         _DashboardMetric(
-          label: 'Pending Pay',
+          label: 'Menunggu Bayar',
           value: _compactRupiah(pendingPaymentValue),
           icon: Icons.schedule_outlined,
           color: pendingPaymentValue > 0 ? Colors.orange : Colors.grey,
           tooltip: CurrencyFormatter.format(pendingPaymentValue),
         ),
         _DashboardMetric(
-          label: 'Paid Orders',
+          label: 'Transaksi Lunas',
           value: paidOrders.length.toString(),
           icon: Icons.receipt_long_outlined,
           color: Colors.blue,
@@ -803,28 +1077,28 @@ class SellerStoreReportsPage extends ConsumerWidget {
         .toSet();
 
     return _buildMetricPanel(
-      title: 'Buyer Report',
+      title: 'Laporan Pelanggan',
       metrics: [
         _DashboardMetric(
-          label: 'Unique Buyers',
+          label: 'Total Pembeli',
           value: uniqueBuyers.toString(),
           icon: Icons.people_alt_outlined,
           color: Colors.indigo,
         ),
         _DashboardMetric(
-          label: 'Paid Buyers',
+          label: 'Pembeli Lunas',
           value: paidBuyerKeys.length.toString(),
           icon: Icons.person_add_alt_1_outlined,
           color: Colors.green,
         ),
         _DashboardMetric(
-          label: 'Repeat Buyers',
+          label: 'Pelanggan Setia',
           value: repeatBuyers.toString(),
           icon: Icons.repeat_outlined,
           color: repeatBuyers > 0 ? Colors.deepPurple : Colors.grey,
         ),
         _DashboardMetric(
-          label: 'Buyer Orders',
+          label: 'Total Transaksi',
           value: orders.length.toString(),
           icon: Icons.shopping_bag_outlined,
           color: Colors.blueGrey,
@@ -855,28 +1129,28 @@ class SellerStoreReportsPage extends ConsumerWidget {
         .length;
 
     return _buildMetricPanel(
-      title: 'Shipment Report',
+      title: 'Laporan Pengiriman',
       metrics: [
         _DashboardMetric(
-          label: 'Ready Ship',
+          label: 'Siap Kirim',
           value: readyToShip.toString(),
           icon: Icons.inventory_outlined,
           color: readyToShip > 0 ? Colors.orange : Colors.grey,
         ),
         _DashboardMetric(
-          label: 'In Transit',
+          label: 'Dalam Perjalanan',
           value: shipped.toString(),
           icon: Icons.local_shipping_outlined,
           color: shipped > 0 ? Colors.blue : Colors.grey,
         ),
         _DashboardMetric(
-          label: 'Delivered',
+          label: 'Terkirim',
           value: completed.toString(),
           icon: Icons.task_alt_outlined,
           color: Colors.green,
         ),
         _DashboardMetric(
-          label: 'With Tracking',
+          label: 'Ada Nomor Resi',
           value: withTracking.toString(),
           icon: Icons.confirmation_number_outlined,
           color: withTracking > 0 ? Colors.deepPurple : Colors.grey,
@@ -902,28 +1176,28 @@ class SellerStoreReportsPage extends ConsumerWidget {
         .length;
 
     return _buildMetricPanel(
-      title: 'Goods Report',
+      title: 'Laporan Data Barang',
       metrics: [
         _DashboardMetric(
-          label: 'Total Stock',
+          label: 'Total Stok',
           value: totalStock.toString(),
           icon: Icons.warehouse_outlined,
           color: Colors.teal,
         ),
         _DashboardMetric(
-          label: 'Stock Value',
+          label: 'Nilai Aset Barang',
           value: _compactRupiah(inventoryValue),
           icon: Icons.account_balance_wallet_outlined,
           color: Colors.indigo,
         ),
         _DashboardMetric(
-          label: 'Active',
+          label: 'Siap Dijual',
           value: activeProducts.toString(),
           icon: Icons.check_circle_outline,
           color: Colors.green,
         ),
         _DashboardMetric(
-          label: 'Unavailable',
+          label: 'Stok Habis / Draf',
           value: unavailableProducts.toString(),
           icon: Icons.block_outlined,
           color: unavailableProducts > 0 ? Colors.red : Colors.grey,
@@ -935,12 +1209,12 @@ class SellerStoreReportsPage extends ConsumerWidget {
   String _compactRupiah(int value) {
     if (value >= 1000000) {
       final compact = value / 1000000;
-      return 'Rp ${compact.toStringAsFixed(compact >= 10 ? 0 : 1)}M';
+      return 'Rp ${compact.toStringAsFixed(compact >= 10 ? 0 : 1)}Jt';
     }
 
     if (value >= 1000) {
       final compact = value / 1000;
-      return 'Rp ${compact.toStringAsFixed(compact >= 10 ? 0 : 1)}K';
+      return 'Rp ${compact.toStringAsFixed(compact >= 10 ? 0 : 1)}Rb';
     }
 
     return 'Rp $value';
@@ -1042,7 +1316,12 @@ class SellerStoreReportsPage extends ConsumerWidget {
           children: [
             Icon(Icons.check_circle_outline, color: Colors.green),
             SizedBox(width: 12),
-            Expanded(child: Text('No low stock alerts')),
+            Expanded(
+              child: Text(
+                'Stok seluruh produk aman (di atas 5 pcs)',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
           ],
         ),
       );
@@ -1058,7 +1337,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Low Stock Alerts',
+            'Peringatan Stok Menipis',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
@@ -1075,7 +1354,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
               ),
               title: Text(product.name),
               subtitle: Text(
-                isOut ? 'Out of stock' : 'Stock: ${product.stock}',
+                isOut ? 'Stok Habis (0 pcs)' : 'Sisa stok: ${product.stock} pcs',
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
@@ -1089,7 +1368,9 @@ class SellerStoreReportsPage extends ConsumerWidget {
               onPressed: () {
                 context.push('/seller/products');
               },
-              child: Text('View ${alertProducts.length - 5} more alert(s)'),
+              child: Text(
+                'Lihat ${alertProducts.length - 5} produk menipis lainnya',
+              ),
             ),
           ],
         ],
@@ -1117,10 +1398,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
       children: [
         Text(
           title,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade700,
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
         ),
         const SizedBox(height: 4),
         Text(
@@ -1138,7 +1416,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
 
 Widget _buildStoreSummary(StoreModel store, WidgetRef ref) {
   final reviewsAsync = ref.watch(storeReviewsProvider(store.id));
-  
+
   return Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -1167,7 +1445,9 @@ Widget _buildStoreSummary(StoreModel store, WidgetRef ref) {
         reviewsAsync.when(
           data: (reviews) {
             if (reviews.isEmpty) return const SizedBox.shrink();
-            final approvedReviews = reviews.where((r) => r['is_approved'] == true).toList();
+            final approvedReviews = reviews
+                .where((r) => r['is_approved'] == true)
+                .toList();
             if (approvedReviews.isEmpty) return const SizedBox.shrink();
 
             final totalRating = approvedReviews.fold<double>(
@@ -1192,27 +1472,24 @@ Widget _buildStoreSummary(StoreModel store, WidgetRef ref) {
                   const SizedBox(width: 4),
                   Text(
                     '(${approvedReviews.length} ulasan)',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
               ),
             );
           },
           loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
         ),
 
         if (store.phone != null) ...[
           const SizedBox(height: 16),
-          Text('Phone: ${store.phone}'),
+          Text('Telepon: ${store.phone}'),
         ],
 
         if (store.address != null) ...[
           const SizedBox(height: 8),
-          Text('Address: ${store.address}'),
+          Text('Alamat: ${store.address}'),
         ],
 
         if (store.description != null) ...[
@@ -1225,18 +1502,18 @@ Widget _buildStoreSummary(StoreModel store, WidgetRef ref) {
 }
 
 Widget _buildStatusBadge(String status) {
-  final color = status == 'active' ? Colors.green : Colors.orange;
+  final isActive = status == 'active';
+  final color = isActive ? Colors.green : Colors.orange;
+  final label = isActive ? 'Toko Aktif' : 'Menunggu / Draf';
 
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(999),
     ),
-
     child: Text(
-      status,
+      label,
       style: TextStyle(color: color, fontWeight: FontWeight.bold),
     ),
   );
