@@ -316,8 +316,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   // Recommended Products Horizontal Scroll
                   recommendedAsync.when(
                     data: (recommendedItems) {
-                      if (recommendedItems.isEmpty)
+                      if (recommendedItems.isEmpty) {
                         return const SizedBox.shrink();
+                      }
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,8 +351,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   const SizedBox(width: 12),
                               itemBuilder: (context, index) {
                                 final recommendation = recommendedItems[index];
-                                if (recommendation.product == null)
+                                if (recommendation.product == null) {
                                   return const SizedBox.shrink();
+                                }
 
                                 return SizedBox(
                                   width: 160,
