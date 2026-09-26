@@ -62,7 +62,7 @@ class SellerOrderService {
   Future<OrderModel> shipOrder({
     required String orderId,
     required String shippingProvider,
-    required String trackingNumber,
+    String? trackingNumber,
     String? driverName,
     String? driverPhone,
   }) {
