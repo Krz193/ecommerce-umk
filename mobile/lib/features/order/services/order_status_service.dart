@@ -17,7 +17,7 @@ class OrderStatusService {
   Future<OrderModel> shipOrder({
     required String orderId,
     required String shippingProvider,
-    required String trackingNumber,
+    String? trackingNumber,
     String? driverName,
     String? driverPhone,
   }) {
@@ -52,27 +52,43 @@ class OrderStatusService {
       'driver_phone': ?driverPhone,
     };
 
-    final response = await _supabase.functions.invoke(
-      'update-order-status',
-      body: body,
-    );
+    try {
+      final response = await _supabase.functions.invoke(
+        'update-order-status',
+        body: body,
+      );
 
-    if (response.status != 200) {
-      final data = response.data;
+      if (response.status != 200) {
+        final data = response.data;
 
-      if (data is Map && data['error'] != null) {
-        throw OrderStatusException(data['error'].toString());
+        if (data is Map && data['error'] != null) {
+          throw OrderStatusException(data['error'].toString());
+        }
+
+        throw OrderStatusException('Gagal memperbarui status pesanan');
       }
 
-      throw OrderStatusException('Failed to update order status');
+      final data = response.data;
+
+      if (data is! Map || data['order'] == null) {
+        throw OrderStatusException('Gagal membaca data pesanan dari server');
+      }
+
+      return OrderModel.fromJson(Map<String, dynamic>.from(data['order']));
+    } on FunctionException catch (fe) {
+      String msg = 'Gagal memproses pesanan pengiriman';
+      if (fe.details is Map) {
+        final map = fe.details as Map;
+        msg = map['error']?.toString() ?? map['message']?.toString() ?? msg;
+      } else if (fe.details is String && (fe.details as String).isNotEmpty) {
+        msg = fe.details as String;
+      } else if (fe.reasonPhrase != null) {
+        msg = fe.reasonPhrase!;
+      }
+      throw OrderStatusException(msg);
+    } catch (e) {
+      if (e is OrderStatusException) rethrow;
+      throw OrderStatusException('Terjadi kendala: $e');
     }
-
-    final data = response.data;
-
-    if (data is! Map || data['order'] == null) {
-      throw OrderStatusException('Failed to read updated order');
-    }
-
-    return OrderModel.fromJson(Map<String, dynamic>.from(data['order']));
   }
 }

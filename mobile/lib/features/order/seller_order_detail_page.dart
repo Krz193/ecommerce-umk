@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -131,35 +130,13 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
 
     if (confirmed != true) return;
 
-    // Generate automated driver details and tracking number
-    String trackingNum = order.waybillId ?? order.trackingNumber ?? '';
-    if (trackingNum.isEmpty) {
-      final code =
-          order.courierCode?.toUpperCase() ?? (isInstant ? 'GJ' : 'JNE');
-      final randomDigits = 100000000 + Random().nextInt(900000000);
-      trackingNum = '$code$randomDigits';
-    }
-
-    String? driverName;
-    String? driverPhone;
-    if (isInstant) {
-      final driverNames = [
-        'Joko Supriyanto',
-        'Budi Raharjo',
-        'Agus Santoso',
-        'Rian Hidayat',
-        'Fajar Pratama',
-      ];
-      driverName = driverNames[Random().nextInt(driverNames.length)];
-      driverPhone = '0812${10000000 + Random().nextInt(90000000)}';
-    }
-
+    // Automated dispatch without fake/mock data: Biteship will return real waybill & driver info
     await shipOrder(
       storeId: storeId,
       shippingProvider: courierDisplay,
-      trackingNumber: trackingNum,
-      driverName: driverName,
-      driverPhone: driverPhone,
+      trackingNumber: order.waybillId ?? order.trackingNumber,
+      driverName: null,
+      driverPhone: null,
     );
   }
 
@@ -236,10 +213,30 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
     }
   }
 
+  String _formatUserFriendlyError(Object error) {
+    final raw = error.toString().replaceFirst('Exception: ', '').trim();
+    if (raw.contains('Saldo deposit Biteship') || raw.toLowerCase().contains('balance')) {
+      return 'Saldo deposit Biteship tidak mencukupi untuk melakukan pemesanan kurir. Silakan isi saldo akun Biteship Anda.';
+    }
+    if (raw.contains('koordinat') || raw.toLowerCase().contains('coordinate')) {
+      return 'Titik lokasi/koordinat toko atau alamat penerima belum valid. Kurir instan/same day membutuhkan titik koordinat yang presisi.';
+    }
+    if (raw.contains('kode pos') || raw.toLowerCase().contains('postal_code')) {
+      return 'Kode pos alamat pengiriman tidak valid atau belum tercakup oleh jangkauan ekspedisi ini.';
+    }
+    if (raw.contains('telepon') || raw.toLowerCase().contains('phone')) {
+      return 'Nomor telepon penerima atau toko tidak valid. Pastikan nomor diawali format nomor Indonesia (cth: 08123456789).';
+    }
+    if (raw.contains('tidak tersedia') || raw.toLowerCase().contains('courier')) {
+      return 'Layanan kurir yang dipilih tidak tersedia untuk rute tujuan ini. Coba gunakan kurir lain atau gunakan opsi Input Resi Manual.';
+    }
+    return raw;
+  }
+
   Future<void> shipOrder({
     required String storeId,
     required String shippingProvider,
-    required String trackingNumber,
+    String? trackingNumber,
     String? driverName,
     String? driverPhone,
   }) async {
@@ -272,9 +269,51 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      final cleanMessage = _formatUserFriendlyError(error);
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          icon: const Icon(
+            Icons.error_outline_rounded,
+            color: Colors.red,
+            size: 48,
+          ),
+          title: const Text(
+            'Gagal Memproses Pengiriman',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
+          content: Text(
+            cleanMessage,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Mengerti'),
+            ),
+          ],
+        ),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(cleanMessage),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -661,6 +700,8 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
           buildInfoRow('Nama Penerima', order.shippingName),
           buildInfoRow('No. Telepon', order.shippingPhone),
           buildInfoRow('Alamat Lengkap', order.shippingAddress),
+          if (order.shippingNotes != null && order.shippingNotes!.isNotEmpty)
+            buildInfoRow('Catatan / Patokan', order.shippingNotes!),
         ],
       ),
     );
