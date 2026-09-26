@@ -47,6 +47,7 @@ function formatIdPhone(phone?: string | null): string {
     if (!phone) return "081234567890";
     let cleaned = String(phone).replace(/[^0-9]/g, "");
     if (cleaned.startsWith("62")) cleaned = "0" + cleaned.slice(2);
+    if (cleaned.startsWith("8")) cleaned = "0" + cleaned;
     if (!cleaned.startsWith("0")) cleaned = "08" + cleaned;
     if (cleaned.length < 10) cleaned = cleaned.padEnd(11, "0");
     return cleaned;
