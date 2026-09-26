@@ -2,16 +2,51 @@ import {serve} from "https://deno.land/std@0.224.0/http/server.ts";
 import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
 import {createMidtransTransaction} from "./midtrans.ts";
 
+interface PendingOrderRef {
+    id: string;
+}
+
+interface ProductImageItem {
+    image_url: string;
+    sort_order: number;
+}
+
+interface ProductRecord {
+    id: string;
+    name: string;
+    price: number;
+    stock: number;
+    status: string;
+    store_id: string;
+    thumbnail_url?: string | null;
+    product_images?: ProductImageItem[];
+}
+
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(data: unknown, status = 200) {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+        },
+    });
+}
+
 serve(async (req) => {
+    if (req.method === "OPTIONS") {
+        return new Response("ok", { headers: corsHeaders });
+    }
+
     try {
         // Only allow POST
         if (req.method !== "POST") {
-            return new Response(JSON.stringify({error: "Method not allowed"}), {
-                status: 405,
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            },);
+            return jsonResponse({error: "Method not allowed"}, 405);
         }
 
         // Create Supabase client
@@ -126,26 +161,21 @@ serve(async (req) => {
             .limit(1)
             .maybeSingle();
 
-        if (
-            existingPendingPayment &&
-            existingPendingPayment.orders
-        ) {
+        if (existingPendingPayment) {
+            const pendingOrder = existingPendingPayment.orders as unknown as PendingOrderRef | PendingOrderRef[] | null;
+            const pendingOrderId = Array.isArray(pendingOrder)
+                ? pendingOrder[0]?.id
+                : (pendingOrder?.id ?? existingPendingPayment.order_id);
 
             return new Response(
                 JSON.stringify({
-                    error:
-                        "You still have pending payment",
-
-                    order_id:
-                        existingPendingPayment
-                            .orders
-                            .id,
+                    error: "You still have pending payment",
+                    order_id: pendingOrderId,
                 }),
                 {
                     status: 400,
                     headers: {
-                        "Content-Type":
-                            "application/json",
+                        "Content-Type": "application/json",
                     },
                 },
             );
@@ -201,7 +231,7 @@ serve(async (req) => {
 
         // Validate products
         for (const item of cartItems) {
-            const product = item.product;
+            const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
 
             if (!product) {
                 return new Response(JSON.stringify({error: "Product not found"}), {
@@ -254,7 +284,8 @@ serve(async (req) => {
         let subtotal = 0;
 
         for (const item of cartItems) {
-            subtotal += Number(item.product.price) * item.quantity;
+            const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
+            subtotal += Number(product?.price ?? 0) * item.quantity;
         }
 
         const shippingCost = selected_courier?.price ? Math.max(0, Number(selected_courier.price)) : 0;
@@ -278,7 +309,9 @@ serve(async (req) => {
                     recipient_phone,
                     city,
                     postal_code,
-                    full_address
+                    full_address,
+                    notes,
+                    biteship_area_id
                 `
             )
             .eq("id", address_id)
@@ -330,6 +363,8 @@ serve(async (req) => {
                 shipping_name: address.recipient_name,
                 shipping_phone: address.recipient_phone,
                 shipping_address: address.full_address,
+                shipping_notes: address.notes || null,
+                destination_area_id: address.biteship_area_id || null,
                 shipping_city: address.city,
                 shipping_postal_code: address.postal_code,
 
@@ -358,20 +393,20 @@ serve(async (req) => {
         const orderItemsPayload =
             cartItems.map((item) => {
 
-                const thumbnail = item.product.thumbnail_url ??
-                    item.product.product_images
-                        ?.sort((a, b) => a.sort_order - b.sort_order)?.[0]
-                        ?.image_url ?? null;
+                const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
+                const images = product?.product_images;
+                const thumbnail = product?.thumbnail_url ??
+                    images?.slice().sort((a, b) => Number(a?.sort_order ?? 0) - Number(b?.sort_order ?? 0))?.[0]?.image_url ?? null;
 
                 return {
                     order_id: order.id,
-                    product_id: item.product.id,
-                    product_name: item.product.name,
-                    product_price: item.product.price,
+                    product_id: product?.id,
+                    product_name: product?.name,
+                    product_price: product?.price,
                     quantity: item.quantity,
                     subtotal:
                         Number(
-                            item.product.price,
+                            product?.price ?? 0,
                         ) * item.quantity,
                     product_thumbnail: thumbnail,
                 };
@@ -498,12 +533,15 @@ serve(async (req) => {
             },
 
             item_details: [
-                ...cartItems.map((item) => ({
-                    id: item.product.id,
-                    name: (item.product.name || 'Produk').slice(0, 50),
-                    price: Number(item.product.price),
-                    quantity: item.quantity
-                })),
+                ...cartItems.map((item) => {
+                    const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
+                    return {
+                        id: product?.id,
+                        name: (product?.name || 'Produk').slice(0, 50),
+                        price: Number(product?.price ?? 0),
+                        quantity: item.quantity
+                    };
+                }),
                 ...(shippingCost > 0 ? [{
                     id: "SHIPPING_FEE",
                     name: `Ongkir (${selected_courier?.courier_name ?? 'Kurir'} - ${selected_courier?.courier_service_name ?? 'Layanan'})`.slice(0, 50),
