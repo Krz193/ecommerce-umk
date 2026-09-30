@@ -119,14 +119,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final orderData = result['order'];
       if (orderData != null && orderData['id'] != null) {
         try {
-          await supabase.rpc('set_order_shipping_details', params: {
-            'p_order_id': orderData['id'],
-            'p_courier_name': selectedCourier.displayName,
-            'p_courier_code': selectedCourier.courierCode,
-            'p_courier_service_code': selectedCourier.courierServiceCode,
-            'p_courier_service_type': selectedCourier.serviceType,
-            'p_shipping_cost': selectedCourier.price,
-          });
+          await supabase.rpc(
+            'set_order_shipping_details',
+            params: {
+              'p_order_id': orderData['id'],
+              'p_courier_name': selectedCourier.displayName,
+              'p_courier_code': selectedCourier.courierCode,
+              'p_courier_service_code': selectedCourier.courierServiceCode,
+              'p_courier_service_type': selectedCourier.serviceType,
+              'p_shipping_cost': selectedCourier.price,
+            },
+          );
 
           // Record donation if donor opted in (Excel A58)
           if (selectedDonationAmount > 0) {
@@ -595,6 +598,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             '${address.fullAddress}, ${address.city}, ${address.province}',
             style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
           ),
+          if (address.notes != null && address.notes!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Patokan: ${address.notes!}',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -793,7 +807,55 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               },
             );
           },
-          error: (err, _) => Text('Gagal memuat tarif: $err'),
+          error: (err, _) {
+            final cleanMsg = err.toString().replaceFirst('Exception: ', '').trim();
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pilihan Kurir Tidak Tersedia',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red.shade800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          cleanMsg,
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 18),
+                    color: Colors.red.shade800,
+                    tooltip: 'Coba Lagi',
+                    onPressed: () {
+                      ref.invalidate(shippingRatesFamily);
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
           loading: () => const Center(
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -852,8 +914,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       : '+ ${CurrencyFormatter.format(amount)}',
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight:
-                        isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     color: isSelected ? Colors.green.shade900 : Colors.black87,
                   ),
                 ),
@@ -872,4 +935,3 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     );
   }
 }
-

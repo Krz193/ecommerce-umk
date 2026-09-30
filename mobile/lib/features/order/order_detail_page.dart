@@ -334,7 +334,18 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     final orderAsync = ref.watch(orderDetailProvider(widget.orderId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Order Detail')),
+      appBar: AppBar(
+        title: const Text('Order Detail'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Status',
+            onPressed: () {
+              ref.invalidate(orderDetailProvider(widget.orderId));
+            },
+          ),
+        ],
+      ),
 
       body: orderAsync.when(
         data: (order) {
@@ -344,11 +355,16 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             stopPolling();
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(24),
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(orderDetailProvider(widget.orderId));
+              await ref.read(orderDetailProvider(widget.orderId).future);
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(24),
 
-            children: [
-              Container(
+              children: [
+                Container(
                 padding: const EdgeInsets.all(16),
 
                 decoration: BoxDecoration(
@@ -537,6 +553,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                     const SizedBox(height: 8),
 
                     Text(order.shippingAddress),
+                    if (order.shippingNotes != null && order.shippingNotes!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Patokan: ${order.shippingNotes!}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -712,8 +739,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                 );
               }),
             ],
-          );
-        },
+          ),
+        );
+      },
 
         error: (error, stackTrace) {
           return Center(child: Text(error.toString()));
@@ -883,6 +911,32 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     );
   }
 
+  String formatTrackingStatus(String? status) {
+    if (status == null || status.isEmpty) return '-';
+    switch (status.toLowerCase()) {
+      case 'allocated':
+        return 'Kurir Dialokasikan (Allocated)';
+      case 'picking_up':
+        return 'Kurir Menuju Penjemputan (Picking Up)';
+      case 'picked':
+        return 'Paket Telah Diambil Kurir (Picked)';
+      case 'dropping_off':
+      case 'on_delivery':
+      case 'in_transit':
+        return 'Dalam Pengiriman (On Delivery)';
+      case 'delivered':
+        return 'Paket Telah Sampai (Delivered)';
+      case 'cancelled':
+        return 'Pengiriman Dibatalkan';
+      case 'rejected':
+        return 'Pengiriman Ditolak';
+      case 'courier_not_found':
+        return 'Kurir Belum Ditemukan';
+      default:
+        return status.toUpperCase();
+    }
+  }
+
   Widget buildShipmentProgress(OrderDetailModel order) {
     final hasShipment =
         order.courierName != null ||
@@ -936,7 +990,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           if (order.trackingStatus != null && order.trackingStatus!.isNotEmpty)
             buildReceiptRow(
               'Status Logistik',
-              order.trackingStatus!.toUpperCase(),
+              formatTrackingStatus(order.trackingStatus),
             ),
           if (order.shippedAt != null)
             buildReceiptRow(

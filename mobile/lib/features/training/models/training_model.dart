@@ -21,7 +21,10 @@ class TrainingModel {
     this.isRegistered = false,
   });
 
-  factory TrainingModel.fromJson(Map<String, dynamic> json, {bool isRegistered = false}) {
+  factory TrainingModel.fromJson(
+    Map<String, dynamic> json, {
+    bool isRegistered = false,
+  }) {
     return TrainingModel(
       id: json['id'] as String,
       title: json['title'] as String,

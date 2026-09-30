@@ -221,7 +221,8 @@ class SellerReviewsPage extends ConsumerWidget {
                                 ],
                                 const SizedBox(height: 10),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
@@ -230,16 +231,24 @@ class SellerReviewsPage extends ConsumerWidget {
                                           onChanged: (val) async {
                                             try {
                                               await ref
-                                                  .read(productReviewServiceProvider)
+                                                  .read(
+                                                    productReviewServiceProvider,
+                                                  )
                                                   .toggleReviewApproval(
                                                     reviewId: review.id,
                                                     isApproved: val,
                                                   );
-                                              ref.invalidate(storeReviewsProvider(store.id));
+                                              ref.invalidate(
+                                                storeReviewsProvider(store.id),
+                                              );
                                             } catch (e) {
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text(e.toString())),
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(e.toString()),
+                                                  ),
                                                 );
                                               }
                                             }
@@ -247,7 +256,9 @@ class SellerReviewsPage extends ConsumerWidget {
                                           activeThumbColor: AppColors.primary,
                                         ),
                                         Text(
-                                          review.isApproved ? 'Tampil' : 'Sembunyi',
+                                          review.isApproved
+                                              ? 'Tampil'
+                                              : 'Sembunyi',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: review.isApproved

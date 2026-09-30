@@ -131,7 +131,7 @@ class StoreService {
         'get_seller_cart_insights',
         params: {'p_store_id': storeId},
       );
-      
+
       return Map<String, dynamic>.from(response as Map);
     } catch (e) {
       throw StoreException('Gagal mengambil insight keranjang: $e');

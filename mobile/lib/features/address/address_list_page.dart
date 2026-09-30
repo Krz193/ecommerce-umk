@@ -202,6 +202,17 @@ class _AddressListPageState extends ConsumerState<AddressListPage> {
           Text('${address.city}, ${address.province}'),
           const SizedBox(height: 4),
           Text(address.fullAddress),
+          if (address.notes != null && address.notes!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Patokan: ${address.notes!}',
+              style: TextStyle(
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [

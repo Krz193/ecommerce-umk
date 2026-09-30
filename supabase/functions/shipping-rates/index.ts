@@ -6,6 +6,50 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface ShippingItem {
+  name: string;
+  description?: string;
+  value: number;
+  weight: number;
+  quantity: number;
+  length?: number;
+  width?: number;
+  height?: number;
+}
+
+interface CartItemProduct {
+  id?: string;
+  name?: string;
+  price?: number;
+  weight?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+}
+
+interface CartItemRow {
+  id: string;
+  quantity: number;
+  product?: CartItemProduct | CartItemProduct[] | null;
+}
+
+function toFriendlyRatesError(data: Record<string, unknown> | null | undefined, _status?: number): string {
+  const raw = String(data?.error || data?.message || "").toLowerCase();
+  if (raw.includes("balance") || raw.includes("saldo")) {
+    return "Saldo Biteship tidak mencukupi untuk memproses tarif kurir.";
+  }
+  if (raw.includes("postal_code") || raw.includes("postal code") || raw.includes("kode pos")) {
+    return "Kode pos alamat pengiriman atau toko tidak valid.";
+  }
+  if (raw.includes("coordinate") || raw.includes("koordinat")) {
+    return "Titik koordinat penjemputan atau tujuan tidak valid untuk kurir instan.";
+  }
+  if (raw.includes("weight") || raw.includes("berat")) {
+    return "Total berat barang tidak memenuhi syarat pengiriman.";
+  }
+  return `Layanan kurir tidak tersedia untuk rute ini (${data?.error || data?.message || "Periksa alamat pengiriman"}).`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -19,7 +63,6 @@ serve(async (req) => {
       });
     }
 
-    const authHeader = req.headers.get("Authorization") ?? "";
     const adminSupabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -53,7 +96,7 @@ serve(async (req) => {
 
     // 2. Determine Store & Items
     let targetStoreId = store_id;
-    let itemsToShip: Array<{ name: string; value: number; weight: number; quantity: number }> = [];
+    let itemsToShip: ShippingItem[] = [];
 
     if (cart_id) {
       const { data: cart } = await supabase
@@ -70,19 +113,35 @@ serve(async (req) => {
           .eq("cart_id", cart_id);
 
         if (cartItems && cartItems.length > 0) {
-          itemsToShip = cartItems.map((ci: any) => ({
-            name: ci.product?.name ?? "Produk UMK",
-            value: Number(ci.product?.price ?? 10000),
-            weight: Number(ci.product?.weight ?? 250),
-            quantity: ci.quantity,
-          }));
+          itemsToShip = (cartItems as unknown as CartItemRow[]).map((ci) => {
+            const prod = Array.isArray(ci.product) ? ci.product[0] : ci.product;
+            return {
+              name: prod?.name ?? "Produk UMK",
+              description: prod?.name ?? "Produk UMK",
+              value: Number(prod?.price ?? 10000),
+              length: Number(prod?.length ?? 10),
+              width: Number(prod?.width ?? 10),
+              height: Number(prod?.height ?? 10),
+              weight: Math.max(100, Number(prod?.weight ?? 250)),
+              quantity: ci.quantity,
+            };
+          });
         }
       }
     }
 
     if (itemsToShip.length === 0) {
       itemsToShip = [
-        { name: "Paket Belanja UMK", value: 50000, weight: 500, quantity: 1 },
+        {
+          name: "Paket Belanja UMK",
+          description: "Paket Belanja UMK",
+          value: 50000,
+          length: 10,
+          width: 10,
+          height: 10,
+          weight: 500,
+          quantity: 1,
+        },
       ];
     }
 
@@ -109,180 +168,114 @@ serve(async (req) => {
     const destLat = address.latitude || -6.244179;
     const destLng = address.longitude || 106.783529;
 
-    const apiKey = Deno.env.get("BITESHIP_API_KEY") || "biteship_test.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiZWNvbW1lcmNlLXVtayIsInVzZXJJZCI6IjZhOGRiNzI3YWQzYWY4YjEwMTlkOTZhMyIsImlhdCI6MTc4NzY3Mjg2Nn0.w7VtiacN5sdGjl-IAFZmUCI8ocVw96ItB_pAarUigF4";
+    const apiKey = Deno.env.get("BITESHIP_API_KEY");
     const useLive = Deno.env.get("BITESHIP_USE_LIVE") === "true";
 
-    // 4. Try Live Biteship API if enabled
+    // 4. Query Live Biteship API
     if (useLive && apiKey) {
-      try {
-        const biteshipPayload = {
-          origin_latitude: originLat,
-          origin_longitude: originLng,
-          origin_postal_code: Number(originPostalCode) || 12430,
-          destination_latitude: destLat,
-          destination_longitude: destLng,
-          destination_postal_code: Number(destPostalCode) || 12950,
-          couriers: "gojek,grab,jne,sicepat,jnt,anteraja",
-          items: itemsToShip,
-        };
+      const biteshipPayload = {
+        origin_latitude: originLat,
+        origin_longitude: originLng,
+        origin_postal_code: Number(originPostalCode) || 12430,
+        destination_latitude: destLat,
+        destination_longitude: destLng,
+        destination_postal_code: Number(destPostalCode) || 12950,
+        couriers: "gojek,grab,jne,sicepat,jnt,anteraja",
+        items: itemsToShip,
+      };
 
+      const startTime = Date.now();
+      const timeoutMs = 4000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
         const biteshipRes = await fetch("https://api.biteship.com/v1/rates/couriers", {
           method: "POST",
           headers: {
             "authorization": apiKey,
             "content-type": "application/json",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
           },
           body: JSON.stringify(biteshipPayload),
+          signal: controller.signal,
         });
 
-        if (biteshipRes.ok) {
-          const liveData = await biteshipRes.json();
-          if (liveData.success && Array.isArray(liveData.pricing) && liveData.pricing.length > 0) {
-            return new Response(JSON.stringify(liveData), {
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
+        clearTimeout(timeoutId);
+        const durationMs = Date.now() - startTime;
+        const liveData = (await biteshipRes.json().catch(() => ({}))) as Record<string, unknown>;
+
+        // Log Request & Response
+        try {
+          await supabase.from("biteship_api_logs").insert({
+            url: "https://api.biteship.com/v1/rates/couriers",
+            method: "POST",
+            request_body: biteshipPayload,
+            status_code: biteshipRes.status,
+            response_body: liveData,
+            duration_ms: durationMs,
+          });
+        } catch (logErr) {
+          console.warn("Log insert error:", logErr);
         }
-      } catch (err) {
-        console.warn("Biteship live API call failed, falling back to Smart Mock Engine:", err);
+
+        if (biteshipRes.ok && liveData.success && Array.isArray(liveData.pricing) && liveData.pricing.length > 0) {
+          return new Response(JSON.stringify(liveData), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const friendlyMsg = toFriendlyRatesError(liveData, biteshipRes.status);
+        return new Response(
+          JSON.stringify({ error: friendlyMsg, details: liveData }),
+          {
+            status: biteshipRes.status || 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      } catch (err: unknown) {
+        clearTimeout(timeoutId);
+        const durationMs = Date.now() - startTime;
+        const errObj = err as Error;
+        const isTimeout = errObj.name === "AbortError" || errObj.message?.includes("abort");
+
+        try {
+          await supabase.from("biteship_api_logs").insert({
+            url: "https://api.biteship.com/v1/rates/couriers",
+            method: "POST",
+            request_body: biteshipPayload,
+            status_code: isTimeout ? 408 : 500,
+            response_body: null,
+            duration_ms: durationMs,
+            error_message: isTimeout
+              ? `TimeoutException: Request exceeded ${timeoutMs}ms limit`
+              : errObj.message || "Biteship rates request failed",
+          });
+        } catch (logErr) {
+          console.warn("Log insert error:", logErr);
+        }
+
+        const userMsg = isTimeout
+          ? "Koneksi ke server kurir Biteship melebihi batas waktu (timeout). Silakan coba beberapa saat lagi."
+          : `Gagal memuat tarif pengiriman (${errObj.message || "Gangguan jaringan"}).`;
+
+        return new Response(
+          JSON.stringify({ error: userMsg }),
+          {
+            status: isTimeout ? 408 : 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
     }
 
-    // 5. Smart Mock Engine (100% Biteship JSON Specification Compliance)
-    const totalWeight = itemsToShip.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
-    const weightKg = Math.max(1, Math.ceil(totalWeight / 1000));
-
-    // Base fares calculated based on weight and logistics category
-    const mockPricing = [
-      {
-        courier_name: "Gojek",
-        courier_code: "gojek",
-        courier_service_name: "Instant",
-        courier_service_code: "instant",
-        service_type: "instant",
-        price: 15000 + (weightKg - 1) * 2500,
-        type: "instant",
-        shipment_duration_range: "1 - 3",
-        shipment_duration_unit: "hours",
-        available_for_cash_on_delivery: false,
-        available_for_proof_of_delivery: true,
-        available_for_instant_waybill_id: true,
-        description: "Pengantaran kilat langsung sampai dalam 1-3 jam",
-      },
-      {
-        courier_name: "Grab",
-        courier_code: "grab",
-        courier_service_name: "Instant",
-        courier_service_code: "instant",
-        service_type: "instant",
-        price: 16000 + (weightKg - 1) * 2500,
-        type: "instant",
-        shipment_duration_range: "1 - 3",
-        shipment_duration_unit: "hours",
-        available_for_cash_on_delivery: false,
-        available_for_proof_of_delivery: true,
-        available_for_instant_waybill_id: true,
-        description: "Pengiriman instan menggunakan armada GrabExpress",
-      },
-      {
-        courier_name: "Gojek",
-        courier_code: "gojek",
-        courier_service_name: "Same Day",
-        courier_service_code: "same_day",
-        service_type: "same_day",
-        price: 12000 + (weightKg - 1) * 2000,
-        type: "same_day",
-        shipment_duration_range: "6 - 8",
-        shipment_duration_unit: "hours",
-        available_for_cash_on_delivery: false,
-        available_for_proof_of_delivery: true,
-        available_for_instant_waybill_id: true,
-        description: "Pengiriman di hari yang sama hemat & efisien",
-      },
-      {
-        courier_name: "JNE",
-        courier_code: "jne",
-        courier_service_name: "Reguler (REG)",
-        courier_service_code: "reg",
-        service_type: "standard",
-        price: 10000 * weightKg,
-        type: "regular",
-        shipment_duration_range: "1 - 2",
-        shipment_duration_unit: "days",
-        available_for_cash_on_delivery: true,
-        available_for_proof_of_delivery: true,
-        available_for_instant_waybill_id: true,
-        description: "Layanan ekspedisi reguler JNE terpercaya",
-      },
-      {
-        courier_name: "SiCepat",
-        courier_code: "sicepat",
-        courier_service_name: "SIUNTUNG",
-        courier_service_code: "siuntung",
-        service_type: "standard",
-        price: 11000 * weightKg,
-        type: "regular",
-        shipment_duration_range: "1 - 2",
-        shipment_duration_unit: "days",
-        available_for_cash_on_delivery: true,
-        available_for_proof_of_delivery: true,
-        available_for_instant_waybill_id: true,
-        description: "Pengiriman cepat SiCepat Ekspres ke seluruh Indonesia",
-      },
-      {
-        courier_name: "J&T Express",
-        courier_code: "jnt",
-        courier_service_name: "EZ",
-        courier_service_code: "ez",
-        service_type: "standard",
-        price: 12000 * weightKg,
-        type: "regular",
-        shipment_duration_range: "1 - 3",
-        shipment_duration_unit: "days",
-        available_for_cash_on_delivery: true,
-        available_for_proof_of_delivery: true,
-        available_for_instant_waybill_id: true,
-        description: "Pengiriman paket terjangkau J&T Express",
-      },
-      {
-        courier_name: "Anteraja",
-        courier_code: "anteraja",
-        courier_service_name: "Reguler",
-        courier_service_code: "reg",
-        service_type: "standard",
-        price: 10000 * weightKg,
-        type: "regular",
-        shipment_duration_range: "1 - 2",
-        shipment_duration_unit: "days",
-        available_for_cash_on_delivery: true,
-        available_for_proof_of_delivery: true,
-        available_for_instant_waybill_id: true,
-        description: "Layanan pengiriman paket Anteraja",
-      },
-    ];
-
+    // If live Biteship is not enabled or no API key, reject with human-readable error instead of fake data
     return new Response(
       JSON.stringify({
-        success: true,
-        message: "Success retrieve rates",
-        object: "rates",
-        origin: {
-          postal_code: originPostalCode,
-          latitude: originLat,
-          longitude: originLng,
-        },
-        destination: {
-          postal_code: destPostalCode,
-          latitude: destLat,
-          longitude: destLng,
-          city: address.city,
-        },
-        pricing: mockPricing,
+        error: "Layanan pengiriman Biteship belum dikonfigurasi pada server.",
       }),
       {
-        status: 200,
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

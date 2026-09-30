@@ -43,6 +43,7 @@ class OrderDetailModel {
   final String shippingName;
   final String shippingPhone;
   final String shippingAddress;
+  final String? shippingNotes;
   final DateTime createdAt;
   final DateTime? paidAt;
   final DateTime? shippedAt;
@@ -70,6 +71,7 @@ class OrderDetailModel {
     required this.shippingName,
     required this.shippingPhone,
     required this.shippingAddress,
+    this.shippingNotes,
     required this.createdAt,
     required this.paidAt,
     required this.shippedAt,
@@ -99,6 +101,7 @@ class OrderDetailModel {
       shippingName: json['shipping_name'] ?? '',
       shippingPhone: json['shipping_phone'] ?? '',
       shippingAddress: json['shipping_address'] ?? '',
+      shippingNotes: json['shipping_notes'],
       createdAt: DateTime.parse(json['created_at']),
       paidAt: json['paid_at'] != null ? DateTime.parse(json['paid_at']) : null,
       shippedAt: json['shipped_at'] != null
