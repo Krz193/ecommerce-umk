@@ -36,4 +36,19 @@ class Product extends Model
     {
         return $this->belongsTo(Store::class, 'store_id');
     }
+
+    /**
+     * Final selling price: (original - percent discount - fixed discount), then tax.
+     * Never below zero; rounded to whole rupiah.
+     */
+    public static function calculateFinalPrice(
+        float $originalPrice,
+        float $discountPercent = 0,
+        float $discountAmount = 0,
+        float $taxPercent = 0,
+    ): int {
+        $afterDiscount = max(0, $originalPrice * (1 - $discountPercent / 100) - $discountAmount);
+
+        return (int) round($afterDiscount * (1 + $taxPercent / 100));
+    }
 }

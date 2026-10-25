@@ -21,6 +21,12 @@ final storeCartInsightsProvider = FutureProvider.family
       return storeService.getSellerCartInsights(storeId);
     });
 
+final storeRecommendationMetricsProvider = FutureProvider.family
+    .autoDispose<List<Map<String, dynamic>>, String>((ref, storeId) async {
+      final storeService = ref.read(storeServiceProvider);
+      return storeService.getStoreRecommendationMetrics(storeId);
+    });
+
 final managedStoreProvider = FutureProvider.autoDispose<StoreModel?>((
   ref,
 ) async {

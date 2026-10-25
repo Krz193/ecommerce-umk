@@ -82,7 +82,7 @@ class UserLookupController extends Controller
             'full_name' => ['required', 'string', 'max:255'],
             'username' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'role' => ['required', 'string', 'in:buyer,seller,assistant,admin'],
+            'role' => ['required', 'string', 'in:buyer,seller,assistant,ekspedisi,ojek,admin'],
         ]);
 
         $db = DB::connection('marketplace');
@@ -127,7 +127,7 @@ class UserLookupController extends Controller
             'full_name' => ['required', 'string', 'max:255'],
             'username' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'role' => ['required', 'string', 'in:buyer,seller,assistant,admin'],
+            'role' => ['required', 'string', 'in:buyer,seller,assistant,ekspedisi,ojek,admin'],
         ]);
 
         $db = DB::connection('marketplace');

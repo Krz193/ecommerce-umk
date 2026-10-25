@@ -23,10 +23,14 @@ class Donation extends Model
         'donor_phone',
         'note',
         'status',
+        'distributed_at',
+        'distributed_amount',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'distributed_at' => 'datetime',
+        'distributed_amount' => 'decimal:2',
     ];
 
     public function store(): BelongsTo

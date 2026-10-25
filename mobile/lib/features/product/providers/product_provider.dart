@@ -8,6 +8,11 @@ final productsProvider = FutureProvider<List<ProductModel>>((ref) async {
       .from('products')
       .select('''
         *,
+        store:stores (
+          id,
+          name,
+          address
+        ),
         category:categories (
           id,
           name,

@@ -127,6 +127,50 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                     context.push('/seller/reviews');
                   },
                 ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.shopping_cart_checkout,
+                  title: 'Keranjang Belanja Pembeli',
+                  subtitle: 'Pantau rincian produk yang disimpan di keranjang pembeli',
+                  onTap: () {
+                    context.push('/seller/buyer-carts?storeId=');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.auto_awesome_outlined,
+                  title: 'Rekomendasi Produk (Model Rumus)',
+                  subtitle: 'Kelola produk unggulan toko dengan skor rumus otomatis',
+                  onTap: () {
+                    context.push('/seller/recommendations?storeId=');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.campaign_outlined,
+                  title: 'Konten Promosi & Media Sosial',
+                  subtitle: 'Kelola promosi, kisah produk, video, gambar, dan link medsos',
+                  onTap: () {
+                    context.push('/assistant/contents?storeId=&storeName=');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.confirmation_number_outlined,
+                  title: 'Voucher Toko & Harga Khusus',
+                  subtitle: 'Buat harga spesial kenalan, diskon nominal/persen, atau 1x pakai',
+                  onTap: () {
+                    context.push('/seller/vouchers?storeId=${store.id}');
+                  },
+                ),
               ],
             ),
           );
@@ -147,7 +191,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final storeAsync = ref.watch(myStoreProvider);
+    final storeAsync = ref.watch(managedStoreProvider);
 
     return Scaffold(
       appBar: AppBar(

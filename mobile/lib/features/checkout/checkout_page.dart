@@ -10,6 +10,7 @@ import 'package:mobile/features/address/providers/address_provider.dart';
 import 'package:mobile/features/checkout/models/shipping_rate_model.dart';
 import 'package:mobile/features/checkout/providers/shipping_provider.dart';
 import 'package:mobile/features/payment/payment_page.dart';
+import 'package:mobile/features/voucher/services/voucher_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
@@ -24,6 +25,20 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   String? selectedAddressId;
   String selectedFilterCategory = 'all'; // 'all', 'instant', 'regular'
   int selectedDonationAmount = 0; // Voluntary UMK donation (Excel A58)
+
+  // Voucher state (Phase Additional)
+  final TextEditingController voucherController = TextEditingController();
+  bool isValidatingVoucher = false;
+  String? appliedVoucherCode;
+  String? appliedVoucherId;
+  String? appliedVoucherTitle;
+  int voucherDiscount = 0;
+
+  @override
+  void dispose() {
+    voucherController.dispose();
+    super.dispose();
+  }
 
   AddressModel? selectedAddress(List<AddressModel> addresses) {
     if (addresses.isEmpty) {
@@ -43,6 +58,89 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     }
 
     return addresses.first;
+  }
+
+  Future<void> applyVoucher(
+    String storeId,
+    int currentSubtotal,
+    List<dynamic> items,
+  ) async {
+    final code = voucherController.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Masukkan kode voucher terlebih dahulu')),
+      );
+      return;
+    }
+
+    final itemsPayload = items.map((i) => {
+      'product_id': i.productId,
+      'product_name': i.productName,
+      'price': i.productPrice,
+      'quantity': i.quantity,
+    }).toList();
+
+    setState(() => isValidatingVoucher = true);
+    try {
+      final service = ref.read(voucherServiceProvider);
+      final res = await service.validateVoucher(
+        code: code,
+        storeId: storeId,
+        subtotal: currentSubtotal,
+        items: itemsPayload,
+      );
+
+      if (!mounted) return;
+      setState(() => isValidatingVoucher = false);
+
+      if (res['valid'] == true) {
+        setState(() {
+          appliedVoucherCode = res['code']?.toString();
+          appliedVoucherId = res['voucher_id']?.toString();
+          appliedVoucherTitle = res['title']?.toString();
+          voucherDiscount = (res['calculated_discount'] as num?)?.round() ?? 0;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Voucher $code berhasil diterapkan! Potongan: ${CurrencyFormatter.format(voucherDiscount)}',
+            ),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message']?.toString() ?? 'Voucher tidak valid'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => isValidatingVoucher = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memeriksa voucher: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void removeVoucher() {
+    setState(() {
+      appliedVoucherCode = null;
+      appliedVoucherId = null;
+      appliedVoucherTitle = null;
+      voucherDiscount = 0;
+      voucherController.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Voucher dibatalkan')),
+    );
   }
 
   Future<void> handleCheckout() async {
@@ -95,15 +193,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       }
 
       final shippingCost = selectedCourier.price;
-      final grandTotal = cart.subtotal + shippingCost + selectedDonationAmount;
+      final discountedSubtotal = (cart.subtotal - voucherDiscount).clamp(0, cart.subtotal);
+      final grandTotal = discountedSubtotal + shippingCost + selectedDonationAmount;
 
       final confirmed = await confirmCheckout(
         itemCount: cart.totalItems,
         subtotal: cart.subtotal,
+        discount: voucherDiscount,
         shippingFee: shippingCost,
         grandTotal: grandTotal,
         courier: selectedCourier,
         address: selectedAddr,
+        voucherCode: appliedVoucherCode,
       );
 
       if (!confirmed) {
@@ -114,6 +215,10 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         cartId: cart.id,
         addressId: selectedAddr.id,
         selectedCourier: selectedCourier.toMap(),
+        voucherId: appliedVoucherId,
+        voucherCode: appliedVoucherCode,
+        voucherDiscount: voucherDiscount,
+        donationAmount: selectedDonationAmount,
       );
 
       final orderData = result['order'];
@@ -131,6 +236,22 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             },
           );
 
+          // Update voucher reference if applied
+          if (appliedVoucherCode != null) {
+            await supabase.from('orders').update({
+              'voucher_id': appliedVoucherId,
+              'voucher_code': appliedVoucherCode,
+              'voucher_discount': voucherDiscount,
+            }).eq('id', orderData['id']);
+
+            // Increment used_count on store_vouchers
+            if (appliedVoucherId != null) {
+              await supabase.rpc('increment_voucher_usage', params: {
+                'p_voucher_id': appliedVoucherId,
+              }).catchError((_) {});
+            }
+          }
+
           // Record donation if donor opted in (Excel A58)
           if (selectedDonationAmount > 0) {
             final currentUser = supabase.auth.currentUser;
@@ -146,7 +267,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             });
           }
         } catch (e) {
-          debugPrint('Error saving shipping details/donation: $e');
+          debugPrint('Error saving shipping details/donation/voucher: $e');
         }
       }
 
@@ -165,8 +286,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         ),
       );
     } catch (error) {
-      if (!mounted) return;
-
       if (error is FunctionException) {
         final details = error.details;
 
@@ -220,6 +339,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     required int grandTotal,
     required ShippingRateOption courier,
     required AddressModel address,
+    int discount = 0,
+    String? voucherCode,
   }) async {
     final result = await showDialog<bool>(
       context: context,
@@ -233,6 +354,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               children: [
                 Text('Total Produk: $itemCount item'),
                 Text('Subtotal: ${CurrencyFormatter.format(subtotal)}'),
+                if (discount > 0)
+                  Text(
+                    'Diskon Voucher ($voucherCode): - ${CurrencyFormatter.format(discount)}',
+                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                  ),
                 Text('Ongkos Kirim: ${CurrencyFormatter.format(shippingFee)}'),
                 const Divider(height: 16),
                 Text(
@@ -334,7 +460,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           final subtotal = cart.subtotal;
           final totalItems = cart.totalItems;
           final shippingCost = selectedCourier?.price ?? 0;
-          final totalAmount = subtotal + shippingCost + selectedDonationAmount;
+          final discountedSubtotal = (subtotal - voucherDiscount).clamp(0, subtotal);
+          final totalAmount = discountedSubtotal + shippingCost + selectedDonationAmount;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -371,6 +498,25 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           Text(CurrencyFormatter.format(subtotal)),
                         ],
                       ),
+                      if (voucherDiscount > 0) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Potongan Voucher ($appliedVoucherCode)',
+                              style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.w500),
+                            ),
+                            Text(
+                              '- ${CurrencyFormatter.format(voucherDiscount)}',
+                              style: TextStyle(
+                                color: Colors.green.shade800,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -431,6 +577,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 20),
+
+                // 1.5 Voucher Input Section (Phase Additional)
+                buildVoucherSection(cart.storeId, subtotal, cart.items),
 
                 const SizedBox(height: 20),
 
@@ -504,7 +655,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
                 const SizedBox(height: 24),
 
-                // 4. Checkout Button
+                // 5. Checkout Button
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -544,31 +695,176 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     );
   }
 
-  Widget buildAddressCard({required AddressModel address}) {
+  Widget buildVoucherSection(
+    String storeId,
+    int currentSubtotal,
+    List<dynamic> items,
+  ) {
+    final hasVoucher = appliedVoucherCode != null;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
+        color: hasVoucher ? Colors.green.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(
+          color: hasVoucher ? Colors.green.shade300 : Colors.grey.shade200,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.location_on, color: Colors.red, size: 18),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  address.label?.isNotEmpty == true
-                      ? '${address.label} (${address.recipientName})'
-                      : address.recipientName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+              Icon(
+                Icons.confirmation_number_outlined,
+                color: hasVoucher ? Colors.green.shade700 : Colors.deepOrange,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Voucher Toko & Harga Khusus',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: hasVoucher ? Colors.green.shade900 : Colors.black87,
                 ),
               ),
-              if (address.isDefault)
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          if (hasVoucher) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              appliedVoucherCode!,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '- ${CurrencyFormatter.format(voucherDiscount)}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (appliedVoucherTitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          appliedVoucherTitle!,
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Potongan otomatis dihitung hanya untuk produk yang memenuhi syarat.',
+                        style: TextStyle(fontSize: 11, color: Colors.green.shade900, fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  tooltip: 'Batalkan Voucher',
+                  onPressed: removeVoucher,
+                ),
+              ],
+            ),
+          ] else ...[
+            Text(
+              'Punya kode voucher spesial atau harga kenalan dari penjual? Masukkan di sini.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: voucherController,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      hintText: 'Contoh: TEMAN-BUDI',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepOrange,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: isValidatingVoucher
+                      ? null
+                      : () => applyVoucher(storeId, currentSubtotal, items),
+                  child: isValidatingVoucher
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Gunakan'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Catatan: Jika voucher berlaku per produk, potongan hanya berlaku untuk barang yang dipilih seller. Barang lain tetap harga normal.',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget buildAddressCard({required AddressModel address}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                address.recipientName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              Text(address.phoneNumber),
+              if (address.isDefault) ...[
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -581,22 +877,21 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   child: Text(
                     'Utama',
                     style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.green.shade800,
+                      fontSize: 10,
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
+              ],
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+          Text(address.fullAddress),
+          const SizedBox(height: 4),
           Text(
-            address.phoneNumber,
-            style: const TextStyle(fontSize: 13, color: Colors.black87),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${address.fullAddress}, ${address.city}, ${address.province}',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            '${address.district}, ${address.city}, ${address.province} ${address.postalCode}',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           if (address.notes != null && address.notes!.isNotEmpty) ...[
             const SizedBox(height: 2),

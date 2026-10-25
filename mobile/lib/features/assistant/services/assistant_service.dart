@@ -93,7 +93,6 @@ class AssistantService {
         },
       );
     } catch (_) {
-      // Direct fallback insert if RPC call is unavailable
       final userId = supabase.auth.currentUser?.id;
       if (userId != null) {
         await supabase.from('assistance_logs').insert({
@@ -106,6 +105,125 @@ class AssistantService {
         });
       }
     }
+  }
+
+  Future<void> createEngagementLog({
+    required String storeId,
+    required String title,
+    required String actionType,
+    String? description,
+    String? channel,
+    int reachCount = 0,
+    int likesCount = 0,
+    int commentsCount = 0,
+    int sharesCount = 0,
+    int inquiriesCount = 0,
+  }) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Pengguna belum terautentikasi');
+
+    await supabase.from('assistance_logs').insert({
+      'assistant_id': userId,
+      'store_id': storeId,
+      'action_type': actionType,
+      'title': title,
+      'description': description,
+      'channel': channel,
+      'reach_count': reachCount,
+      'likes_count': likesCount,
+      'comments_count': commentsCount,
+      'shares_count': sharesCount,
+      'inquiries_count': inquiriesCount,
+      'metadata': {
+        'channel': channel,
+        'reach_count': reachCount,
+        'likes_count': likesCount,
+        'comments_count': commentsCount,
+        'shares_count': sharesCount,
+        'inquiries_count': inquiriesCount,
+      },
+    });
+  }
+
+  Future<void> updateAssistanceLog({
+    required String logId,
+    required String title,
+    required String actionType,
+    String? description,
+    String? channel,
+    int reachCount = 0,
+    int likesCount = 0,
+    int commentsCount = 0,
+    int sharesCount = 0,
+    int inquiriesCount = 0,
+  }) async {
+    await supabase
+        .from('assistance_logs')
+        .update({
+          'title': title,
+          'action_type': actionType,
+          'description': description,
+          'channel': channel,
+          'reach_count': reachCount,
+          'likes_count': likesCount,
+          'comments_count': commentsCount,
+          'shares_count': sharesCount,
+          'inquiries_count': inquiriesCount,
+          'metadata': {
+            'channel': channel,
+            'reach_count': reachCount,
+            'likes_count': likesCount,
+            'comments_count': commentsCount,
+            'shares_count': sharesCount,
+            'inquiries_count': inquiriesCount,
+          },
+        })
+        .eq('id', logId);
+  }
+
+  Future<void> deleteAssistanceLog(String logId) async {
+    await supabase.from('assistance_logs').delete().eq('id', logId);
+  }
+
+  Future<Map<String, dynamic>> getStoreDonationsSummary(String storeId) async {
+    final rows = await supabase
+        .from('donations')
+        .select(
+          'id, donor_name, amount, distributed_amount, distributed_at, status, note, created_at',
+        )
+        .eq('store_id', storeId)
+        .order('created_at', ascending: false);
+
+    final list = rows as List<dynamic>;
+    int totalCollected = 0;
+    int totalDistributed = 0;
+    int donorCount = 0;
+
+    for (final raw in list) {
+      final map = raw as Map<String, dynamic>;
+      final status = map['status'] as String? ?? 'paid';
+      final amount = (map['amount'] as num?)?.round() ?? 0;
+      final distAmount = (map['distributed_amount'] as num?)?.round() ?? amount;
+
+      if (status == 'paid' || status == 'distributed') {
+        totalCollected += amount;
+        donorCount += 1;
+      }
+      if (status == 'distributed') {
+        totalDistributed += distAmount;
+      }
+    }
+
+    return {
+      'total_collected': totalCollected,
+      'total_distributed': totalDistributed,
+      'pending_distribution': (totalCollected - totalDistributed).clamp(
+        0,
+        totalCollected,
+      ),
+      'donor_count': donorCount,
+      'recent_donations': list.take(5).toList(),
+    };
   }
 
   Future<List<StoreContentModel>> getStoreContents({
@@ -136,6 +254,9 @@ class AssistantService {
     required String storeId,
     required String title,
     required String contentType,
+    String? socialPlatform,
+    String mediaFormat = 'image',
+    String? externalUrl,
     String? body,
     List<String>? mediaUrls,
     String? productId,
@@ -151,6 +272,9 @@ class AssistantService {
           'created_by': userId,
           'title': title,
           'content_type': contentType,
+          'social_platform': socialPlatform,
+          'media_format': mediaFormat,
+          'external_url': externalUrl,
           'body': body,
           'media_urls': mediaUrls ?? [],
           'product_id': productId,
@@ -161,14 +285,18 @@ class AssistantService {
 
     final newContent = StoreContentModel.fromMap(response);
 
-    // Auto log assistance action
     await logActivity(
       storeId: storeId,
       actionType: 'create_content',
       title: 'Membuat Konten: $title',
       description:
-          'Asisten UMK membuat konten jenis ${newContent.contentTypeLabel}',
-      metadata: {'content_id': newContent.id, 'content_type': contentType},
+          'Asisten UMK membuat konten ${newContent.contentTypeLabel} (${newContent.mediaFormatLabel})',
+      metadata: {
+        'content_id': newContent.id,
+        'content_type': contentType,
+        'media_format': mediaFormat,
+        'social_platform': socialPlatform,
+      },
     );
 
     return newContent;
@@ -179,6 +307,9 @@ class AssistantService {
     required String storeId,
     required String title,
     required String contentType,
+    String? socialPlatform,
+    String mediaFormat = 'image',
+    String? externalUrl,
     String? body,
     List<String>? mediaUrls,
     String? productId,
@@ -189,6 +320,9 @@ class AssistantService {
         .update({
           'title': title,
           'content_type': contentType,
+          'social_platform': socialPlatform,
+          'media_format': mediaFormat,
+          'external_url': externalUrl,
           'body': body,
           'media_urls': mediaUrls ?? [],
           'product_id': productId,
@@ -197,13 +331,16 @@ class AssistantService {
         })
         .eq('id', contentId);
 
-    // Auto log assistance action
     await logActivity(
       storeId: storeId,
       actionType: 'update_content',
       title: 'Memperbarui Konten: $title',
-      description: 'Asisten UMK memperbarui konten toko',
-      metadata: {'content_id': contentId},
+      description: 'Asisten UMK memperbarui konten toko ($mediaFormat)',
+      metadata: {
+        'content_id': contentId,
+        'media_format': mediaFormat,
+        'social_platform': socialPlatform,
+      },
     );
   }
 

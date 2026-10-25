@@ -76,7 +76,15 @@ export default function ProductShow({ product, images }: ProductShowProps) {
                         <CardHeader><CardTitle>Product Information</CardTitle></CardHeader>
                         <CardContent className="grid gap-3 text-sm md:grid-cols-2">
                             <Info label="Slug" value={product.slug} />
-                            <Info label="Price" value={formatCurrency(product.price)} />
+                            <Info label="Harga Jual Akhir" value={formatCurrency(product.price)} />
+                            <Info
+                                label="Harga Awal"
+                                value={product.original_price != null ? formatCurrency(product.original_price) : formatCurrency(product.price)}
+                            />
+                            <Info
+                                label="Diskon & Pajak"
+                                value={`Diskon ${Number(product.discount_percent ?? 0)}% + ${formatCurrency(product.discount_amount ?? 0)} · PPN ${Number(product.tax_percent ?? 0)}%`}
+                            />
                             <Info label="Stock" value={String(product.stock)} />
                             <Info label="Weight" value={product.weight || '-'} />
                             <Info label="Created" value={formatDate(product.created_at)} />

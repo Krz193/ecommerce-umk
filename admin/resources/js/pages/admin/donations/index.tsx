@@ -24,6 +24,8 @@ type Donation = {
     donor_phone: string | null;
     note: string | null;
     status: 'paid' | 'distributed' | 'cancelled';
+    distributed_at: string | null;
+    distributed_amount: string | null;
     created_at: string;
     store: { id: string; name: string };
     user?: { id: string; full_name: string; phone: string | null };
@@ -46,6 +48,8 @@ type DonationsIndexProps = {
     metrics: {
         total_collected: number;
         total_distributed: number;
+        total_pending: number;
+        distributed_count: number;
         total_donors: number;
         total_stores_supported: number;
     };
@@ -59,6 +63,16 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
     const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null);
     const [newStatus, setNewStatus] = useState<'paid' | 'distributed' | 'cancelled'>('distributed');
     const [statusNote, setStatusNote] = useState('');
+    const [distributedDate, setDistributedDate] = useState('');
+    const [distributedAmount, setDistributedAmount] = useState('');
+
+    const openStatusDialog = (donation: Donation) => {
+        const nextStatus = donation.status === 'paid' ? 'distributed' : 'paid';
+        setSelectedDonation(donation);
+        setNewStatus(nextStatus);
+        setDistributedDate((donation.distributed_at ?? new Date().toISOString()).slice(0, 10));
+        setDistributedAmount(String(Math.round(Number(donation.distributed_amount ?? donation.amount))));
+    };
 
     const handleFilterChange = (key: string, value: string) => {
         const newFilters = { ...filters, [key]: value };
@@ -74,6 +88,9 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
             {
                 status: newStatus,
                 note: statusNote,
+                ...(newStatus === 'distributed'
+                    ? { distributed_at: distributedDate, distributed_amount: Number(distributedAmount) }
+                    : {}),
             },
             {
                 onSuccess: () => {
@@ -102,19 +119,26 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                 </div>
 
                 {/* Metrics */}
-                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     <Card>
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-muted-foreground">Total Donasi Terkumpul</p>
                             <h3 className="mt-1 text-2xl font-bold text-emerald-600">{formatCurrency(metrics.total_collected)}</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">Siap disalurkan ke toko</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Belum + sudah disalurkan</p>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-muted-foreground">Sudah Disalurkan</p>
                             <h3 className="mt-1 text-2xl font-bold text-blue-600">{formatCurrency(metrics.total_distributed)}</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">Telah diterima toko UMK</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{metrics.distributed_count} penyaluran ke toko UMK</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardContent className="p-4">
+                            <p className="text-xs font-medium text-muted-foreground">Belum Disalurkan</p>
+                            <h3 className="mt-1 text-2xl font-bold text-amber-600">{formatCurrency(metrics.total_pending)}</h3>
+                            <p className="mt-1 text-xs text-muted-foreground">Siap disalurkan ke toko</p>
                         </CardContent>
                     </Card>
                     <Card>
@@ -166,7 +190,7 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                         <CardTitle>Riwayat Donasi Masuk</CardTitle>
                     </CardHeader>
                     <CardContent className="overflow-x-auto">
-                        <table className="w-full min-w-[850px] text-sm">
+                        <table className="w-full min-w-[1100px] text-sm">
                             <thead className="border-b text-left text-muted-foreground">
                                 <tr>
                                     <th className="pb-3 font-medium">Toko UMK Penerima</th>
@@ -174,6 +198,8 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                     <th className="pb-3 font-medium">Catatan / Doa</th>
                                     <th className="pb-3 font-medium">Waktu Donasi</th>
                                     <th className="pb-3 text-right font-medium">Nominal Donasi</th>
+                                    <th className="pb-3 font-medium">Tanggal Disalurkan</th>
+                                    <th className="pb-3 text-right font-medium">Besaran Disalurkan</th>
                                     <th className="pb-3 text-center font-medium">Status Penyaluran</th>
                                     <th className="pb-3 text-right font-medium">Aksi</th>
                                 </tr>
@@ -205,6 +231,14 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                         <td className="py-3.5 text-right font-bold text-emerald-600">
                                             {formatCurrency(donation.amount)}
                                         </td>
+                                        <td className="py-3.5 text-xs text-muted-foreground">
+                                            {donation.status === 'distributed' ? formatDate(donation.distributed_at) : '-'}
+                                        </td>
+                                        <td className="py-3.5 text-right font-bold text-blue-600">
+                                            {donation.status === 'distributed'
+                                                ? formatCurrency(donation.distributed_amount ?? donation.amount)
+                                                : '-'}
+                                        </td>
                                         <td className="py-3.5 text-center">
                                             <span
                                                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -223,10 +257,7 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    onClick={() => {
-                                                        setSelectedDonation(donation);
-                                                        setNewStatus(donation.status === 'paid' ? 'distributed' : 'paid');
-                                                    }}
+                                                    onClick={() => openStatusDialog(donation)}
                                                     className="h-8 gap-1 text-xs"
                                                 >
                                                     <ArrowRight className="h-3 w-3" /> Status
@@ -245,7 +276,7 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                 ))}
                                 {donations.data.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                                        <td colSpan={9} className="py-8 text-center text-muted-foreground">
                                             Belum ada data donasi tercatat.
                                         </td>
                                     </tr>
@@ -280,6 +311,30 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                         <option value="cancelled">Dibatalkan / Refund</option>
                                     </select>
                                 </div>
+                                {newStatus === 'distributed' && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground">Tanggal Disalurkan</label>
+                                            <input
+                                                type="date"
+                                                value={distributedDate}
+                                                onChange={(e) => setDistributedDate(e.target.value)}
+                                                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground">Besaran Disalurkan (Rp)</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={Math.round(Number(selectedDonation.amount))}
+                                                value={distributedAmount}
+                                                onChange={(e) => setDistributedAmount(e.target.value)}
+                                                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="text-xs font-medium text-muted-foreground">Catatan Penyaluran (Opsional)</label>
                                     <input

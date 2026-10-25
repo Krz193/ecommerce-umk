@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_colors.dart';
@@ -6,7 +7,10 @@ import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/explore/explore_providers.dart';
+// ignore: depend_on_referenced_packages
+import 'package:url_launcher/url_launcher.dart';
 
 class ExplorePage extends ConsumerStatefulWidget {
   const ExplorePage({super.key});
@@ -16,7 +20,10 @@ class ExplorePage extends ConsumerStatefulWidget {
 }
 
 class _ExplorePageState extends ConsumerState<ExplorePage> {
+  final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'all';
+  String _placementScope = 'all'; // 'all', 'product', 'non_product'
+  String _searchQuery = '';
 
   final List<Map<String, String>> _categories = const [
     {'id': 'all', 'label': 'Semua ✨'},
@@ -26,6 +33,33 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     {'id': 'social', 'label': 'Media Sosial 📱'},
     {'id': 'educational', 'label': 'Edukasi 💡'},
   ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<StoreContentModel> _filterContents(List<StoreContentModel> contents) {
+    final query = _searchQuery.trim().toLowerCase();
+    return contents.where((item) {
+      final hasProduct = item.productId != null && item.productId!.isNotEmpty;
+      if (_placementScope == 'product' && !hasProduct) return false;
+      if (_placementScope == 'non_product' && hasProduct) return false;
+
+      if (query.isEmpty) return true;
+      final corpus = <String>[
+        item.title,
+        if (item.body != null) item.body!,
+        if (item.storeName != null) item.storeName!,
+        if (item.productName != null) item.productName!,
+        item.contentTypeLabel,
+        item.mediaFormatLabel,
+        item.socialPlatformLabel,
+      ].join(' ').toLowerCase();
+      return corpus.contains(query);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +74,79 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Riwayat & CRUD Donasi Saya',
+            onPressed: () => context.push('/donations'),
+            icon: const Icon(Icons.volunteer_activism_outlined),
+          ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Search Bar (#7)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.primary,
+                ),
+                hintText:
+                    'Cari promosi produk, kisah UMK, toko, atau platform...',
+                isDense: true,
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                      ),
+              ),
+              onChanged: (val) => setState(() => _searchQuery = val),
+            ),
+          ),
+
+          // Pakem Placement Scope Selector (#8: Produk vs Non-Produk)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildPlacementScopeChip(
+                    id: 'all',
+                    label: 'Semua Penempatan',
+                    icon: Icons.layers_outlined,
+                    activeColor: AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPlacementScopeChip(
+                    id: 'product',
+                    label: 'Zona Promosi Produk 🏷️',
+                    icon: Icons.local_offer_outlined,
+                    activeColor: Colors.amber.shade900,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPlacementScopeChip(
+                    id: 'non_product',
+                    label: 'Zona Non-Produk & Kisah UMK 📖',
+                    icon: Icons.auto_stories_outlined,
+                    activeColor: Colors.teal.shade700,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // Category Filter Chips Bar
           SizedBox(
-            height: 48,
+            height: 46,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
@@ -65,7 +165,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                     fontWeight: isSelected
                         ? FontWeight.bold
                         : FontWeight.normal,
-                    fontSize: 13,
+                    fontSize: 12,
                   ),
                   onSelected: (selected) {
                     setState(() {
@@ -111,7 +211,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 ),
               ),
               data: (contents) {
-                if (contents.isEmpty) {
+                final filtered = _filterContents(contents);
+
+                if (filtered.isEmpty) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -125,7 +227,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           ),
                           SizedBox(height: 12),
                           Text(
-                            'Belum ada konten promosi UMK',
+                            'Belum ada konten promosi yang sesuai',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -133,7 +235,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Coba pilih kategori lain atau kembali nanti.',
+                            'Coba ubah filter zona penempatan, kategori, atau kata kunci.',
                             style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 13,
@@ -154,11 +256,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                   },
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    itemCount: contents.length,
+                    itemCount: filtered.length,
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 16),
                     itemBuilder: (context, index) {
-                      final item = contents[index];
+                      final item = filtered[index];
                       return _buildContentCard(context, item);
                     },
                   ),
@@ -171,25 +273,137 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     );
   }
 
+  Widget _buildPlacementScopeChip({
+    required String id,
+    required String label,
+    required IconData icon,
+    required Color activeColor,
+  }) {
+    final isSelected = _placementScope == id;
+    return ChoiceChip(
+      avatar: Icon(
+        icon,
+        size: 15,
+        color: isSelected ? activeColor : AppColors.textSecondary,
+      ),
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: activeColor.withAlpha(28),
+      labelStyle: TextStyle(
+        color: isSelected ? activeColor : AppColors.textPrimary,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
+      ),
+      onSelected: (_) {
+        setState(() {
+          _placementScope = id;
+        });
+      },
+    );
+  }
+
   Widget _buildContentCard(BuildContext context, StoreContentModel item) {
+    final hasProduct = item.productId != null && item.productId!.isNotEmpty;
+    final hasExternalUrl =
+        item.externalUrl != null && item.externalUrl!.trim().isNotEmpty;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(
+          color: hasProduct ? Colors.amber.shade300 : Colors.teal.shade200,
+          width: 1.2,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Pakem Placement Banner Header (#8)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: hasProduct ? Colors.amber.shade50 : Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Icon(
+                    hasProduct
+                        ? Icons.local_offer_rounded
+                        : Icons.auto_stories_rounded,
+                    size: 14,
+                    color: hasProduct
+                        ? Colors.amber.shade900
+                        : Colors.teal.shade800,
+                  ),
+                  Text(
+                    hasProduct
+                        ? 'ZONA PROMOSI PRODUK'
+                        : 'ZONA INFORMASI & KISAH NON-PRODUK UMK',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: hasProduct
+                          ? Colors.amber.shade900
+                          : Colors.teal.shade800,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      item.mediaFormatLabel,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  if (item.socialPlatform != 'none')
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        item.socialPlatformLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.indigo.shade700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // Store Header Row
             Row(
               children: [
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: AppColors.primary.withAlpha(30),
-                  child: Icon(
+                  child: const Icon(
                     Icons.storefront,
                     color: AppColors.primary,
                     size: 20,
@@ -281,18 +495,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
             ],
 
             // Linked Product Highlight Box (If Available)
-            if (item.productId != null && item.productId!.isNotEmpty) ...[
+            if (hasProduct) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withAlpha(15),
+                  color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withAlpha(40)),
+                  border: Border.all(color: Colors.amber.shade300),
                 ),
                 child: Row(
                   children: [
-                    // Small Product Banner Thumbnail Image
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child:
@@ -382,31 +595,144 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               ),
             ],
 
-            const SizedBox(height: 16),
+            // External Media Sosial Actions (#17)
+            if (hasExternalUrl) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        _openExternalUrl(context, item.externalUrl!),
+                    icon: const Icon(Icons.open_in_new, size: 15),
+                    label: Text(
+                      item.socialPlatform != 'none'
+                          ? 'Buka di ${item.socialPlatformLabel}'
+                          : 'Buka Tautan',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: item.externalUrl!),
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Link konten disalin ke clipboard.'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 15),
+                    label: const Text(
+                      'Salin Link',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 14),
             const Divider(height: 1),
             const SizedBox(height: 12),
 
-            // Action Footer Button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  context.push('/store/${item.storeId}');
-                },
-                icon: const Icon(Icons.store, size: 18),
-                label: Text('Kunjungi ${item.storeName ?? "Toko UMK"}'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            // Action Footer Buttons: Kunjungi Toko & Donasi ke UMK (#12)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      context.push('/store/${item.storeId}');
+                    },
+                    icon: const Icon(Icons.store, size: 16),
+                    label: Text(
+                      'Toko ${item.storeName ?? "UMK"}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      showBuyerDonationDialog(
+                        context,
+                        ref,
+                        storeId: item.storeId,
+                        storeName: item.storeName ?? 'Toko UMK',
+                        contentId: item.id,
+                        contentTitle: item.title,
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.volunteer_activism,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Donasi UMK',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade700,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openExternalUrl(BuildContext context, String rawUrl) async {
+    final normalized =
+        rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
+        ? rawUrl
+        : 'https://$rawUrl';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) return;
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak dapat membuka tautan eksternal.')),
+      );
+    }
   }
 }

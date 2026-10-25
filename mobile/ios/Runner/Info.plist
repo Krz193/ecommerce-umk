@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Select product images to upload for your store.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Digunakan untuk panggilan suara in-app (VoIP) dengan kurir / driver Gojek.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

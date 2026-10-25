@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/features/assistant/providers/assistant_providers.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
-import 'package:mobile/features/assistant/providers/assistant_providers.dart';
 
 class AccountPage extends ConsumerWidget {
   const AccountPage({super.key});
@@ -123,11 +123,7 @@ class AccountPage extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              user?.role == 'seller'
-                                  ? 'Penjual UMK 🏬'
-                                  : user?.role == 'assistant'
-                                  ? 'Asisten UMK 🤝'
-                                  : 'Pembeli 🛒',
+                              user?.roleBadgeLabel ?? 'Pembeli 🛒',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -184,6 +180,19 @@ class AccountPage extends ConsumerWidget {
                 title: 'Riwayat Pesanan',
                 subtitle: 'Lihat status dan riwayat pembelian',
                 onTap: () => context.go('/orders'),
+              ),
+              Divider(
+                height: 1,
+                indent: 66,
+                endIndent: 16,
+                color: Colors.grey.shade200,
+              ),
+              buildActionTile(
+                icon: Icons.volunteer_activism_outlined,
+                iconColor: Colors.teal.shade700,
+                title: 'Donasi UMK Saya',
+                subtitle: 'Kelola & lihat riwayat donasi dari konten UMK',
+                onTap: () => context.push('/donations'),
               ),
             ],
           ),
@@ -246,7 +255,36 @@ class AccountPage extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Section 4: Bantuan & Masukan Sistem (Excel B33 / B13)
+          // Section 3.6: Area Mitra Logistik & Pengiriman (#13 Ekspedisi & #14 Ojek)
+          buildSectionTitle('Mitra Logistik & Pengantaran'),
+          const SizedBox(height: 10),
+          buildActionCard(
+            children: [
+              buildActionTile(
+                icon: Icons.local_shipping_outlined,
+                iconColor: Colors.indigo.shade700,
+                title: 'Portal Kurir Ekspedisi',
+                subtitle: 'Kelola no resi, status tracking, & pembatalan logistik',
+                onTap: () => openLogisticsArea(context, ref, 'ekspedisi'),
+              ),
+              Divider(
+                height: 1,
+                indent: 66,
+                endIndent: 16,
+                color: Colors.grey.shade200,
+              ),
+              buildActionTile(
+                icon: Icons.two_wheeler_outlined,
+                iconColor: Colors.deepOrange.shade700,
+                title: 'Portal Driver Ojek',
+                subtitle: 'Penerimaan antar lokal, update GPS, & call/chat pembeli',
+                onTap: () => openLogisticsArea(context, ref, 'ojek'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Section 4: Bantuan & Masukan Sistem
           buildSectionTitle('Bantuan & Masukan'),
           const SizedBox(height: 10),
           buildActionCard(
@@ -373,6 +411,49 @@ class AccountPage extends ConsumerWidget {
     }
 
     context.push('/seller/store');
+  }
+
+  Future<void> openLogisticsArea(
+    BuildContext context,
+    WidgetRef ref,
+    String targetRole,
+  ) async {
+    final user = await ref.read(appUserProvider.future);
+    if (!context.mounted) return;
+
+    final isAlreadyTarget = (targetRole == 'ekspedisi' && user?.isEkspedisi == true) ||
+        (targetRole == 'ojek' && user?.isOjek == true) ||
+        user?.isAdmin == true;
+
+    if (isAlreadyTarget) {
+      context.push('/logistics/$targetRole');
+      return;
+    }
+
+    final roleLabel = targetRole == 'ekspedisi' ? 'Mitra Ekspedisi' : 'Driver Ojek';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Buka Portal $roleLabel'),
+        content: Text(
+          'Anda akan masuk ke portal operasional $roleLabel untuk memproses pengiriman, approval order, dan update rute logistik.\n\nLanjutkan?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('Lanjutkan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      context.push('/logistics/$targetRole');
+    }
   }
 
   Future<void> openAssistantArea(BuildContext context, WidgetRef ref) async {

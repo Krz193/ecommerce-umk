@@ -30,6 +30,9 @@ class StoreContentController extends Controller
                 'store_contents.product_id',
                 'store_contents.title',
                 'store_contents.content_type',
+                'store_contents.social_platform',
+                'store_contents.media_format',
+                'store_contents.external_url',
                 'store_contents.body',
                 'store_contents.is_active',
                 'store_contents.created_at',
@@ -67,6 +70,9 @@ class StoreContentController extends Controller
             'product_id' => ['nullable', 'string', 'uuid'],
             'title' => ['required', 'string', 'max:255'],
             'content_type' => ['required', 'string', 'in:banner,promo,storytelling,social,educational'],
+            'social_platform' => ['nullable', 'string', 'in:instagram,tiktok,youtube,facebook,whatsapp,marketplace'],
+            'media_format' => ['required', 'string', 'in:image,video,short_video,carousel,article'],
+            'external_url' => ['nullable', 'url', 'max:1000'],
             'body' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
@@ -80,9 +86,12 @@ class StoreContentController extends Controller
             'id' => $id,
             'store_id' => $storeRow->id,
             'product_id' => $validated['product_id'] ?? null,
-            'created_by' => $storeRow->owner_id, // Default to store owner user ID
+            'created_by' => $storeRow->owner_id,
             'title' => $validated['title'],
             'content_type' => $validated['content_type'],
+            'social_platform' => $validated['social_platform'] ?? null,
+            'media_format' => $validated['media_format'],
+            'external_url' => $validated['external_url'] ?? null,
             'body' => $validated['body'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
             'created_at' => now(),
@@ -98,6 +107,8 @@ class StoreContentController extends Controller
             [
                 'title' => $validated['title'],
                 'content_type' => $validated['content_type'],
+                'media_format' => $validated['media_format'],
+                'social_platform' => $validated['social_platform'] ?? null,
                 'store_id' => $storeRow->id,
             ],
         );
@@ -111,6 +122,9 @@ class StoreContentController extends Controller
             'product_id' => ['nullable', 'string', 'uuid'],
             'title' => ['required', 'string', 'max:255'],
             'content_type' => ['required', 'string', 'in:banner,promo,storytelling,social,educational'],
+            'social_platform' => ['nullable', 'string', 'in:instagram,tiktok,youtube,facebook,whatsapp,marketplace'],
+            'media_format' => ['required', 'string', 'in:image,video,short_video,carousel,article'],
+            'external_url' => ['nullable', 'url', 'max:1000'],
             'body' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
@@ -122,6 +136,9 @@ class StoreContentController extends Controller
             'product_id' => $validated['product_id'] ?? null,
             'title' => $validated['title'],
             'content_type' => $validated['content_type'],
+            'social_platform' => $validated['social_platform'] ?? null,
+            'media_format' => $validated['media_format'],
+            'external_url' => $validated['external_url'] ?? null,
             'body' => $validated['body'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
             'updated_at' => now(),
@@ -137,6 +154,8 @@ class StoreContentController extends Controller
                 'previous_title' => $existing->title,
                 'title' => $validated['title'],
                 'content_type' => $validated['content_type'],
+                'media_format' => $validated['media_format'],
+                'social_platform' => $validated['social_platform'] ?? null,
             ],
         );
 

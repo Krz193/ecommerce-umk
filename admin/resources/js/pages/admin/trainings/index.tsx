@@ -13,7 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { formatDate } from '@/lib/format';
-import { Calendar, Users, Video, Plus, Edit2, Trash2, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Calendar, Users, Video, Plus, Edit2, Trash2, UserPlus } from 'lucide-react';
 
 type Training = {
     id: string;
@@ -24,6 +24,9 @@ type Training = {
     location_or_url: string;
     max_participants: number;
     status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+    report_summary: string | null;
+    documentation_urls: string[];
+    material_url: string | null;
     participants_count: number;
     participants: Array<{
         id: string;
@@ -53,6 +56,8 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingTraining, setEditingTraining] = useState<Training | null>(null);
     const [selectedTrainingId, setSelectedTrainingId] = useState<string | null>(null);
+    // One documentation URL per line; converted to an array on submit.
+    const [documentationText, setDocumentationText] = useState('');
 
     // Derive active managing training from refreshed trainings list
     const managingParticipantsTraining = trainings.find((t) => t.id === selectedTrainingId) ?? null;
@@ -66,6 +71,8 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
         location_or_url: string;
         max_participants: number;
         status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+        report_summary: string;
+        material_url: string;
     }>({
         title: '',
         description: '',
@@ -74,7 +81,16 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
         location_or_url: 'Online via Zoom',
         max_participants: 50,
         status: 'upcoming',
+        report_summary: '',
+        material_url: '',
     });
+
+    const documentationUrls = documentationText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    form.transform((data) => ({ ...data, documentation_urls: documentationUrls }));
 
     // Form for Enrolling Store Participant
     const participantForm = useForm({
@@ -93,7 +109,10 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
             location_or_url: 'Online via Zoom (Link akan dibagikan)',
             max_participants: 50,
             status: 'upcoming',
+            report_summary: '',
+            material_url: '',
         });
+        setDocumentationText('');
         setIsCreateOpen(true);
     };
 
@@ -107,7 +126,10 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
             location_or_url: training.location_or_url,
             max_participants: training.max_participants,
             status: training.status,
+            report_summary: training.report_summary ?? '',
+            material_url: training.material_url ?? '',
         });
+        setDocumentationText((training.documentation_urls ?? []).join('\n'));
         setIsCreateOpen(true);
     };
 
@@ -148,6 +170,14 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
                 participantForm.reset();
             },
         });
+    };
+
+    const handleUpdateParticipantStatus = (trainingId: string, participantId: string, status: string) => {
+        router.patch(
+            `/trainings/${trainingId}/participants/${participantId}`,
+            { status },
+            { preserveScroll: true, preserveState: true },
+        );
     };
 
     const handleRemoveParticipant = (trainingId: string, participantId: string) => {
@@ -228,6 +258,18 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
                                             <div className="font-semibold text-foreground">{training.title}</div>
                                             {training.description && (
                                                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{training.description}</p>
+                                            )}
+                                            {(training.report_summary || training.documentation_urls?.length > 0) && (
+                                                <div className="mt-1 flex gap-1.5 text-[11px] font-medium">
+                                                    {training.report_summary && (
+                                                        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">Laporan tersedia</span>
+                                                    )}
+                                                    {training.documentation_urls?.length > 0 && (
+                                                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">
+                                                            {training.documentation_urls.length} dokumentasi
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
                                         </td>
                                         <td className="py-3.5 text-muted-foreground">{training.instructor}</td>
@@ -409,6 +451,55 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
                                         className="w-full rounded-md border border-input bg-background p-2.5 text-sm"
                                     />
                                 </div>
+
+                                {/* Pelaporan & Dokumentasi */}
+                                <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                                    <p className="text-sm font-semibold">Laporan & Dokumentasi Pelatihan</p>
+                                    <div>
+                                        <Label htmlFor="report_summary">Ringkasan Laporan Pelaksanaan</Label>
+                                        <textarea
+                                            id="report_summary"
+                                            rows={3}
+                                            value={form.data.report_summary}
+                                            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => form.setData('report_summary', e.target.value)}
+                                            placeholder="Hasil pelatihan, jumlah kehadiran, evaluasi, tindak lanjut..."
+                                            className="w-full rounded-md border border-input bg-background p-2.5 text-sm"
+                                        />
+                                        {form.errors.report_summary && <p className="text-xs text-destructive">{form.errors.report_summary}</p>}
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="material_url">Link Materi / Sertifikat</Label>
+                                        <Input
+                                            id="material_url"
+                                            type="url"
+                                            value={form.data.material_url}
+                                            onChange={(e: ChangeEvent<HTMLInputElement>) => form.setData('material_url', e.target.value)}
+                                            placeholder="https://drive.google.com/..."
+                                        />
+                                        {form.errors.material_url && <p className="text-xs text-destructive">{form.errors.material_url}</p>}
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="documentation_urls">URL Foto Dokumentasi (satu URL per baris, maks 10)</Label>
+                                        <textarea
+                                            id="documentation_urls"
+                                            rows={3}
+                                            value={documentationText}
+                                            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDocumentationText(e.target.value)}
+                                            placeholder={'https://.../foto-1.jpg\nhttps://.../foto-2.jpg'}
+                                            className="w-full rounded-md border border-input bg-background p-2.5 text-sm"
+                                        />
+                                        {Object.entries(form.errors).some(([key]) => key.startsWith('documentation_urls')) && (
+                                            <p className="text-xs text-destructive">URL dokumentasi harus berupa link http/https yang valid.</p>
+                                        )}
+                                        {documentationUrls.length > 0 && (
+                                            <div className="mt-2 grid grid-cols-4 gap-2">
+                                                {documentationUrls.slice(0, 10).map((url) => (
+                                                    <img key={url} src={url} alt="Dokumentasi pelatihan" className="h-16 w-full rounded-md border object-cover" />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             <DialogFooter>
@@ -473,9 +564,17 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
                                                 <td className="py-2.5 font-semibold text-primary">{p.store?.name}</td>
                                                 <td className="py-2.5 text-xs text-muted-foreground">{p.user?.full_name}</td>
                                                 <td className="py-2.5 text-center">
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
-                                                        <CheckCircle2 className="h-3 w-3" /> Terdaftar
-                                                    </span>
+                                                    <select
+                                                        value={p.status === 'completed' ? 'attended' : p.status}
+                                                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                                                            handleUpdateParticipantStatus(managingParticipantsTraining.id, p.id, e.target.value)
+                                                        }
+                                                        className="rounded-md border border-input bg-background px-2 py-1 text-xs font-semibold"
+                                                    >
+                                                        <option value="registered">Terdaftar</option>
+                                                        <option value="attended">Hadir</option>
+                                                        <option value="cancelled">Batal</option>
+                                                    </select>
                                                 </td>
                                                 <td className="py-2.5 text-right">
                                                     <Button

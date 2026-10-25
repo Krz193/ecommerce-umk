@@ -4,6 +4,9 @@ class StoreContentModel {
   final String createdBy;
   final String title;
   final String contentType;
+  final String? socialPlatform;
+  final String mediaFormat;
+  final String? externalUrl;
   final String? body;
   final List<String> mediaUrls;
   final bool isActive;
@@ -21,6 +24,9 @@ class StoreContentModel {
     required this.createdBy,
     required this.title,
     required this.contentType,
+    this.socialPlatform,
+    this.mediaFormat = 'image',
+    this.externalUrl,
     this.body,
     required this.mediaUrls,
     required this.isActive,
@@ -48,6 +54,9 @@ class StoreContentModel {
       createdBy: map['created_by'] ?? '',
       title: map['title'] ?? '',
       contentType: map['content_type'] ?? 'promo',
+      socialPlatform: map['social_platform'] as String?,
+      mediaFormat: (map['media_format'] as String?) ?? 'image',
+      externalUrl: map['external_url'] as String?,
       body: map['body'],
       mediaUrls: parsedMedia,
       isActive: map['is_active'] ?? true,
@@ -93,6 +102,41 @@ class StoreContentModel {
         return 'Materi Edukasi UMK';
       default:
         return 'Konten UMK';
+    }
+  }
+
+  String get mediaFormatLabel {
+    switch (mediaFormat) {
+      case 'video':
+        return 'Video';
+      case 'short_video':
+        return 'Reels / Shorts';
+      case 'carousel':
+        return 'Carousel Slide';
+      case 'article':
+        return 'Artikel / Teks';
+      case 'image':
+      default:
+        return 'Gambar / Foto';
+    }
+  }
+
+  String get socialPlatformLabel {
+    switch (socialPlatform) {
+      case 'instagram':
+        return 'Instagram';
+      case 'tiktok':
+        return 'TikTok';
+      case 'youtube':
+        return 'YouTube';
+      case 'facebook':
+        return 'Facebook';
+      case 'whatsapp':
+        return 'WhatsApp';
+      case 'marketplace':
+        return 'Marketplace';
+      default:
+        return 'Aplikasi';
     }
   }
 }
