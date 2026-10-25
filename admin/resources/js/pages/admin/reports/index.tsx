@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { useState, type FormEvent, type ReactNode } from 'react';
+import { Head, router } from '@inertiajs/react';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -62,8 +62,25 @@ type ReportsIndexProps = {
         store_name: string;
         total_donors: number;
         total_donations_collected: string;
+        total_distributed_amount: string;
+        pending_distribution_amount: string;
         last_donation_at: string | null;
+        last_distributed_at: string | null;
     }>;
+    filters: ReportFilters;
+    filterOptions: {
+        stores: Array<{ id: string; name: string }>;
+        couriers: string[];
+    };
+};
+
+type ReportFilters = {
+    date_from: string;
+    date_to: string;
+    store_id: string;
+    courier_code: string;
+    order_status: string;
+    donation_status: string;
 };
 
 export default function ReportsIndex({
@@ -74,8 +91,76 @@ export default function ReportsIndex({
     shippingReports,
     assistantReports,
     donationReports,
+    filters,
+    filterOptions,
 }: ReportsIndexProps) {
     const [activeTab, setActiveTab] = useState<'sales' | 'stock' | 'shipping' | 'assistants' | 'donations'>('sales');
+    const [draft, setDraft] = useState<ReportFilters>(filters);
+
+    const setFilter = (key: keyof ReportFilters, value: string) => setDraft((current) => ({ ...current, [key]: value }));
+
+    const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const params = Object.fromEntries(Object.entries(draft).filter(([, value]) => value !== ''));
+        router.get('/reports', params, { preserveState: true, replace: true });
+    };
+
+    const resetFilters = () => {
+        const empty: ReportFilters = { date_from: '', date_to: '', store_id: '', courier_code: '', order_status: '', donation_status: '' };
+        setDraft(empty);
+        router.get('/reports', {}, { preserveState: true, replace: true });
+    };
+
+    const filterBar = (showShippingFilters: boolean) => (
+        <form onSubmit={applyFilters} className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/20 p-3">
+            <FilterField label="Dari Tanggal">
+                <input type="date" value={draft.date_from} onChange={(e) => setFilter('date_from', e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm" />
+            </FilterField>
+            <FilterField label="Sampai Tanggal">
+                <input type="date" value={draft.date_to} onChange={(e) => setFilter('date_to', e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm" />
+            </FilterField>
+            <FilterField label="Toko UMK">
+                <select value={draft.store_id} onChange={(e) => setFilter('store_id', e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm">
+                    <option value="">Semua Toko</option>
+                    {filterOptions.stores.map((store) => (
+                        <option key={store.id} value={store.id}>{store.name}</option>
+                    ))}
+                </select>
+            </FilterField>
+            {showShippingFilters ? (
+                <>
+                    <FilterField label="Kurir / Ekspedisi">
+                        <select value={draft.courier_code} onChange={(e) => setFilter('courier_code', e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm">
+                            <option value="">Semua Kurir</option>
+                            {filterOptions.couriers.map((code) => (
+                                <option key={code} value={code}>{code.toUpperCase()}</option>
+                            ))}
+                        </select>
+                    </FilterField>
+                    <FilterField label="Status Pesanan">
+                        <select value={draft.order_status} onChange={(e) => setFilter('order_status', e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm">
+                            <option value="">Semua Status</option>
+                            <option value="processing">Diproses</option>
+                            <option value="shipped">Dikirim</option>
+                            <option value="completed">Selesai</option>
+                            <option value="cancelled">Dibatalkan</option>
+                        </select>
+                    </FilterField>
+                </>
+            ) : (
+                <FilterField label="Status Donasi">
+                    <select value={draft.donation_status} onChange={(e) => setFilter('donation_status', e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm">
+                        <option value="">Semua Status</option>
+                        <option value="paid">Belum Disalurkan</option>
+                        <option value="distributed">Sudah Disalurkan</option>
+                        <option value="cancelled">Dibatalkan</option>
+                    </select>
+                </FilterField>
+            )}
+            <button type="submit" className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Terapkan</button>
+            <button type="button" onClick={resetFilters} className="h-9 rounded-md border px-4 text-sm font-medium">Reset</button>
+        </form>
+    );
 
     return (
         <>
@@ -236,7 +321,9 @@ export default function ReportsIndex({
                         <CardHeader>
                             <CardTitle>Laporan Pengiriman & Ekspedisi per Toko UMK</CardTitle>
                         </CardHeader>
-                        <CardContent className="overflow-x-auto">
+                        <CardContent className="space-y-4">
+                            {filterBar(true)}
+                            <div className="overflow-x-auto">
                             <table className="w-full min-w-[850px] text-sm">
                                 <thead className="border-b text-left text-muted-foreground">
                                     <tr>
@@ -270,6 +357,7 @@ export default function ReportsIndex({
                                     )}
                                 </tbody>
                             </table>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
@@ -324,14 +412,19 @@ export default function ReportsIndex({
                         <CardHeader>
                             <CardTitle>Laporan Donasi & Dukungan UMK</CardTitle>
                         </CardHeader>
-                        <CardContent className="overflow-x-auto">
-                            <table className="w-full min-w-[760px] text-sm">
+                        <CardContent className="space-y-4">
+                            {filterBar(false)}
+                            <div className="overflow-x-auto">
+                            <table className="w-full min-w-[980px] text-sm">
                                 <thead className="border-b text-left text-muted-foreground">
                                     <tr>
                                         <th className="pb-3 font-medium">Toko UMK Penerima</th>
                                         <th className="pb-3 text-center font-medium">Total Donatur</th>
                                         <th className="pb-3 text-right font-medium">Total Donasi Terkumpul</th>
+                                        <th className="pb-3 text-right font-medium">Total Disalurkan</th>
+                                        <th className="pb-3 text-right font-medium">Belum Disalurkan</th>
                                         <th className="pb-3 text-right font-medium">Donasi Terakhir</th>
+                                        <th className="pb-3 text-right font-medium">Terakhir Disalurkan</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -340,23 +433,38 @@ export default function ReportsIndex({
                                             <td className="py-3 font-semibold">{don.store_name}</td>
                                             <td className="py-3 text-center font-medium">{don.total_donors} Donatur</td>
                                             <td className="py-3 text-right font-bold text-emerald-600">{formatCurrency(don.total_donations_collected)}</td>
+                                            <td className="py-3 text-right font-bold text-blue-600">{formatCurrency(don.total_distributed_amount)}</td>
+                                            <td className="py-3 text-right font-bold text-amber-600">{formatCurrency(don.pending_distribution_amount)}</td>
                                             <td className="py-3 text-right text-xs text-muted-foreground">
                                                 {don.last_donation_at ? formatDate(don.last_donation_at) : '-'}
+                                            </td>
+                                            <td className="py-3 text-right text-xs text-muted-foreground">
+                                                {don.last_distributed_at ? formatDate(don.last_distributed_at) : '-'}
                                             </td>
                                         </tr>
                                     ))}
                                     {donationReports.length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="py-6 text-center text-muted-foreground">Belum ada data donasi tercatat.</td>
+                                            <td colSpan={7} className="py-6 text-center text-muted-foreground">Belum ada data donasi tercatat.</td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
             </div>
         </>
+    );
+}
+
+function FilterField({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+            {label}
+            {children}
+        </label>
     );
 }
 

@@ -113,6 +113,8 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                                 <option value="buyer">Buyer</option>
                                 <option value="seller">Seller</option>
                                 <option value="assistant">Assistant</option>
+                                <option value="ekspedisi">Ekspedisi</option>
+                                <option value="ojek">Ojek</option>
                                 <option value="admin">Admin</option>
                             </select>
                             <Button type="submit">
@@ -229,6 +231,8 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                                     <option value="buyer">Buyer</option>
                                     <option value="seller">Seller</option>
                                     <option value="assistant">Assistant UMK</option>
+                                    <option value="ekspedisi">Ekspedisi</option>
+                                    <option value="ojek">Ojek</option>
                                     <option value="admin">Admin</option>
                                 </select>
                             </div>

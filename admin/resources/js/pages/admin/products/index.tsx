@@ -46,10 +46,30 @@ export default function ProductsIndex({ products, filters, categories = [], stor
     const [categoryId, setCategoryId] = useState('');
     const [name, setName] = useState('');
     const [slug, setSlug] = useState('');
-    const [price, setPrice] = useState('');
+    const [originalPrice, setOriginalPrice] = useState('');
+    const [discountPercent, setDiscountPercent] = useState('0');
+    const [discountAmount, setDiscountAmount] = useState('0');
+    const [taxPercent, setTaxPercent] = useState('0');
     const [stock, setStock] = useState('0');
     const [description, setDescription] = useState('');
     const [productStatus, setProductStatus] = useState('published');
+
+    // Live preview only; the server recomputes the final price on save.
+    const finalPrice = calculateFinalPrice(
+        Number(originalPrice) || 0,
+        Number(discountPercent) || 0,
+        Number(discountAmount) || 0,
+        Number(taxPercent) || 0,
+    );
+
+    function pricingPayload() {
+        return {
+            original_price: Number(originalPrice),
+            discount_percent: Number(discountPercent) || 0,
+            discount_amount: Number(discountAmount) || 0,
+            tax_percent: Number(taxPercent) || 0,
+        };
+    }
 
     function submitFilter(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -62,7 +82,10 @@ export default function ProductsIndex({ products, filters, categories = [], stor
         setCategoryId(categories.length > 0 ? categories[0].id : '');
         setName('');
         setSlug('');
-        setPrice('');
+        setOriginalPrice('');
+        setDiscountPercent('0');
+        setDiscountAmount('0');
+        setTaxPercent('0');
         setStock('0');
         setDescription('');
         setProductStatus('published');
@@ -72,7 +95,10 @@ export default function ProductsIndex({ products, filters, categories = [], stor
     function openEditModal(product: ProductRow) {
         setEditingProduct(product);
         setName(product.name);
-        setPrice(product.price);
+        setOriginalPrice(String(Math.round(Number(product.original_price ?? product.price))));
+        setDiscountPercent(String(Number(product.discount_percent ?? 0)));
+        setDiscountAmount(String(Math.round(Number(product.discount_amount ?? 0))));
+        setTaxPercent(String(Number(product.tax_percent ?? 0)));
         setStock(String(product.stock));
         setProductStatus(product.status);
         setIsOpen(true);
@@ -86,7 +112,7 @@ export default function ProductsIndex({ products, filters, categories = [], stor
                 category_id: categoryId || undefined,
                 name,
                 slug: slug || undefined,
-                price: Number(price),
+                ...pricingPayload(),
                 stock: Number(stock),
                 description: description || undefined,
                 status: productStatus,
@@ -99,7 +125,7 @@ export default function ProductsIndex({ products, filters, categories = [], stor
                 category_id: categoryId || undefined,
                 name,
                 slug: slug || undefined,
-                price: Number(price),
+                ...pricingPayload(),
                 stock: Number(stock),
                 description: description || undefined,
                 status: productStatus,
@@ -172,7 +198,23 @@ export default function ProductsIndex({ products, filters, categories = [], stor
                                         </td>
                                         <td className="py-3">{product.store_name}</td>
                                         <td className="py-3">{product.category_name || '-'}</td>
-                                        <td className="py-3">{formatCurrency(product.price)}</td>
+                                        <td className="py-3">
+                                            {Number(product.discount_percent) > 0 || Number(product.discount_amount) > 0 ? (
+                                                <>
+                                                    <div className="text-xs text-muted-foreground line-through">
+                                                        {formatCurrency(product.original_price ?? product.price)}
+                                                    </div>
+                                                    <div className="font-medium">{formatCurrency(product.price)}</div>
+                                                    <span className="rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">
+                                                        {Number(product.discount_percent) > 0
+                                                            ? `-${Number(product.discount_percent)}%`
+                                                            : `-${formatCurrency(product.discount_amount)}`}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                formatCurrency(product.price)
+                                            )}
+                                        </td>
                                         <td className="py-3">{product.stock}</td>
                                         <td className="py-3"><StatusBadge status={product.status} /></td>
                                         <td className="py-3">{formatDate(product.created_at)}</td>
@@ -293,13 +335,13 @@ export default function ProductsIndex({ products, filters, categories = [], stor
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="prod_price">Price (Rp) *</Label>
+                                    <Label htmlFor="prod_original_price">Harga Awal (Rp) *</Label>
                                     <Input
-                                        id="prod_price"
+                                        id="prod_original_price"
                                         type="number"
                                         min="0"
-                                        value={price}
-                                        onChange={(e) => setPrice(e.target.value)}
+                                        value={originalPrice}
+                                        onChange={(e) => setOriginalPrice(e.target.value)}
                                         placeholder="15000"
                                         required
                                     />
@@ -315,6 +357,54 @@ export default function ProductsIndex({ products, filters, categories = [], stor
                                         placeholder="50"
                                         required
                                     />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="prod_discount_percent">Diskon (%)</Label>
+                                    <Input
+                                        id="prod_discount_percent"
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={discountPercent}
+                                        onChange={(e) => setDiscountPercent(e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="prod_discount_amount">Diskon (Rp)</Label>
+                                    <Input
+                                        id="prod_discount_amount"
+                                        type="number"
+                                        min="0"
+                                        value={discountAmount}
+                                        onChange={(e) => setDiscountAmount(e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="prod_tax_percent">PPN / Biaya (%)</Label>
+                                    <Input
+                                        id="prod_tax_percent"
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={taxPercent}
+                                        onChange={(e) => setTaxPercent(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Harga Awal</span>
+                                    <span>{formatCurrency(Number(originalPrice) || 0)}</span>
+                                </div>
+                                <div className="mt-1 flex justify-between font-semibold">
+                                    <span>Harga Jual (setelah diskon & PPN)</span>
+                                    <span>{formatCurrency(finalPrice)}</span>
                                 </div>
                             </div>
 
@@ -353,4 +443,11 @@ export default function ProductsIndex({ products, filters, categories = [], stor
             </Dialog>
         </>
     );
+}
+
+// Mirrors App\Models\Product::calculateFinalPrice (preview only).
+function calculateFinalPrice(original: number, discountPercent: number, discountAmount: number, taxPercent: number) {
+    const afterDiscount = Math.max(0, original * (1 - discountPercent / 100) - discountAmount);
+
+    return Math.round(afterDiscount * (1 + taxPercent / 100));
 }

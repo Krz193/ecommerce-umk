@@ -21,11 +21,15 @@ class Training extends Model
         'location_or_url',
         'max_participants',
         'status',
+        'report_summary',
+        'documentation_urls',
+        'material_url',
     ];
 
     protected $casts = [
         'schedule_at' => 'datetime',
         'max_participants' => 'integer',
+        'documentation_urls' => 'array',
     ];
 
     public function participants(): HasMany

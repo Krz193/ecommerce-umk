@@ -28,7 +28,10 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
+  late TextEditingController _externalUrlController;
   late String _contentType;
+  late String _mediaFormat;
+  String? _socialPlatform;
   late bool _isActive;
   late List<String> _mediaUrls;
   String? _productId;
@@ -43,6 +46,24 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
     {'value': 'educational', 'label': 'Materi Edukasi UMK'},
   ];
 
+  final List<Map<String, String>> _mediaFormatOptions = const [
+    {'value': 'image', 'label': 'Gambar / Foto'},
+    {'value': 'video', 'label': 'Video'},
+    {'value': 'short_video', 'label': 'Reels / TikTok / Shorts'},
+    {'value': 'carousel', 'label': 'Carousel Slide'},
+    {'value': 'article', 'label': 'Artikel / Teks'},
+  ];
+
+  final List<Map<String, String?>> _socialPlatformOptions = const [
+    {'value': null, 'label': 'Internal Aplikasi Saja'},
+    {'value': 'instagram', 'label': 'Instagram'},
+    {'value': 'tiktok', 'label': 'TikTok'},
+    {'value': 'youtube', 'label': 'YouTube'},
+    {'value': 'facebook', 'label': 'Facebook'},
+    {'value': 'whatsapp', 'label': 'WhatsApp'},
+    {'value': 'marketplace', 'label': 'Marketplace'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -52,7 +73,12 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
     _bodyController = TextEditingController(
       text: widget.existingContent?.body ?? '',
     );
+    _externalUrlController = TextEditingController(
+      text: widget.existingContent?.externalUrl ?? '',
+    );
     _contentType = widget.existingContent?.contentType ?? 'promo';
+    _mediaFormat = widget.existingContent?.mediaFormat ?? 'image';
+    _socialPlatform = widget.existingContent?.socialPlatform;
     _isActive = widget.existingContent?.isActive ?? true;
     _mediaUrls = List<String>.from(widget.existingContent?.mediaUrls ?? []);
     _productId = widget.existingContent?.productId;
@@ -62,6 +88,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
+    _externalUrlController.dispose();
     super.dispose();
   }
 
@@ -143,11 +170,18 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
     try {
       final service = ref.read(assistantServiceProvider);
+      final externalUrl = _externalUrlController.text.trim().isEmpty
+          ? null
+          : _externalUrlController.text.trim();
+
       if (widget.existingContent == null) {
         await service.createStoreContent(
           storeId: widget.storeId,
           title: _titleController.text.trim(),
           contentType: _contentType,
+          socialPlatform: _socialPlatform,
+          mediaFormat: _mediaFormat,
+          externalUrl: externalUrl,
           body: _bodyController.text.trim(),
           mediaUrls: _mediaUrls,
           productId: _productId,
@@ -159,6 +193,9 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           storeId: widget.storeId,
           title: _titleController.text.trim(),
           contentType: _contentType,
+          socialPlatform: _socialPlatform,
+          mediaFormat: _mediaFormat,
+          externalUrl: externalUrl,
           body: _bodyController.text.trim(),
           mediaUrls: _mediaUrls,
           productId: _productId,
@@ -211,7 +248,6 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title field
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
@@ -229,7 +265,6 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               const SizedBox(height: 16),
 
-              // Content Type dropdown
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 initialValue: _contentType,
@@ -258,7 +293,72 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               const SizedBox(height: 16),
 
-              // Product Association Dropdown (Optional for Direct CTA)
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _mediaFormat,
+                decoration: const InputDecoration(
+                  labelText: 'Bentuk Konten (Format Media) *',
+                  border: OutlineInputBorder(),
+                ),
+                items: _mediaFormatOptions.map((opt) {
+                  return DropdownMenuItem<String>(
+                    value: opt['value']!,
+                    child: Text(
+                      opt['label']!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _mediaFormat = val;
+                    });
+                  }
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String?>(
+                isExpanded: true,
+                initialValue: _socialPlatform,
+                decoration: const InputDecoration(
+                  labelText: 'Platform Media Sosial',
+                  border: OutlineInputBorder(),
+                ),
+                items: _socialPlatformOptions.map((opt) {
+                  return DropdownMenuItem<String?>(
+                    value: opt['value'],
+                    child: Text(
+                      opt['label']!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  setState(() {
+                    _socialPlatform = val;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _externalUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'URL Konten Eksternal (Instagram/TikTok/YouTube)',
+                  hintText:
+                      'https://instagram.com/p/... atau https://vt.tiktok.com/...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               productsAsync.when(
                 data: (products) {
                   return DropdownButtonFormField<String?>(
@@ -274,7 +374,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                       const DropdownMenuItem<String?>(
                         value: null,
                         child: Text(
-                          'Tanpa Produk Spesifik (Promosi Toko Umum)',
+                          'Tanpa Produk Spesifik (Konten Non-Produk / Kisah UMK)',
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -303,7 +403,6 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               const SizedBox(height: 16),
 
-              // Body content text area
               TextFormField(
                 controller: _bodyController,
                 maxLines: 5,
@@ -317,14 +416,13 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               const SizedBox(height: 16),
 
-              // Media / Image Upload Section
               const Text(
-                'Foto / Media Promosi',
+                'Foto / Thumbnail Media Promosi',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               const SizedBox(height: 6),
               const Text(
-                'Unggah gambar spanduk, foto produk promo, atau gambar pendukung cerita (format gambar JPG, PNG, atau WEBP).',
+                'Unggah gambar spanduk, thumbnail video/reels, atau foto produk promo (format JPG, PNG, atau WEBP).',
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 10),
@@ -396,7 +494,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                 label: Text(
                   _isUploadingImage
                       ? 'Mengunggah Foto...'
-                      : 'Tambah Foto Konten',
+                      : 'Tambah Foto / Thumbnail',
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
@@ -406,7 +504,6 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               const SizedBox(height: 16),
 
-              // Active status switch
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Status Aktif / Publikasi'),
@@ -423,7 +520,6 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               const SizedBox(height: 24),
 
-              // Submit button
               SizedBox(
                 width: double.infinity,
                 height: 48,

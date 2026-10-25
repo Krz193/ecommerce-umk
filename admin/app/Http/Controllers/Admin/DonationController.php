@@ -8,6 +8,7 @@ use App\Models\Store;
 use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,9 +38,13 @@ class DonationController extends Controller
             ->orderBy('name')
             ->get();
 
+        $distributed = Donation::where('status', 'distributed');
+
         $metrics = [
-            'total_collected' => (float)Donation::where('status', 'paid')->sum('amount'),
-            'total_distributed' => (float)Donation::where('status', 'distributed')->sum('amount'),
+            'total_collected' => (float)Donation::whereIn('status', ['paid', 'distributed'])->sum('amount'),
+            'total_distributed' => (float)(clone $distributed)->sum(DB::raw('coalesce(distributed_amount, amount)')),
+            'total_pending' => (float)Donation::where('status', 'paid')->sum('amount'),
+            'distributed_count' => (clone $distributed)->count(),
             'total_donors' => Donation::count(),
             'total_stores_supported' => Donation::distinct('store_id')->count('store_id'),
         ];
@@ -60,7 +65,15 @@ class DonationController extends Controller
         $validated = $request->validate([
             'status' => 'required|in:paid,distributed,cancelled',
             'note' => 'nullable|string|max:500',
+            'distributed_at' => 'nullable|date',
+            'distributed_amount' => ['nullable', 'numeric', 'gt:0', 'max:'.$donation->amount],
         ]);
+
+        $isDistributed = $validated['status'] === 'distributed';
+
+        // Distribution date/amount only apply to distributed donations; default to now / full amount.
+        $validated['distributed_at'] = $isDistributed ? ($validated['distributed_at'] ?? now()) : null;
+        $validated['distributed_amount'] = $isDistributed ? ($validated['distributed_amount'] ?? $donation->amount) : null;
 
         $oldStatus = $donation->status;
         $donation->update($validated);
@@ -75,6 +88,7 @@ class DonationController extends Controller
                 'old_status' => $oldStatus,
                 'new_status' => $donation->status,
                 'amount' => $donation->amount,
+                'distributed_amount' => $donation->distributed_amount,
             ]
         );
 

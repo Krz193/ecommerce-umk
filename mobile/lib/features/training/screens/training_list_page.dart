@@ -269,6 +269,114 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                 ),
               ],
             ),
+            if ((training.reportSummary != null &&
+                    training.reportSummary!.isNotEmpty) ||
+                training.documentationUrls.isNotEmpty ||
+                (training.materialUrl != null &&
+                    training.materialUrl!.isNotEmpty)) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          size: 15,
+                          color: Colors.indigo.shade700,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Pelaporan & Dokumentasi Pelatihan',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.indigo.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (training.reportSummary != null &&
+                        training.reportSummary!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        training.reportSummary!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                    if (training.documentationUrls.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 64,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: training.documentationUrls.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final url = training.documentationUrls[index];
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.network(
+                                url,
+                                width: 88,
+                                height: 64,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  width: 88,
+                                  height: 64,
+                                  color: Colors.grey.shade200,
+                                  child: const Icon(
+                                    Icons.broken_image_outlined,
+                                    size: 18,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    if (training.materialUrl != null &&
+                        training.materialUrl!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.attach_file,
+                            size: 14,
+                            color: Colors.blue,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Materi: ${training.materialUrl}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,

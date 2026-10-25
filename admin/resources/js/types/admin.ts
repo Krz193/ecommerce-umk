@@ -43,6 +43,9 @@ export type StoreContentRow = {
     product_id: string | null;
     title: string;
     content_type: 'banner' | 'promo' | 'storytelling' | 'social' | 'educational';
+    social_platform: string | null;
+    media_format: 'image' | 'video' | 'short_video' | 'carousel' | 'article';
+    external_url: string | null;
     body: string | null;
     is_active: boolean;
     created_at: string;
@@ -58,6 +61,10 @@ export type ProductRow = {
     name: string;
     status: string;
     price: string;
+    original_price: string | null;
+    discount_percent: string;
+    discount_amount: string;
+    tax_percent: string;
     stock: number;
     thumbnail_url: string | null;
     archived_at: string | null;

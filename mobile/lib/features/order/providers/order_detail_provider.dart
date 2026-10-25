@@ -16,6 +16,13 @@ final orderDetailProvider = FutureProvider.autoDispose
           .from('orders')
           .select('''
           *,
+          store:stores (
+            id,
+            name,
+            address,
+            latitude,
+            longitude
+          ),
           payment:payments (
             id,
             status,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,10 @@ class ProductModerationController extends Controller
                 'products.name',
                 'products.status',
                 'products.price',
+                'products.original_price',
+                'products.discount_percent',
+                'products.discount_amount',
+                'products.tax_percent',
                 'products.stock',
                 'products.thumbnail_url',
                 'products.archived_at',
@@ -155,7 +160,10 @@ class ProductModerationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'price' => ['required', 'numeric', 'min:0'],
+            'original_price' => ['required', 'numeric', 'min:0'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'stock' => ['required', 'integer', 'min:0'],
             'weight' => ['nullable', 'numeric', 'min:0'],
             'thumbnail_url' => ['nullable', 'string', 'url', 'max:1000'],
@@ -176,6 +184,7 @@ class ProductModerationController extends Controller
         }
 
         $id = (string) \Illuminate\Support\Str::uuid();
+        $pricing = $this->pricing($validated);
 
         $db->table('products')->insert([
             'id' => $id,
@@ -184,7 +193,7 @@ class ProductModerationController extends Controller
             'name' => $validated['name'],
             'slug' => $slug,
             'description' => $validated['description'] ?? null,
-            'price' => $validated['price'],
+            ...$pricing,
             'stock' => $validated['stock'],
             'weight' => $validated['weight'] ?? null,
             'thumbnail_url' => $validated['thumbnail_url'] ?? null,
@@ -202,7 +211,7 @@ class ProductModerationController extends Controller
             [
                 'name' => $validated['name'],
                 'store_id' => $storeRow->id,
-                'price' => $validated['price'],
+                'price' => $pricing['price'],
                 'stock' => $validated['stock'],
             ],
         );
@@ -217,7 +226,10 @@ class ProductModerationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'price' => ['required', 'numeric', 'min:0'],
+            'original_price' => ['required', 'numeric', 'min:0'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'stock' => ['required', 'integer', 'min:0'],
             'weight' => ['nullable', 'numeric', 'min:0'],
             'thumbnail_url' => ['nullable', 'string', 'url', 'max:1000'],
@@ -240,12 +252,14 @@ class ProductModerationController extends Controller
             return back()->withErrors(['slug' => 'Slug produk sudah digunakan oleh produk lain.']);
         }
 
+        $pricing = $this->pricing($validated);
+
         $db->table('products')->where('id', $product)->update([
             'category_id' => $validated['category_id'] ?? null,
             'name' => $validated['name'],
             'slug' => $slug,
             'description' => $validated['description'] ?? null,
-            'price' => $validated['price'],
+            ...$pricing,
             'stock' => $validated['stock'],
             'weight' => $validated['weight'] ?? null,
             'thumbnail_url' => $validated['thumbnail_url'] ?? null,
@@ -262,12 +276,35 @@ class ProductModerationController extends Controller
             [
                 'previous_name' => $existing->name,
                 'name' => $validated['name'],
-                'price' => $validated['price'],
+                'previous_price' => $existing->price,
+                'price' => $pricing['price'],
                 'stock' => $validated['stock'],
             ],
         );
 
         return back()->with('success', 'Informasi Produk berhasil diperbarui.');
+    }
+
+    /**
+     * Zero client trust: the selling price is always recomputed server-side
+     * from the original price, discounts and tax.
+     *
+     * @return array{original_price: float, discount_percent: float, discount_amount: float, tax_percent: float, price: int}
+     */
+    private function pricing(array $validated): array
+    {
+        $originalPrice = (float) $validated['original_price'];
+        $discountPercent = (float) ($validated['discount_percent'] ?? 0);
+        $discountAmount = (float) ($validated['discount_amount'] ?? 0);
+        $taxPercent = (float) ($validated['tax_percent'] ?? 0);
+
+        return [
+            'original_price' => $originalPrice,
+            'discount_percent' => $discountPercent,
+            'discount_amount' => $discountAmount,
+            'tax_percent' => $taxPercent,
+            'price' => Product::calculateFinalPrice($originalPrice, $discountPercent, $discountAmount, $taxPercent),
+        ];
     }
 
     public function destroy(Request $request, AdminAuditLogger $auditLogger, string $product): RedirectResponse

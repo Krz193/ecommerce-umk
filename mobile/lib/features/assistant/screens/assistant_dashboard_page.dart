@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
 class AssistantDashboardPage extends ConsumerWidget {
@@ -64,6 +66,10 @@ class AssistantDashboardPage extends ConsumerWidget {
               ref.invalidate(assistantProfileProvider);
               if (activeStore != null) {
                 ref.invalidate(assistanceLogsProvider(activeStore.storeId));
+                ref.invalidate(sellerOrdersProvider(activeStore.storeId));
+                ref.invalidate(
+                  storeDonationsSummaryProvider(activeStore.storeId),
+                );
               }
             },
             child: SingleChildScrollView(
@@ -72,7 +78,6 @@ class AssistantDashboardPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Assistant Info Card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -148,7 +153,6 @@ class AssistantDashboardPage extends ConsumerWidget {
 
                   const SizedBox(height: 20),
 
-                  // Store Selection Header
                   const Text(
                     'Toko UMK Aktif Dampingan',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -156,11 +160,11 @@ class AssistantDashboardPage extends ConsumerWidget {
                   const SizedBox(height: 8),
 
                   if (stores.isEmpty)
-                    Card(
+                    const Card(
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
                         child: Row(
-                          children: const [
+                          children: [
                             Icon(Icons.info_outline, color: Colors.amber),
                             SizedBox(width: 12),
                             Expanded(
@@ -228,9 +232,17 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                     ),
 
+                  if (activeStore != null) ...[
+                    const SizedBox(height: 20),
+                    _buildStoreSalesAndDonationsPanel(
+                      context,
+                      ref,
+                      activeStore,
+                    ),
+                  ],
+
                   const SizedBox(height: 24),
 
-                  // Menu Grid
                   const Text(
                     'Fitur Asistensi & Pendampingan',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -248,7 +260,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                       _buildMenuCard(
                         context,
                         title: 'Konten Promosi',
-                        subtitle: 'Kelola Konten & Promosi',
+                        subtitle: 'Medsos, Video & Gambar',
                         icon: Icons.article_outlined,
                         color: Colors.orange.shade700,
                         onTap: activeStore == null
@@ -259,9 +271,9 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                       _buildMenuCard(
                         context,
-                        title: 'Riwayat Pendampingan',
-                        subtitle: 'Catatan Aktivitas Pendampingan',
-                        icon: Icons.history_edu,
+                        title: 'CRUD Engagement',
+                        subtitle: 'Reach, Likes & Aktivitas',
+                        icon: Icons.insights_outlined,
                         color: Colors.purple.shade700,
                         onTap: () => context.push(
                           '/assistant/logs${activeStore != null ? '?storeId=${activeStore.storeId}' : ''}',
@@ -269,11 +281,37 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                       _buildMenuCard(
                         context,
-                        title: 'Profil Asisten',
-                        subtitle: 'Lihat Akun Asisten',
-                        icon: Icons.badge_outlined,
-                        color: Colors.blue.shade700,
-                        onTap: () => context.push('/assistant/profile'),
+                        title: 'Rekomendasi Produk',
+                        subtitle: 'Model Rumus & Unggulan',
+                        icon: Icons.auto_awesome_outlined,
+                        color: Colors.amber.shade800,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/seller/recommendations?storeId=${activeStore.storeId}',
+                              ),
+                      ),
+                      _buildMenuCard(
+                        context,
+                        title: 'Keranjang Pembeli',
+                        subtitle: 'Pantau Keranjang Aktif',
+                        icon: Icons.shopping_cart_checkout,
+                        color: Colors.blue.shade800,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/seller/buyer-carts?storeId=${activeStore.storeId}',
+                              ),
+                      ),
+                      _buildMenuCard(
+                        context,
+                        title: 'Laporan UKM Binaan',
+                        subtitle: 'Penjualan & Ekspor CSV',
+                        icon: Icons.analytics_outlined,
+                        color: Colors.green.shade700,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push('/seller/reports'),
                       ),
                       _buildMenuCard(
                         context,
@@ -329,6 +367,14 @@ class AssistantDashboardPage extends ConsumerWidget {
                         color: Colors.teal.shade700,
                         onTap: () => context.push('/seller/reviews'),
                       ),
+                      _buildMenuCard(
+                        context,
+                        title: 'Profil Asisten',
+                        subtitle: 'Lihat Akun Asisten',
+                        icon: Icons.badge_outlined,
+                        color: Colors.blueGrey.shade700,
+                        onTap: () => context.push('/assistant/profile'),
+                      ),
                     ],
                   ),
 
@@ -338,6 +384,171 @@ class AssistantDashboardPage extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildStoreSalesAndDonationsPanel(
+    BuildContext context,
+    WidgetRef ref,
+    AssignedStoreInfo activeStore,
+  ) {
+    final ordersAsync = ref.watch(sellerOrdersProvider(activeStore.storeId));
+    final donationsAsync = ref.watch(
+      storeDonationsSummaryProvider(activeStore.storeId),
+    );
+
+    final orders = ordersAsync.asData?.value ?? [];
+    final paidOrders = orders
+        .where(
+          (o) =>
+              o.paymentStatus == 'paid' &&
+              o.status != 'cancelled' &&
+              o.status != 'failed',
+        )
+        .toList();
+    final totalSalesRevenue = paidOrders.fold<int>(
+      0,
+      (sum, o) => sum + o.totalAmount,
+    );
+
+    final donationMap = donationsAsync.asData?.value ?? {};
+    final totalDonationsCollected =
+        (donationMap['total_collected'] as num?)?.toInt() ?? 0;
+    final totalDonationsDistributed =
+        (donationMap['total_distributed'] as num?)?.toInt() ?? 0;
+    final donorCount = (donationMap['donor_count'] as num?)?.toInt() ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.teal.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.volunteer_activism_outlined,
+                      color: Colors.teal.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Penjualan & Donasi UKM Binaan (${activeStore.storeName})',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/seller/reports'),
+                child: const Text('Detail >'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatBox(
+                  label: 'Penjualan Lunas',
+                  value: CurrencyFormatter.format(totalSalesRevenue),
+                  sub: '${paidOrders.length} transaksi',
+                  color: Colors.green.shade700,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatBox(
+                  label: 'Donasi Terkumpul',
+                  value: CurrencyFormatter.format(totalDonationsCollected),
+                  sub: '$donorCount donatur',
+                  color: Colors.pink.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatBox(
+                  label: 'Donasi Disalurkan',
+                  value: CurrencyFormatter.format(totalDonationsDistributed),
+                  sub: 'Diterima UKM Binaan',
+                  color: Colors.indigo.shade700,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatBox(
+                  label: 'Total Pesanan',
+                  value: '${orders.length} Pesanan',
+                  sub: 'Semua status order',
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatBox({
+    required String label,
+    required String value,
+    required String sub,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(16),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            sub,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+        ],
       ),
     );
   }

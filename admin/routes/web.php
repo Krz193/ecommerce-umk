@@ -93,6 +93,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::patch('trainings/{training}', [App\Http\Controllers\Admin\TrainingController::class, 'update'])->name('admin.trainings.update');
     Route::delete('trainings/{training}', [App\Http\Controllers\Admin\TrainingController::class, 'destroy'])->name('admin.trainings.destroy');
     Route::post('trainings/{training}/participants', [App\Http\Controllers\Admin\TrainingController::class, 'addParticipant'])->name('admin.trainings.participants.add');
+    Route::patch('trainings/{training}/participants/{participant}', [App\Http\Controllers\Admin\TrainingController::class, 'updateParticipant'])->name('admin.trainings.participants.update');
     Route::delete('trainings/{training}/participants/{participant}', [App\Http\Controllers\Admin\TrainingController::class, 'removeParticipant'])->name('admin.trainings.participants.remove');
 
     // Donasi UMK (Excel A11 & A20)

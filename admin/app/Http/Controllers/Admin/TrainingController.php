@@ -44,7 +44,13 @@ class TrainingController extends Controller
             'location_or_url' => 'required|string|max:500',
             'max_participants' => 'required|integer|min:1|max:500',
             'status' => 'required|in:upcoming,ongoing,completed,cancelled',
+            'report_summary' => 'nullable|string|max:5000',
+            'documentation_urls' => 'nullable|array|max:10',
+            'documentation_urls.*' => 'url:http,https|max:1000',
+            'material_url' => 'nullable|url:http,https|max:1000',
         ]);
+
+        $validated['documentation_urls'] = $validated['documentation_urls'] ?? [];
 
         $training = Training::create($validated);
 
@@ -70,7 +76,13 @@ class TrainingController extends Controller
             'location_or_url' => 'required|string|max:500',
             'max_participants' => 'required|integer|min:1|max:500',
             'status' => 'required|in:upcoming,ongoing,completed,cancelled',
+            'report_summary' => 'nullable|string|max:5000',
+            'documentation_urls' => 'nullable|array|max:10',
+            'documentation_urls.*' => 'url:http,https|max:1000',
+            'material_url' => 'nullable|url:http,https|max:1000',
         ]);
+
+        $validated['documentation_urls'] = $validated['documentation_urls'] ?? [];
 
         $training->update($validated);
 
@@ -140,6 +152,30 @@ class TrainingController extends Controller
         );
 
         return back()->with('success', "Toko {$store->name} berhasil didaftarkan ke pelatihan.");
+    }
+
+    public function updateParticipant(Request $request, Training $training, TrainingParticipant $participant, AdminAuditLogger $auditLogger): RedirectResponse
+    {
+        abort_unless($participant->training_id === $training->id, 404);
+
+        $validated = $request->validate([
+            'status' => 'required|in:registered,attended,cancelled',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $oldStatus = $participant->status;
+        $participant->update($validated);
+
+        $auditLogger->log(
+            $request,
+            'trainings.update_participant',
+            'training_participant',
+            $participant->id,
+            "Mengubah kehadiran peserta pelatihan {$training->title} dari {$oldStatus} ke {$participant->status}",
+            ['old_status' => $oldStatus, 'new_status' => $participant->status]
+        );
+
+        return back()->with('success', 'Status peserta berhasil diperbarui.');
     }
 
     public function removeParticipant(Request $request, Training $training, TrainingParticipant $participant, AdminAuditLogger $auditLogger): RedirectResponse
