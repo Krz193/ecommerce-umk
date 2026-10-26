@@ -26,11 +26,19 @@ BEGIN
 END $$;
 
 -- 2. Insert RBAC roles if rbac_roles table exists
-INSERT INTO public.rbac_roles (name, description, is_system)
-VALUES 
-    ('ekspedisi', 'Mitra Kurir Ekspedisi non-Biteship / Eksternal', true),
-    ('ojek', 'Mitra Pengemudi Ojek Lokal / Instan', true)
-ON CONFLICT (name) DO NOTHING;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'rbac_roles'
+    ) THEN
+        INSERT INTO public.rbac_roles (name, description, is_system)
+        VALUES 
+            ('ekspedisi', 'Mitra Kurir Ekspedisi non-Biteship / Eksternal', true),
+            ('ojek', 'Mitra Pengemudi Ojek Lokal / Instan', true)
+        ON CONFLICT (name) DO NOTHING;
+    END IF;
+END $$;
 
 -- 3. Helper functions for role identification
 CREATE OR REPLACE FUNCTION public.is_ekspedisi()

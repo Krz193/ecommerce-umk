@@ -62,7 +62,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
           .from('products')
           .select('id, name, price, stock, status, store_id')
           .eq('store_id', storeId)
-          .eq('status', 'active');
+          .inFilter('status', ['published', 'active']);
 
       final prods = (prodsRes as List)
           .map((p) => ProductModel.fromJson(p as Map<String, dynamic>))
@@ -243,7 +243,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Kode privat yang akan diketik oleh pembeli kenalan Anda saat checkout.',
+                        'Kode voucher yang dimasukkan oleh pembeli saat checkout.',
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                       ),
                       const SizedBox(height: 12),
@@ -253,7 +253,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                         controller: titleCtrl,
                         decoration: const InputDecoration(
                           labelText: 'Catatan / Keterangan *',
-                          hintText: 'Misal: Harga Spesial Kenalan Mas Budi',
+                          hintText: 'Contoh: Diskon Pelanggan Baru / Promo Spesial',
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -357,7 +357,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Sekali Pakai Saja (1x)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                         subtitle: Text(
-                          'Voucher langsung hangus setelah pembeli pertama selesai checkout (ideal untuk kenalan).',
+                          'Voucher langsung tidak berlaku setelah digunakan satu kali.',
                           style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                         ),
                         value: isSingleUse,
@@ -570,7 +570,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Harga Khusus Kenalan & Voucher Fleksibel',
+                                'Voucher Toko & Promo Khusus',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.teal.shade900,

@@ -564,7 +564,7 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
               ),
               const SizedBox(width: 8),
               const Text(
-                'Pengiriman & Logistik (Biteship)',
+                'Pengiriman & Ekspedisi',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],

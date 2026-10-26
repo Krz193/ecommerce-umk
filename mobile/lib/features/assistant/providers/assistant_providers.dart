@@ -44,12 +44,14 @@ final assistanceLogsProvider = FutureProvider.autoDispose
 
 final storeContentsProvider = FutureProvider.autoDispose
     .family<List<StoreContentModel>, String>((ref, storeId) async {
+      if (storeId.trim().isEmpty) return [];
       final service = ref.watch(assistantServiceProvider);
       return service.getStoreContents(storeId: storeId);
     });
 
 final storeDonationsSummaryProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>, String>((ref, storeId) async {
+      if (storeId.trim().isEmpty) return {};
       final service = ref.watch(assistantServiceProvider);
       return service.getStoreDonationsSummary(storeId);
     });

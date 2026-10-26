@@ -31,11 +31,39 @@ class ShippingService {
         throw Exception('Tidak ada layanan kurir yang tersedia untuk rute alamat ini.');
       }
 
-      return pricingList
+      final options = pricingList
           .map(
             (item) => ShippingRateOption.fromMap(item as Map<String, dynamic>),
           )
           .toList();
+
+      // Mirror rate from external instant courier (e.g. Gojek/Grab Instant) to Ojek Lokal UMKM
+      final instantOption = options.cast<ShippingRateOption?>().firstWhere(
+            (opt) => opt != null && (opt.courierCode == 'gojek' || opt.courierCode == 'grab' || opt.serviceType == 'instant'),
+            orElse: () => null,
+          );
+
+      // Default/mirrored price for local ojek
+      final localOjekPrice = instantOption?.price ?? 15000;
+      final localOjekDuration = instantOption?.durationRange ?? '1 - 2';
+      final localOjekUnit = instantOption?.durationUnit ?? 'hours';
+
+      final localOjekOption = ShippingRateOption(
+        courierName: 'Ojek Lokal UMKM',
+        courierCode: 'ojek_lokal',
+        courierServiceName: 'Pengantaran Instan (Driver Mitra)',
+        courierServiceCode: 'instant_lokal',
+        serviceType: 'instant',
+        price: localOjekPrice,
+        durationRange: localOjekDuration,
+        durationUnit: localOjekUnit,
+        description: 'Diantar langsung oleh mitra driver ojek lokal komunitas UMKM',
+      );
+
+      // Insert Ojek Lokal at the top of the options list
+      options.insert(0, localOjekOption);
+
+      return options;
     } on FunctionException catch (fe) {
       String msg = 'Gagal memuat tarif kurir';
       if (fe.details is Map) {

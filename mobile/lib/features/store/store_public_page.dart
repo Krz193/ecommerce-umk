@@ -434,6 +434,146 @@ class StorePublicPage extends ConsumerWidget {
               loading: () => const SizedBox.shrink(),
             ),
 
+            // Section: Rekomendasi Toko (Pilihan Seller)
+            ref.watch(publicStoreRecommendedProductsProvider(storeId)).when(
+              data: (recommendedItems) {
+                if (recommendedItems.isEmpty) return const SizedBox.shrink();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 22),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Rekomendasi Toko',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Produk pilihan terbaik dan unggulan yang direkomendasikan langsung oleh toko',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 220,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: recommendedItems.length,
+                        separatorBuilder: (context, _) => const SizedBox(width: 12),
+                        itemBuilder: (context, index) {
+                          final item = recommendedItems[index];
+                          final product = item['product'] as Map<String, dynamic>;
+                          final badge = item['badge_text']?.toString() ?? 'Pilihan Seller';
+                          final price = (product['price'] as num?)?.toInt() ?? 0;
+                          final thumb = product['thumbnail_url']?.toString();
+
+                          return GestureDetector(
+                            onTap: () => context.push("/products/${product["id"]}"),
+                            child: Container(
+                              width: 150,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.amber.shade300, width: 1.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(10),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Stack(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                                        child: Container(
+                                          height: 110,
+                                          width: double.infinity,
+                                          color: Colors.grey.shade100,
+                                          child: (thumb != null && thumb.isNotEmpty)
+                                              ? Image.network(
+                                                  thumb,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.image),
+                                                )
+                                              : const Icon(Icons.image, color: Colors.grey),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 6,
+                                        left: 6,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade700,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            badge,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          product['name'] ?? 'Produk',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          CurrencyFormatter.format(price),
+                                          style: TextStyle(
+                                            color: Colors.green.shade800,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              },
+              error: (err, stack) => const SizedBox.shrink(),
+              loading: () => const SizedBox.shrink(),
+            ),
             const Text(
               'Produk Toko',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

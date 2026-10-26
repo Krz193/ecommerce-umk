@@ -282,7 +282,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                       _buildMenuCard(
                         context,
                         title: 'Rekomendasi Produk',
-                        subtitle: 'Model Rumus & Unggulan',
+                        subtitle: 'Pilihan Produk Unggulan',
                         icon: Icons.auto_awesome_outlined,
                         color: Colors.amber.shade800,
                         onTap: activeStore == null

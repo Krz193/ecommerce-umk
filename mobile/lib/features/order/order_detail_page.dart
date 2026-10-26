@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
@@ -996,7 +998,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                             size: 16,
                           ),
                           label: const Text(
-                            'Call Gojek / Driver',
+                            'Telepon Driver',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -1018,7 +1020,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                           onPressed: () => _openMessageGojekSheet(order),
                           icon: const Icon(Icons.chat_rounded, size: 16),
                           label: const Text(
-                            'Message Gojek',
+                            'Chat Driver',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -1110,16 +1112,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             ],
           ),
           const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: order.gpsProgressFraction,
-              minHeight: 7,
-              backgroundColor: Colors.blue.shade100,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
-            ),
-          ),
-          const SizedBox(height: 10),
+
+          // Visual Vector Route Map Widget
+          _buildVisualRouteMap(order),
+
           _buildGpsCoordinateRow(
             icon: Icons.storefront_rounded,
             color: Colors.indigo,
@@ -1195,6 +1191,298 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildVisualRouteMap(OrderDetailModel order) {
+    final isDelivered =
+        order.status == 'delivered' || order.trackingStatus == 'delivered';
+
+    final storePos =
+        ll.LatLng(order.effectiveStoreLat, order.effectiveStoreLng);
+    final driverPos =
+        ll.LatLng(order.effectiveDriverLat, order.effectiveDriverLng);
+    final destPos =
+        ll.LatLng(order.effectiveDestLat, order.effectiveDestLng);
+
+    final bounds =
+        LatLngBounds.fromPoints([storePos, driverPos, destPos]);
+
+    return Container(
+      height: 220,
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.blue.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          children: [
+            // Real Interactive OpenStreetMap
+            FlutterMap(
+              options: MapOptions(
+                initialCameraFit: CameraFit.bounds(
+                  bounds: bounds,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 42, vertical: 38),
+                ),
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.ecommerce.umk.mobile',
+                ),
+                PolylineLayer(
+                  polylines: [
+                    // Route casing
+                    Polyline(
+                      points: [storePos, driverPos, destPos],
+                      strokeWidth: 6.0,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                    // Route active polyline
+                    Polyline(
+                      points: [storePos, driverPos, destPos],
+                      strokeWidth: 3.5,
+                      color: order.isInstantCourier
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF0284C7),
+                    ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    // Store Marker
+                    Marker(
+                      point: storePos,
+                      width: 90,
+                      height: 52,
+                      alignment: Alignment.topCenter,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.indigo.shade800,
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black26, blurRadius: 3)
+                              ],
+                            ),
+                            child: const Text(
+                              'Toko UMK',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Icon(Icons.storefront_rounded,
+                              color: Colors.indigo.shade800, size: 22),
+                        ],
+                      ),
+                    ),
+
+                    // Destination Marker
+                    Marker(
+                      point: destPos,
+                      width: 90,
+                      height: 52,
+                      alignment: Alignment.topCenter,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade700,
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black26, blurRadius: 3)
+                              ],
+                            ),
+                            child: const Text(
+                              'Tujuan',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Icon(Icons.location_on_rounded,
+                              color: Colors.red.shade700, size: 22),
+                        ],
+                      ),
+                    ),
+
+                    // Driver Marker
+                    Marker(
+                      point: driverPos,
+                      width: 95,
+                      height: 58,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade800,
+                              borderRadius: BorderRadius.circular(99),
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black26, blurRadius: 3)
+                              ],
+                            ),
+                            child: Text(
+                              order.isInstantCourier ? 'Ojek Lokal' : 'Kurir',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade600,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.green.shade600
+                                      .withValues(alpha: 0.4),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              order.isInstantCourier
+                                  ? Icons.two_wheeler_rounded
+                                  : Icons.local_shipping_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            // Top Overlay: Live Status Pill
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 4)
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isDelivered
+                          ? 'Paket Sampai'
+                          : 'Live Map (${(order.gpsProgressFraction * 100).round()}%)',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Top Right Overlay: Distance Pill
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 4)
+                  ],
+                ),
+                child: Text(
+                  '${order.estimatedDistanceKm.toStringAsFixed(1)} km',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade900,
+                  ),
+                ),
+              ),
+            ),
+
+            // Bottom Right Overlay: Zoom & OpenStreetMap Note
+            Positioned(
+              bottom: 6,
+              right: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '© OpenStreetMap',
+                  style: TextStyle(fontSize: 8, color: Colors.grey),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1309,6 +1597,22 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           builder: (sheetCtx, setSheetState) {
             if (!subscribed) {
               subscribed = true;
+              supabase
+                  .from('orders')
+                  .select('driver_messages')
+                  .eq('id', order.id)
+                  .maybeSingle()
+                  .then((val) {
+                if (val != null && val['driver_messages'] is List && sheetCtx.mounted) {
+                  setSheetState(() {
+                    messages = (val['driver_messages'] as List)
+                        .whereType<Map>()
+                        .map((e) => Map<String, dynamic>.from(e))
+                        .toList();
+                  });
+                }
+              });
+
               chatChannel = supabase
                   .channel('driver_chat:order_${order.id}')
                   .onPostgresChanges(
@@ -1397,7 +1701,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Message ${order.driverName ?? "Driver Gojek / Kurir"}',
+                              'Chat ${order.driverName ?? "Driver Ojek / Kurir"}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
