@@ -62,12 +62,16 @@ class SellerOrderService {
   Future<OrderModel> shipOrder({
     required String orderId,
     required String shippingProvider,
-    required String trackingNumber,
+    String? trackingNumber,
+    String? driverName,
+    String? driverPhone,
   }) {
     return _orderStatusService.shipOrder(
       orderId: orderId,
       shippingProvider: shippingProvider,
       trackingNumber: trackingNumber,
+      driverName: driverName,
+      driverPhone: driverPhone,
     );
   }
 }

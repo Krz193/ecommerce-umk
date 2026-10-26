@@ -1,9 +1,13 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/providers/product_recommendation_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/cart/widgets/cart_action_button.dart';
+import 'package:mobile/features/explore/explore_providers.dart';
 import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/product/providers/category_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
@@ -27,6 +31,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   int? maxPrice;
   _ProductSort sort = _ProductSort.newest;
   bool inStockOnly = false;
+  bool promoOnly = false;
 
   @override
   void dispose() {
@@ -38,23 +43,18 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   List<ProductModel> visibleProducts(List<ProductModel> products) {
     final filtered = products.where((product) {
-      final query = searchQuery.trim().toLowerCase();
-      final matchesQuery =
-          query.isEmpty ||
-          product.name.toLowerCase().contains(query) ||
-          (product.description?.toLowerCase().contains(query) ?? false);
-
+      final matchesQuery = product.matchesSearchQuery(searchQuery);
       final matchesStock = !inStockOnly || product.stock > 0;
-
+      final matchesPromo = !promoOnly || product.hasDiscount;
       final matchesCategory =
           selectedCategoryId == null ||
           product.categoryId == selectedCategoryId;
-
       final matchesMinPrice = minPrice == null || product.price >= minPrice!;
       final matchesMaxPrice = maxPrice == null || product.price <= maxPrice!;
 
       return matchesQuery &&
           matchesStock &&
+          matchesPromo &&
           matchesCategory &&
           matchesMinPrice &&
           matchesMaxPrice;
@@ -75,25 +75,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  List<ProductModel> recommendedProducts(List<ProductModel> products) {
-    final recommended =
-        products
-            .where((product) => product.stock > 0)
-            .where(
-              (product) =>
-                  selectedCategoryId == null ||
-                  product.categoryId == selectedCategoryId,
-            )
-            .toList()
-          ..sort((a, b) {
-            final stockCompare = b.stock.compareTo(a.stock);
-            if (stockCompare != 0) return stockCompare;
-            return a.price.compareTo(b.price);
-          });
-
-    return recommended.take(5).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
@@ -101,7 +82,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Pasar UMK',
+          'E-commerce UMK',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: const [CartActionButton()],
@@ -111,12 +92,14 @@ class _HomePageState extends ConsumerState<HomePage> {
           .when(
             data: (products) {
               final visible = visibleProducts(products);
-              final recommended = recommendedProducts(products);
+              final recommendedAsync = ref.watch(
+                productRecommendationsProvider,
+              );
 
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Search Bar
+                  // Broadened Search Bar (#7)
                   TextField(
                     controller: searchController,
                     textInputAction: TextInputAction.search,
@@ -125,7 +108,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         Icons.search_rounded,
                         color: AppColors.primary,
                       ),
-                      hintText: 'Cari produk UMK favorit Anda...',
+                      hintText:
+                          'Cari produk, kategori, toko UMK, warna, ukuran, atau promo...',
                       suffixIcon: searchQuery.isEmpty
                           ? null
                           : IconButton(
@@ -148,6 +132,11 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   const SizedBox(height: 12),
 
+                  // Standardized Promo & Info UMK Banner Slider (#8)
+                  _buildPromoBannerCarousel(context, ref),
+
+                  const SizedBox(height: 12),
+
                   // Filters & Sort Bar
                   Wrap(
                     spacing: 8,
@@ -155,7 +144,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       FilterChip(
-                        label: const Text('Tersedia (In stock)'),
+                        label: const Text('Stok Tersedia'),
                         selected: inStockOnly,
                         selectedColor: AppColors.primaryLight,
                         checkmarkColor: AppColors.primary,
@@ -171,6 +160,26 @@ class _HomePageState extends ConsumerState<HomePage> {
                         onSelected: (value) {
                           setState(() {
                             inStockOnly = value;
+                          });
+                        },
+                      ),
+                      FilterChip(
+                        label: const Text('Sedang Promo 🏷️'),
+                        selected: promoOnly,
+                        selectedColor: Colors.amber.shade100,
+                        checkmarkColor: Colors.amber.shade900,
+                        labelStyle: TextStyle(
+                          color: promoOnly
+                              ? Colors.amber.shade900
+                              : AppColors.textPrimary,
+                          fontWeight: promoOnly
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                        onSelected: (value) {
+                          setState(() {
+                            promoOnly = value;
                           });
                         },
                       ),
@@ -223,6 +232,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       if (searchQuery.isNotEmpty ||
                           selectedCategoryId != null ||
                           inStockOnly ||
+                          promoOnly ||
                           minPrice != null ||
                           maxPrice != null)
                         TextButton.icon(
@@ -303,62 +313,120 @@ class _HomePageState extends ConsumerState<HomePage> {
                   const SizedBox(height: 20),
 
                   // Recommended Products Horizontal Scroll
-                  if (recommended.isNotEmpty) ...[
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.recommend_rounded,
-                          color: AppColors.primary,
-                          size: 22,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Rekomendasi Produk',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                  recommendedAsync.when(
+                    data: (recommendedItems) {
+                      if (recommendedItems.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.recommend_rounded,
+                                color: AppColors.primary,
+                                size: 22,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Rekomendasi Produk',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 240,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: recommended.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(width: 12),
-                        itemBuilder: (context, index) {
-                          return SizedBox(
-                            width: 160,
-                            child: _ShopeeProductCard(
-                              product: recommended[index],
-                              isRecommended: true,
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 256,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: recommendedItems.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (context, index) {
+                                final recommendation = recommendedItems[index];
+                                if (recommendation.product == null) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                return SizedBox(
+                                  width: 165,
+                                  child: Stack(
+                                    children: [
+                                      _ShopeeProductCard(
+                                        product: recommendation.product!,
+                                        isRecommended: true,
+                                      ),
+                                      if (recommendation.badgeText != null &&
+                                          recommendation.badgeText!.isNotEmpty)
+                                        Positioned(
+                                          top: 0,
+                                          left: 0,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.amber,
+                                              borderRadius: BorderRadius.only(
+                                                topLeft: Radius.circular(8),
+                                                bottomRight: Radius.circular(8),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              recommendation.badgeText!,
+                                              style: const TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      );
+                    },
+                    error: (error, stack) => const SizedBox.shrink(),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                  ),
 
                   // Main Product Title
-                  const Row(
+                  Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.grid_view_rounded,
                         color: AppColors.primary,
                         size: 20,
                       ),
-                      SizedBox(width: 6),
-                      Text(
+                      const SizedBox(width: 6),
+                      const Text(
                         'Semua Produk',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${visible.length} produk',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -396,7 +464,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            childAspectRatio: 0.65,
+                            childAspectRatio: 0.62,
                             mainAxisSpacing: 12,
                             crossAxisSpacing: 12,
                           ),
@@ -415,6 +483,277 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  Widget _buildPromoBannerCarousel(BuildContext context, WidgetRef ref) {
+    final bannersAsync = ref.watch(publicHomeBannersProvider);
+
+    return bannersAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (err, stack) => const SizedBox.shrink(),
+      data: (banners) {
+        if (banners.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.campaign_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Sorotan Promosi Produk & Informasi UMK',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.go('/explore'),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(50, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Lihat Semua',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 148,
+              margin: const EdgeInsets.only(bottom: 4),
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                  },
+                ),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: banners.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final banner = banners[index];
+                    final coverUrl = banner.displayCoverUrl;
+                    final hasPhoto = coverUrl != null;
+                    final hasProduct =
+                        banner.productId != null &&
+                        banner.productId!.isNotEmpty;
+
+                    return Container(
+                      width: 286,
+                      decoration: BoxDecoration(
+                        color: hasPhoto
+                            ? const Color(0xFF0F172A)
+                            : (hasProduct
+                                  ? Colors.amber.shade50
+                                  : AppColors.primaryLight),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: hasPhoto
+                              ? Colors.transparent
+                              : (hasProduct
+                                    ? Colors.amber.shade300
+                                    : AppColors.primary.withAlpha(60)),
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          if (hasPhoto)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.network(
+                                coverUrl,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            )
+                          else
+                            Positioned(
+                              right: -10,
+                              bottom: -10,
+                              child: Icon(
+                                hasProduct
+                                    ? Icons.local_offer_rounded
+                                    : banner.contentType == 'storytelling'
+                                    ? Icons.auto_stories_rounded
+                                    : Icons.campaign_rounded,
+                                size: 110,
+                                color: AppColors.primary.withAlpha(35),
+                              ),
+                            ),
+                          if (hasPhoto)
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.black.withAlpha(205),
+                                    Colors.black.withAlpha(65),
+                                  ],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: hasProduct
+                                            ? Colors.amber.shade800
+                                            : Colors.teal.shade700,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        hasProduct
+                                            ? 'PROMO PRODUK 🏷️'
+                                            : 'INFO & KISAH UMK 📖',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withAlpha(90),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        banner.mediaFormatLabel,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Spacer(),
+                                Text(
+                                  banner.title,
+                                  style: TextStyle(
+                                    color: hasPhoto
+                                        ? Colors.white
+                                        : AppColors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        hasProduct &&
+                                                banner.productName != null
+                                            ? '${banner.productName} • ${banner.storeName ?? "Toko UMK"}'
+                                            : (banner.storeName ?? 'Toko UMK'),
+                                        style: TextStyle(
+                                          color: hasPhoto
+                                              ? Colors.white70
+                                              : AppColors.textSecondary,
+                                          fontSize: 11,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (hasProduct &&
+                                        banner.productPrice != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withAlpha(230),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          CurrencyFormatter.format(
+                                            banner.productPrice!,
+                                          ),
+                                          style: const TextStyle(
+                                            color: AppColors.primary,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () {
+                                  if (hasProduct) {
+                                    context.push(
+                                      '/products/${banner.productId}',
+                                    );
+                                  } else {
+                                    context.push('/store/${banner.storeId}');
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void clearFilters() {
     searchController.clear();
     minPriceController.clear();
@@ -426,6 +765,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       minPrice = null;
       maxPrice = null;
       inStockOnly = false;
+      promoOnly = false;
       sort = _ProductSort.newest;
     });
   }
@@ -461,7 +801,7 @@ class _ShopeeProductCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Product Image with Badge
+            // Top Product Image with Badges
             Expanded(
               child: Stack(
                 children: [
@@ -504,6 +844,31 @@ class _ShopeeProductCard extends ConsumerWidget {
                         ),
                       ),
                     ),
+                  if (product.hasDiscount && product.stock > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade600,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          product.effectiveDiscountPercent > 0
+                              ? '-${product.effectiveDiscountPercent.toStringAsFixed(0)}%'
+                              : 'PROMO',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (product.stock <= 0)
                     Positioned(
                       top: 8,
@@ -537,19 +902,38 @@ class _ShopeeProductCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (product.categoryName != null) ...[
-                    Text(
-                      product.categoryName!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.primaryHover,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                  ],
+                  Row(
+                    children: [
+                      if (product.categoryName != null)
+                        Expanded(
+                          child: Text(
+                            product.categoryName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppColors.primaryHover,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      if (product.storeName != null &&
+                          product.storeName!.isNotEmpty)
+                        Flexible(
+                          child: Text(
+                            product.storeName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
                   Text(
                     product.name,
                     maxLines: 2,
@@ -561,16 +945,38 @@ class _ShopeeProductCard extends ConsumerWidget {
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    CurrencyFormatter.format(product.price),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
+                  const SizedBox(height: 5),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          CurrencyFormatter.format(product.price),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      if (product.hasDiscount) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          CurrencyFormatter.format(
+                            product.effectiveOriginalPrice,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textMuted,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   Row(
                     children: [
                       Icon(

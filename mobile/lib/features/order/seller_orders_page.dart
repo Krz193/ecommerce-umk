@@ -21,10 +21,10 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
   String searchQuery = '';
 
   final tabs = const [
-    _OrderStatusTab(label: 'All', status: null),
-    _OrderStatusTab(label: 'Processing', status: 'processing'),
-    _OrderStatusTab(label: 'Shipped', status: 'shipped'),
-    _OrderStatusTab(label: 'Completed', status: 'completed'),
+    _OrderStatusTab(label: 'Semua', status: null),
+    _OrderStatusTab(label: 'Diproses', status: 'processing'),
+    _OrderStatusTab(label: 'Dikirim', status: 'shipped'),
+    _OrderStatusTab(label: 'Selesai', status: 'completed'),
   ];
 
   @override
@@ -45,7 +45,7 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
     final storeAsync = ref.watch(managedStoreProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Store Orders')),
+      appBar: AppBar(title: const Text('Pesanan Masuk Toko')),
       body: storeAsync.when(
         data: (store) {
           if (store == null) {
@@ -57,7 +57,7 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Create a store before managing orders',
+                      'Buka toko terlebih dahulu untuk mengelola pesanan masuk.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
@@ -65,7 +65,7 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
                       onPressed: () {
                         context.go('/seller/onboarding');
                       },
-                      child: const Text('Create Store'),
+                      child: const Text('Buka Toko UMK Sekarang'),
                     ),
                   ],
                 ),
@@ -78,7 +78,7 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
           return ordersAsync.when(
             data: (orders) {
               if (orders.isEmpty) {
-                return const Center(child: Text('No store orders yet'));
+                return const Center(child: Text('Belum ada pesanan masuk ke toko Anda'));
               }
 
               return DefaultTabController(
@@ -97,7 +97,7 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
                             textInputAction: TextInputAction.search,
                             decoration: const InputDecoration(
                               prefixIcon: Icon(Icons.search),
-                              labelText: 'Search order number',
+                              labelText: 'Cari nomor pesanan...',
                             ),
                           ),
                         ],
@@ -179,7 +179,7 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
           padding: const EdgeInsets.all(24),
           children: const [
             SizedBox(height: 160),
-            Center(child: Text('No matching orders')),
+            Center(child: Text('Tidak ada pesanan yang sesuai')),
           ],
         ),
       );
@@ -259,10 +259,10 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
     final shipped = orders.where((order) => order.status == 'shipped').length;
 
     final text = readyToShip > 0
-        ? '$readyToShip paid order(s) ready to ship'
+        ? '$readyToShip pesanan telah dibayar & siap dikirim'
         : shipped > 0
-        ? '$shipped shipped order(s) waiting for buyer confirmation'
-        : 'No urgent seller actions';
+        ? '$shipped pesanan dalam perjalanan menunggu konfirmasi pembeli'
+        : 'Semua pesanan terkendali, tidak ada tindakan mendesak';
 
     return Container(
       width: double.infinity,
@@ -288,27 +288,27 @@ class _SellerOrdersPageState extends ConsumerState<SellerOrdersPage> {
   }
 
   Widget buildStatusBadge(String status) {
-    final color = switch (status) {
-      'processing' => Colors.blue,
-      'shipped' => Colors.deepPurple,
-      'completed' => Colors.green,
-      'cancelled' => Colors.red,
-      _ => Colors.grey,
+    final (label, color) = switch (status) {
+      'processing' => ('Perlu Dikirim', Colors.blue),
+      'shipped' => ('Sedang Dikirim', Colors.deepPurple),
+      'completed' => ('Selesai', Colors.green),
+      'cancelled' => ('Dibatalkan', Colors.red),
+      _ => (status, Colors.grey),
     };
 
-    return buildBadge(status, color);
+    return buildBadge(label, color);
   }
 
   Widget buildPaymentBadge(String status) {
-    final color = switch (status) {
-      'paid' => Colors.green,
-      'pending' => Colors.orange,
-      'expired' => Colors.red,
-      'failed' => Colors.red,
-      _ => Colors.grey,
+    final (label, color) = switch (status) {
+      'paid' => ('Sudah Bayar', Colors.green),
+      'pending' => ('Menunggu Bayar', Colors.orange),
+      'expired' => ('Kedaluwarsa', Colors.red),
+      'failed' => ('Gagal Bayar', Colors.red),
+      _ => (status, Colors.grey),
     };
 
-    return buildBadge(status, color);
+    return buildBadge(label, color);
   }
 
   Widget buildBadge(String text, Color color) {

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+// ignore: depend_on_referenced_packages
+import 'package:url_launcher/url_launcher.dart';
 
 class StoreContentListPage extends ConsumerWidget {
   final String storeId;
@@ -79,7 +82,7 @@ class StoreContentListPage extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
-                      'Buat banner promosi, kisah produk, atau materi promosi untuk membantu penjualan toko UMK ini.',
+                      'Buat banner promosi, kisah produk, atau konten media sosial (Video, Gambar, Reels) untuk membantu penjualan toko UMK ini.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
@@ -111,7 +114,7 @@ class StoreContentListPage extends ConsumerWidget {
               ref.invalidate(storeContentsProvider(storeId));
             },
             child: ListView.separated(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
               itemCount: contents.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
@@ -130,6 +133,9 @@ class StoreContentListPage extends ConsumerWidget {
     WidgetRef ref,
     StoreContentModel item,
   ) {
+    final hasExternalUrl =
+        item.externalUrl != null && item.externalUrl!.trim().isNotEmpty;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -156,22 +162,68 @@ class StoreContentListPage extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      item.contentTypeLabel,
-                      style: TextStyle(
-                        color: Colors.orange.shade900,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.contentTypeLabel,
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.mediaFormatLabel,
+                            style: TextStyle(
+                              color: Colors.blue.shade800,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (item.socialPlatform != null &&
+                            item.socialPlatform!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              item.socialPlatformLabel,
+                              style: TextStyle(
+                                color: Colors.purple.shade800,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   Row(
@@ -230,6 +282,64 @@ class StoreContentListPage extends ConsumerWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+              ],
+              if (hasExternalUrl) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                      ),
+                      onPressed: () async {
+                        final uri = Uri.tryParse(item.externalUrl!.trim());
+                        if (uri != null) {
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new, size: 15),
+                      label: Text(
+                        'Buka di ${item.socialPlatformLabel}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                      ),
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: item.externalUrl!.trim()),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Link konten berhasil disalin!'),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.copy_outlined, size: 15),
+                      label: const Text(
+                        'Salin Link',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               const SizedBox(height: 12),

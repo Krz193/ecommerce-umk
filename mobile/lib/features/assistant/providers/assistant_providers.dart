@@ -48,7 +48,15 @@ final storeContentsProvider = FutureProvider.autoDispose
       return service.getStoreContents(storeId: storeId);
     });
 
-final handledStoreProvider = FutureProvider.autoDispose<StoreModel?>((ref) async {
+final storeDonationsSummaryProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>((ref, storeId) async {
+      final service = ref.watch(assistantServiceProvider);
+      return service.getStoreDonationsSummary(storeId);
+    });
+
+final handledStoreProvider = FutureProvider.autoDispose<StoreModel?>((
+  ref,
+) async {
   final selectedStore = ref.watch(selectedStoreProvider);
   String? storeId = selectedStore?.storeId;
 

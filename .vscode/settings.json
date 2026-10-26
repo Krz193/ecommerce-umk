@@ -3,6 +3,7 @@
     "supabase/functions"
   ],
   "deno.lint": true,
+  "deno.config": "supabase/functions/deno.json",
   "deno.unstable": [
     "bare-node-builtins",
     "byonm",

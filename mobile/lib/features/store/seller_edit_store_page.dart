@@ -28,8 +28,9 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
   void initState() {
     super.initState();
     nameController = TextEditingController(text: widget.store.name);
-    descriptionController =
-        TextEditingController(text: widget.store.description ?? '');
+    descriptionController = TextEditingController(
+      text: widget.store.description ?? '',
+    );
     phoneController = TextEditingController(text: widget.store.phone ?? '');
     addressController = TextEditingController(text: widget.store.address ?? '');
   }
@@ -69,17 +70,15 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil Toko UMK berhasil diperbarui!'),
-        ),
+        const SnackBar(content: Text('Profil Toko UMK berhasil diperbarui!')),
       );
 
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memperbarui toko: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal memperbarui toko: $e')));
     } finally {
       if (mounted) setState(() => isSaving = false);
     }
@@ -88,9 +87,7 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profil Toko UMK'),
-      ),
+      appBar: AppBar(title: const Text('Edit Profil Toko UMK')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -105,8 +102,9 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.store),
                 ),
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Nama toko wajib diisi' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Nama toko wajib diisi'
+                    : null,
               ),
               const SizedBox(height: 16),
               TextFormField(

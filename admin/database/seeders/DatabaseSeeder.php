@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
                 'name' => env('ADMIN_NAME', 'Marketplace Admin'),
                 'password' => Hash::make(env('ADMIN_PASSWORD', 'password')),
                 'is_admin' => true,
+                'email_verified_at' => now(),
             ],
         );
     }

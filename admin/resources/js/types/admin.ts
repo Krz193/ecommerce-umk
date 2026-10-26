@@ -27,11 +27,44 @@ export type StoreRow = {
     owner_phone: string | null;
 };
 
+export type CategoryRow = {
+    id: string;
+    name: string;
+    slug: string;
+    icon_url: string | null;
+    is_active: boolean;
+    created_at: string;
+    products_count: number;
+};
+
+export type StoreContentRow = {
+    id: string;
+    store_id: string;
+    product_id: string | null;
+    title: string;
+    content_type: 'banner' | 'promo' | 'storytelling' | 'social' | 'educational';
+    social_platform: string | null;
+    media_format: 'image' | 'video' | 'short_video' | 'carousel' | 'article';
+    external_url: string | null;
+    body: string | null;
+    is_active: boolean;
+    created_at: string;
+    store_name: string;
+    product_name: string | null;
+    creator_name: string | null;
+};
+
+
+
 export type ProductRow = {
     id: string;
     name: string;
     status: string;
     price: string;
+    original_price: string | null;
+    discount_percent: string;
+    discount_amount: string;
+    tax_percent: string;
     stock: number;
     thumbnail_url: string | null;
     archived_at: string | null;
@@ -88,4 +121,20 @@ export type RefundCaseRow = {
     resolved_by_name: string | null;
     resolved_at: string | null;
     created_at: string;
+};
+
+export type SystemFeedbackRow = {
+    id: string;
+    user_id: string;
+    user_role: string;
+    category: 'saran' | 'masukan' | 'kendala_sistem' | 'bantuan_operasional' | 'lainnya';
+    subject: string;
+    message: string;
+    status: 'pending' | 'in_review' | 'resolved' | 'rejected';
+    admin_notes: string | null;
+    created_at: string;
+    updated_at: string;
+    user_name: string | null;
+    user_phone: string | null;
+    user_username: string | null;
 };

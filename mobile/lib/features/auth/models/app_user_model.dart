@@ -20,10 +20,34 @@ class AppUserModel {
   bool get isBuyer => role == 'buyer';
   bool get isSeller => role == 'seller';
   bool get isAssistant => role == 'assistant';
+  bool get isEkspedisi => role == 'ekspedisi';
+  bool get isOjek => role == 'ojek';
   bool get isAdmin => role == 'admin';
 
+  String get roleBadgeLabel {
+    switch (role) {
+      case 'seller':
+        return 'Pelaku UMK';
+      case 'assistant':
+        return 'Pendamping UMK';
+      case 'ekspedisi':
+        return 'Mitra Ekspedisi';
+      case 'ojek':
+        return 'Driver Ojek';
+      case 'admin':
+        return 'Administrator';
+      default:
+        return 'Pembeli';
+    }
+  }
+
   factory AppUserModel.fromMap(Map<String, dynamic> map) {
-    final currentEmail = supabase.auth.currentUser?.email ?? '';
+    String currentEmail = '';
+    try {
+      currentEmail = supabase.auth.currentUser?.email ?? '';
+    } catch (_) {
+      // Supabase instance might not be initialized in headless unit tests
+    }
 
     return AppUserModel(
       id: map['id'],

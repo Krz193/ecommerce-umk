@@ -8,19 +8,25 @@ class CustomerShell extends StatelessWidget {
 
   static const tabs = [
     _CustomerTab(
-      label: 'Home',
+      label: 'Beranda',
       icon: Icons.home_outlined,
       activeIcon: Icons.home,
       path: '/home',
     ),
     _CustomerTab(
-      label: 'Orders',
+      label: 'Jelajah',
+      icon: Icons.explore_outlined,
+      activeIcon: Icons.explore,
+      path: '/explore',
+    ),
+    _CustomerTab(
+      label: 'Pesanan',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
       path: '/orders',
     ),
     _CustomerTab(
-      label: 'Account',
+      label: 'Akun',
       icon: Icons.person_outline,
       activeIcon: Icons.person,
       path: '/account',
@@ -58,12 +64,16 @@ class CustomerShell extends StatelessWidget {
   int selectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
 
-    if (location.startsWith('/orders')) {
+    if (location.startsWith('/explore')) {
       return 1;
     }
 
-    if (location.startsWith('/account')) {
+    if (location.startsWith('/orders')) {
       return 2;
+    }
+
+    if (location.startsWith('/account')) {
+      return 3;
     }
 
     return 0;

@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/features/product/models/product_review_model.dart';
+import 'package:mobile/features/product/providers/product_review_providers.dart';
 import 'package:mobile/features/product/widgets/seller_reply_dialog.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
 final storeReviewsProvider = FutureProvider.family
     .autoDispose<List<Map<String, dynamic>>, String>((ref, storeId) async {
-  final response = await supabase
-      .from('product_reviews')
-      .select('''
+      final response = await supabase
+          .from('product_reviews')
+          .select('''
         *,
         user:users (
           id,
@@ -23,11 +24,11 @@ final storeReviewsProvider = FutureProvider.family
           store_id
         )
       ''')
-      .eq('products.store_id', storeId)
-      .order('created_at', ascending: false);
+          .eq('products.store_id', storeId)
+          .order('created_at', ascending: false);
 
-  return List<Map<String, dynamic>>.from(response as List);
-});
+      return List<Map<String, dynamic>>.from(response as List);
+    });
 
 class SellerReviewsPage extends ConsumerWidget {
   const SellerReviewsPage({super.key});
@@ -113,8 +114,7 @@ class SellerReviewsPage extends ConsumerWidget {
                         final review = ProductReviewModel.fromJson(raw);
                         final productMap =
                             raw['product'] as Map<String, dynamic>? ?? {};
-                        final productName =
-                            productMap['name'] ?? 'Produk UMK';
+                        final productName = productMap['name'] ?? 'Produk UMK';
                         final displayName = review.userName ?? 'Pembeli';
 
                         return Card(
@@ -220,28 +220,75 @@ class SellerReviewsPage extends ConsumerWidget {
                                   ),
                                 ],
                                 const SizedBox(height: 10),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton.icon(
-                                    icon: const Icon(Icons.reply, size: 16),
-                                    label: Text(
-                                      review.sellerReply == null
-                                          ? 'Balas Ulasan'
-                                          : 'Edit Balasan',
-                                    ),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (_) => SellerReplyDialog(
-                                          review: review,
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Switch(
+                                          value: review.isApproved,
+                                          onChanged: (val) async {
+                                            try {
+                                              await ref
+                                                  .read(
+                                                    productReviewServiceProvider,
+                                                  )
+                                                  .toggleReviewApproval(
+                                                    reviewId: review.id,
+                                                    isApproved: val,
+                                                  );
+                                              ref.invalidate(
+                                                storeReviewsProvider(store.id),
+                                              );
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(e.toString()),
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          activeThumbColor: AppColors.primary,
                                         ),
-                                      ).then((_) {
-                                        ref.invalidate(
-                                          storeReviewsProvider(store.id),
-                                        );
-                                      });
-                                    },
-                                  ),
+                                        Text(
+                                          review.isApproved
+                                              ? 'Tampil'
+                                              : 'Sembunyi',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: review.isApproved
+                                                ? AppColors.primary
+                                                : Colors.grey,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.reply, size: 16),
+                                      label: Text(
+                                        review.sellerReply == null
+                                            ? 'Balas Ulasan'
+                                            : 'Edit Balasan',
+                                      ),
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (_) =>
+                                              SellerReplyDialog(review: review),
+                                        ).then((_) {
+                                          ref.invalidate(
+                                            storeReviewsProvider(store.id),
+                                          );
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

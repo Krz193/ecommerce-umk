@@ -3,35 +3,43 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/router/customer_shell.dart';
 import 'package:mobile/core/router/router_refresh_stream.dart';
 import 'package:mobile/features/account/account_page.dart';
-import 'package:mobile/features/account/edit_profile_page.dart';
 import 'package:mobile/features/account/change_password_page.dart';
+import 'package:mobile/features/account/edit_profile_page.dart';
 import 'package:mobile/features/address/address_form_page.dart';
 import 'package:mobile/features/address/address_list_page.dart';
-import 'package:mobile/features/auth/login_page.dart';
-import 'package:mobile/features/home/home_page.dart';
-import 'package:mobile/features/product/product_detail_page.dart';
-import 'package:mobile/features/product/seller_create_product_page.dart';
-import 'package:mobile/features/product/seller_edit_product_page.dart';
-import 'package:mobile/features/product/seller_products_page.dart';
-import 'package:mobile/features/cart/cart_page.dart';
-import 'package:mobile/features/order/seller_order_detail_page.dart';
-import 'package:mobile/features/order/seller_orders_page.dart';
-import 'package:mobile/features/order/orders_page.dart';
-import 'package:mobile/features/order/order_detail_page.dart';
-import 'package:mobile/features/payment/payment_page.dart';
-import 'package:mobile/features/auth/register_page.dart';
-import 'package:mobile/features/store/models/store_model.dart';
-import 'package:mobile/features/store/seller_edit_store_page.dart';
-import 'package:mobile/features/store/seller_onboarding_page.dart';
-import 'package:mobile/features/store/seller_reviews_page.dart';
-import 'package:mobile/features/store/seller_store_dashboard_page.dart';
-import 'package:mobile/features/store/store_public_page.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/screens/assistance_log_page.dart';
 import 'package:mobile/features/assistant/screens/assistant_dashboard_page.dart';
 import 'package:mobile/features/assistant/screens/assistant_profile_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_form_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_list_page.dart';
+import 'package:mobile/features/auth/login_page.dart';
+import 'package:mobile/features/auth/register_page.dart';
+import 'package:mobile/features/cart/cart_page.dart';
+import 'package:mobile/features/donation/screens/buyer_donations_page.dart';
+import 'package:mobile/features/explore/explore_page.dart';
+import 'package:mobile/features/feedback/screens/feedback_page.dart';
+import 'package:mobile/features/home/home_page.dart';
+import 'package:mobile/features/logistics/logistics_partner_dashboard_page.dart';
+import 'package:mobile/features/order/order_detail_page.dart';
+import 'package:mobile/features/order/orders_page.dart';
+import 'package:mobile/features/order/seller_order_detail_page.dart';
+import 'package:mobile/features/order/seller_orders_page.dart';
+import 'package:mobile/features/payment/payment_page.dart';
+import 'package:mobile/features/product/product_detail_page.dart';
+import 'package:mobile/features/product/seller_create_product_page.dart';
+import 'package:mobile/features/product/seller_edit_product_page.dart';
+import 'package:mobile/features/product/seller_products_page.dart';
+import 'package:mobile/features/store/models/store_model.dart';
+import 'package:mobile/features/store/seller_buyer_carts_page.dart';
+import 'package:mobile/features/store/seller_edit_store_page.dart';
+import 'package:mobile/features/store/seller_onboarding_page.dart';
+import 'package:mobile/features/store/seller_recommendations_page.dart';
+import 'package:mobile/features/store/seller_reviews_page.dart';
+import 'package:mobile/features/store/seller_store_dashboard_page.dart';
+import 'package:mobile/features/store/store_public_page.dart';
+import 'package:mobile/features/training/screens/training_list_page.dart';
+import 'package:mobile/features/voucher/screens/seller_voucher_list_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -46,6 +54,10 @@ final appRouter = GoRouter(
     final isAuthRoute =
         state.matchedLocation == '/login' ||
         state.matchedLocation == '/register';
+
+    if (state.matchedLocation == '/') {
+      return isLoggedIn ? '/home' : '/login';
+    }
 
     if (!isLoggedIn && !isAuthRoute) {
       return '/login';
@@ -63,7 +75,6 @@ final appRouter = GoRouter(
 
     GoRoute(
       path: '/register',
-
       builder: (context, state) {
         return const RegisterPage();
       },
@@ -75,6 +86,13 @@ final appRouter = GoRouter(
       },
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+
+        GoRoute(
+          path: '/explore',
+          builder: (context, state) {
+            return const ExplorePage();
+          },
+        ),
 
         GoRoute(
           path: '/orders',
@@ -103,17 +121,27 @@ final appRouter = GoRouter(
             return const ChangePasswordPage();
           },
         ),
+
+        GoRoute(
+          path: '/feedback',
+          builder: (context, state) {
+            return const FeedbackPage();
+          },
+        ),
       ],
+    ),
+
+    GoRoute(
+      path: '/donations',
+      builder: (context, state) => const BuyerDonationsPage(),
     ),
 
     GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
 
     GoRoute(
       path: '/products/:id',
-
       builder: (context, state) {
         final productId = state.pathParameters['id']!;
-
         return ProductDetailPage(productId: productId);
       },
     ),
@@ -122,7 +150,6 @@ final appRouter = GoRouter(
       path: '/stores/:id',
       builder: (context, state) {
         final storeId = state.pathParameters['id']!;
-
         return StorePublicPage(storeId: storeId);
       },
     ),
@@ -145,7 +172,6 @@ final appRouter = GoRouter(
       path: '/addresses/:id/edit',
       builder: (context, state) {
         final addressId = state.pathParameters['id']!;
-
         return AddressFormPage(addressId: addressId);
       },
     ),
@@ -185,6 +211,30 @@ final appRouter = GoRouter(
     ),
 
     GoRoute(
+      path: '/seller/buyer-carts',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return SellerBuyerCartsPage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/seller/recommendations',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return SellerRecommendationsPage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/seller/vouchers',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return SellerVoucherListPage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
       path: '/seller/products',
       builder: (context, state) {
         return const SellerProductsPage();
@@ -202,7 +252,6 @@ final appRouter = GoRouter(
       path: '/seller/products/:id/edit',
       builder: (context, state) {
         final productId = state.pathParameters['id']!;
-
         return SellerEditProductPage(productId: productId);
       },
     ),
@@ -218,7 +267,6 @@ final appRouter = GoRouter(
       path: '/seller/orders/:id',
       builder: (context, state) {
         final orderId = state.pathParameters['id']!;
-
         return SellerOrderDetailPage(orderId: orderId);
       },
     ),
@@ -232,20 +280,24 @@ final appRouter = GoRouter(
 
     GoRoute(
       path: '/orders/:id',
-
       builder: (context, state) {
         final orderId = state.pathParameters['id']!;
-
         return OrderDetailPage(orderId: orderId);
       },
     ),
 
     GoRoute(
-      path: '/payment',
+      path: '/store/:id',
+      builder: (context, state) {
+        final storeId = state.pathParameters['id']!;
+        return StorePublicPage(storeId: storeId);
+      },
+    ),
 
+    GoRoute(
+      path: '/payment',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>;
-
         return PaymentPage(
           order: extra['order'],
           payment: extra['payment'],
@@ -294,6 +346,20 @@ final appRouter = GoRouter(
           existingContent: existingContent,
         );
       },
+    ),
+    GoRoute(
+      path: '/trainings',
+      builder: (context, state) => const TrainingListPage(),
+    ),
+    GoRoute(
+      path: '/logistics/ekspedisi',
+      builder: (context, state) =>
+          const LogisticsPartnerDashboardPage(partnerMode: 'ekspedisi'),
+    ),
+    GoRoute(
+      path: '/logistics/ojek',
+      builder: (context, state) =>
+          const LogisticsPartnerDashboardPage(partnerMode: 'ojek'),
     ),
   ],
 );

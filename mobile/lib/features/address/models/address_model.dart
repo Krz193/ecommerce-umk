@@ -8,6 +8,8 @@ class AddressModel {
   final String? district;
   final String? postalCode;
   final String fullAddress;
+  final String? notes;
+  final String? biteshipAreaId;
   final bool isDefault;
 
   AddressModel({
@@ -20,6 +22,8 @@ class AddressModel {
     this.district,
     this.postalCode,
     required this.fullAddress,
+    this.notes,
+    this.biteshipAreaId,
     required this.isDefault,
   });
 
@@ -34,6 +38,8 @@ class AddressModel {
       district: map['district'],
       postalCode: map['postal_code'],
       fullAddress: map['full_address'],
+      notes: map['notes'],
+      biteshipAreaId: map['biteship_area_id'],
       isDefault: map['is_default'] ?? false,
     );
   }

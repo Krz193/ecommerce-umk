@@ -1,5 +1,6 @@
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/features/address/models/address_model.dart';
+import 'package:mobile/features/address/models/biteship_area_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddressException implements Exception {
@@ -33,6 +34,8 @@ class AddressService {
           district,
           postal_code,
           full_address,
+          notes,
+          biteship_area_id,
           is_default
         ''')
         .eq('user_id', user.id)
@@ -53,6 +56,8 @@ class AddressService {
     String? label,
     String? district,
     String? postalCode,
+    String? notes,
+    String? biteshipAreaId,
     bool isDefault = false,
   }) async {
     final user = _supabase.auth.currentUser;
@@ -81,6 +86,8 @@ class AddressService {
             'district': blankToNull(district),
             'postal_code': blankToNull(postalCode),
             'full_address': fullAddress,
+            'notes': blankToNull(notes),
+            'biteship_area_id': blankToNull(biteshipAreaId),
             'is_default': shouldBeDefault,
           })
           .select()
@@ -102,6 +109,8 @@ class AddressService {
     String? label,
     String? district,
     String? postalCode,
+    String? notes,
+    String? biteshipAreaId,
     bool isDefault = false,
   }) async {
     final user = _supabase.auth.currentUser;
@@ -126,6 +135,8 @@ class AddressService {
             'district': blankToNull(district),
             'postal_code': blankToNull(postalCode),
             'full_address': fullAddress,
+            'notes': blankToNull(notes),
+            'biteship_area_id': blankToNull(biteshipAreaId),
             'is_default': isDefault,
           })
           .eq('id', addressId)
@@ -201,6 +212,36 @@ class AddressService {
         .update({'is_default': false})
         .eq('user_id', userId)
         .eq('is_default', true);
+  }
+
+  Future<List<BiteshipAreaModel>> searchBiteshipAreas(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 3) {
+      return [];
+    }
+
+    try {
+      final response = await _supabase.functions.invoke(
+        'biteship-areas',
+        method: HttpMethod.get,
+        queryParameters: {'input': trimmed},
+      );
+
+      final data = response.data;
+      if (data is Map && data['success'] == true && data['areas'] is List) {
+        return (data['areas'] as List)
+            .map<BiteshipAreaModel>(
+              (item) => BiteshipAreaModel.fromMap(
+                Map<String, dynamic>.from(item as Map),
+              ),
+            )
+            .toList();
+      }
+
+      return [];
+    } catch (_) {
+      return [];
+    }
   }
 
   String? blankToNull(String? value) {

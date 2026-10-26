@@ -9,6 +9,7 @@ class ProductReviewModel {
   final String? comment;
   final String? sellerReply;
   final DateTime? sellerRepliedAt;
+  final bool isApproved;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,6 +24,7 @@ class ProductReviewModel {
     this.comment,
     this.sellerReply,
     this.sellerRepliedAt,
+    this.isApproved = true,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -49,6 +51,7 @@ class ProductReviewModel {
       sellerRepliedAt: json['seller_replied_at'] != null
           ? DateTime.parse(json['seller_replied_at'] as String)
           : null,
+      isApproved: json['is_approved'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
