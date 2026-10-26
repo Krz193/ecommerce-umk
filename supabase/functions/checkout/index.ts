@@ -83,7 +83,7 @@ serve(async (req) => {
         // Parse request body
         const body = await req.json();
 
-        const {cart_id, address_id, selected_courier} = body;
+        const {cart_id, address_id, selected_courier, voucher_id, voucher_code, voucher_discount} = body;
 
         // Validate required fields
         if (!cart_id || !address_id) {
@@ -291,7 +291,50 @@ serve(async (req) => {
         const shippingCost = selected_courier?.price ? Math.max(0, Number(selected_courier.price)) : 0;
         const applicationFee = 0;
 
-        const totalAmount = subtotal + shippingCost + applicationFee;
+        // Server-side Voucher Validation & Discount Calculation
+        let appliedVoucherDiscount = 0;
+        let finalVoucherId: string | null = null;
+        let finalVoucherCode: string | null = null;
+
+        if (voucher_code || voucher_id) {
+            try {
+                const voucherItemsPayload = cartItems.map((ci) => {
+                    const prod = (Array.isArray(ci.product) ? ci.product[0] : ci.product) as unknown as ProductRecord | null | undefined;
+                    return {
+                        product_id: prod?.id,
+                        product_name: prod?.name,
+                        price: Number(prod?.price ?? 0),
+                        quantity: ci.quantity
+                    };
+                });
+
+                const { data: vResult, error: vError } = await supabase.rpc('validate_and_apply_voucher', {
+                    p_store_id: cart.store_id,
+                    p_code: voucher_code || '',
+                    p_subtotal: subtotal,
+                    p_items: voucherItemsPayload
+                });
+
+                if (!vError && vResult && vResult.valid) {
+                    appliedVoucherDiscount = Math.min(subtotal, Math.max(0, Number(vResult.calculated_discount ?? 0)));
+                    finalVoucherId = vResult.voucher_id ?? voucher_id ?? null;
+                    finalVoucherCode = vResult.code ?? voucher_code ?? null;
+                } else if (voucher_discount && Number(voucher_discount) > 0) {
+                    appliedVoucherDiscount = Math.min(subtotal, Math.max(0, Number(voucher_discount)));
+                    finalVoucherId = voucher_id ?? null;
+                    finalVoucherCode = voucher_code ?? null;
+                }
+            } catch (vErr) {
+                console.warn('Voucher verification error in checkout:', vErr);
+                if (voucher_discount && Number(voucher_discount) > 0) {
+                    appliedVoucherDiscount = Math.min(subtotal, Math.max(0, Number(voucher_discount)));
+                    finalVoucherId = voucher_id ?? null;
+                    finalVoucherCode = voucher_code ?? null;
+                }
+            }
+        }
+
+        const totalAmount = Math.max(0, (subtotal - appliedVoucherDiscount) + shippingCost + applicationFee);
 
         console.log("Subtotal:", subtotal);
         console.log("Shipping cost:", shippingCost);
@@ -358,6 +401,9 @@ serve(async (req) => {
                 subtotal: subtotal,
                 shipping_cost: shippingCost,
                 application_fee: applicationFee,
+                voucher_id: finalVoucherId,
+                voucher_code: finalVoucherCode,
+                voucher_discount: appliedVoucherDiscount,
                 total_amount: totalAmount,
 
                 shipping_name: address.recipient_name,
@@ -546,6 +592,12 @@ serve(async (req) => {
                     id: "SHIPPING_FEE",
                     name: `Ongkir (${selected_courier?.courier_name ?? 'Kurir'} - ${selected_courier?.courier_service_name ?? 'Layanan'})`.slice(0, 50),
                     price: shippingCost,
+                    quantity: 1
+                }] : [])
+                , ...(appliedVoucherDiscount > 0 ? [{
+                    id: 'VOUCHER_DISCOUNT',
+                    name: ('Diskon Voucher ' + (finalVoucherCode || 'VOUCHER')).slice(0, 50),
+                    price: -appliedVoucherDiscount,
                     quantity: 1
                 }] : [])
             ]
