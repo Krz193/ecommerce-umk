@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
@@ -37,6 +38,10 @@ class _LogisticsPartnerDashboardPageState
   @override
   void initState() {
     super.initState();
+    // Ensure current user has proper logistics role in database
+    supabase.rpc('become_logistics_partner', params: {'p_role': widget.partnerMode}).then((_) {
+      if (mounted) ref.invalidate(appUserProvider);
+    }).catchError((_) {});
     _tabController = TabController(length: 3, vsync: this);
     _initializePartner();
   }
@@ -76,12 +81,12 @@ class _LogisticsPartnerDashboardPageState
             id,
             order_number,
             status,
-            order_status,
-            delivery_status,
+            tracking_status,
             payment_status,
             total_amount,
-            courier,
-            courier_service,
+            courier_code,
+            courier_name,
+            courier_service_type,
             waybill_id,
             tracking_history,
             driver_name,
@@ -91,9 +96,11 @@ class _LogisticsPartnerDashboardPageState
             driver_longitude,
             driver_messages,
             driver_last_updated,
+            driver_id,
+            biteship_order_id,
+            shipping_name,
             shipping_address,
             shipping_phone,
-            recipient_name,
             shipping_latitude,
             shipping_longitude,
             created_at,
@@ -123,29 +130,57 @@ class _LogisticsPartnerDashboardPageState
 
   // Filter orders by active tab
   List<Map<String, dynamic>> _getFilteredOrders(int tabIndex) {
+    final currentUserId = supabase.auth.currentUser?.id;
+
+    // Helper: Is order intended for current partner mode (Ojek vs Ekspedisi)
+    bool isMatchingCourier(Map<String, dynamic> o) {
+      final code = (o['courier_code'] ?? '').toString().toLowerCase();
+      final hasBiteship = o['biteship_order_id'] != null;
+
+      // Never show external Biteship-managed orders in local driver portal
+      if (hasBiteship || code == 'jne' || code == 'sicepat' || code == 'jnt' || code == 'anteraja') {
+        return false;
+      }
+
+      if (isOjek) {
+        // Ojek lokal: ojek, ojek_lokal, instant_lokal, or instant/same_day service
+        final sType = (o['courier_service_type'] ?? '').toString().toLowerCase();
+        return code == 'ojek' || code == 'ojek_lokal' || code == 'instant_lokal' || sType == 'instant' || sType == 'same_day';
+      } else {
+        // Ekspedisi / armada toko
+        return code == 'ekspedisi' || code == 'ekspedisi_lokal' || code == 'kurir_toko' || code == 'manual' || code.isEmpty;
+      }
+    }
+
     if (tabIndex == 0) {
-      // Pending / Unassigned / Ready to pickup
+      // Tab 0: Pending / Unassigned / Ready to pickup (Local orders without driver)
       return _orders.where((o) {
-        final dStatus = (o['delivery_status'] ?? o['order_status'] ?? '').toString();
-        return dStatus == 'ready_to_ship' ||
-            dStatus == 'pending' ||
-            dStatus == 'allocated' ||
-            (o['driver_name'] == null && dStatus != 'delivered' && dStatus != 'cancelled');
+        if (!isMatchingCourier(o)) return false;
+        final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
+        final hasDriver = o['driver_id'] != null || (o['driver_name'] != null && o['driver_name'].toString().isNotEmpty);
+        return !hasDriver && (dStatus == 'ready_to_ship' || dStatus == 'pending' || dStatus == 'processing' || dStatus == 'allocated');
       }).toList();
     } else if (tabIndex == 1) {
-      // Active / On Delivery
+      // Tab 1: Active / On Delivery (Claimed by current driver)
       return _orders.where((o) {
-        final dStatus = (o['delivery_status'] ?? o['order_status'] ?? '').toString();
+        final orderDriverId = o['driver_id']?.toString();
+        final isMine = currentUserId != null && (orderDriverId == currentUserId || (orderDriverId == null && o['driver_name'] == _driverName));
+        if (!isMine) return false;
+
+        final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
         return dStatus == 'picking_up' ||
             dStatus == 'picked' ||
             dStatus == 'dropping_off' ||
-            dStatus == 'on_delivery' ||
-            dStatus == 'processing';
+            dStatus == 'on_delivery';
       }).toList();
     } else {
-      // Completed / Cancelled
+      // Tab 2: Completed / Cancelled (Finished by current driver)
       return _orders.where((o) {
-        final dStatus = (o['delivery_status'] ?? o['order_status'] ?? '').toString();
+        final orderDriverId = o['driver_id']?.toString();
+        final isMine = currentUserId != null && (orderDriverId == currentUserId || (orderDriverId == null && o['driver_name'] == _driverName));
+        if (!isMine) return false;
+
+        final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
         return dStatus == 'delivered' ||
             dStatus == 'completed' ||
             dStatus == 'cancelled';
@@ -155,30 +190,24 @@ class _LogisticsPartnerDashboardPageState
 
   // --- ACTIONS ---
 
-  // 1. Approval Pengiriman (Terima & Tugaskan Diri)
+  // 1. Approval Pengiriman (Atomic Claim & Tugaskan Diri)
   Future<void> _approveShipment(Map<String, dynamic> order) async {
     final orderId = order['id'];
-    final initialStatus = isOjek ? 'picking_up' : 'allocated';
 
     try {
-      await supabase.rpc('update_logistics_shipment', params: {
+      await supabase.rpc('claim_logistics_order', params: {
         'p_order_id': orderId,
-        'p_status': initialStatus,
-        'p_waybill_id': order['waybill_id'],
         'p_driver_name': _driverName,
         'p_driver_phone': _driverPhone,
         'p_vehicle_plate': _vehiclePlate,
         'p_latitude': isOjek ? -6.2088 : null,
         'p_longitude': isOjek ? 106.8456 : null,
-        'p_note': isOjek
-            ? 'Pengantaran diterima oleh driver $_driverName'
-            : 'Pengiriman diterima oleh staf ekspedisi $_driverName',
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Pesanan berhasil diterima untuk ${isOjek ? "penjemputan" : "alokasi armada"}!'),
+          content: Text("Pesanan berhasil diterima untuk ${isOjek ? "penjemputan" : "alokasi armada"}!"),
           backgroundColor: Colors.green.shade700,
         ),
       );
@@ -186,7 +215,7 @@ class _LogisticsPartnerDashboardPageState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menerima pesanan: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text("Gagal menerima pesanan: $e"), backgroundColor: Colors.red),
       );
     }
   }
@@ -233,7 +262,7 @@ class _LogisticsPartnerDashboardPageState
                 try {
                   await supabase.rpc('update_logistics_shipment', params: {
                     'p_order_id': order['id'],
-                    'p_status': order['delivery_status'] ?? 'allocated',
+                    'p_status': order['tracking_status'] ?? 'allocated',
                     'p_waybill_id': newWaybill,
                     'p_note': 'No resi diperbarui menjadi: $newWaybill',
                   });
@@ -260,7 +289,7 @@ class _LogisticsPartnerDashboardPageState
 
   // 3. Update Delivery Status (Ekspedisi / Ojek)
   void _showUpdateStatusDialog(Map<String, dynamic> order) {
-    String selectedStatus = (order['delivery_status'] ?? 'allocated').toString();
+    String selectedStatus = (order['tracking_status'] ?? 'allocated').toString();
     final noteController = TextEditingController();
 
     final statusOptions = isOjek
@@ -434,7 +463,7 @@ class _LogisticsPartnerDashboardPageState
                 try {
                   await supabase.rpc('update_logistics_shipment', params: {
                     'p_order_id': order['id'],
-                    'p_status': order['delivery_status'] ?? 'on_delivery',
+                    'p_status': order['tracking_status'] ?? 'on_delivery',
                     'p_latitude': lat,
                     'p_longitude': lng,
                     'p_note': 'Posisi GPS diperbarui ($lat, $lng)',
@@ -533,7 +562,7 @@ class _LogisticsPartnerDashboardPageState
 
   // 6. Hubungi Pembeli (In-App Call #10 & Realtime Chat #11)
   void _openInAppCall(Map<String, dynamic> order) {
-    final buyerName = order['recipient_name'] ?? 'Pembeli';
+    final buyerName = order['shipping_name'] ?? 'Pembeli';
     final buyerPhone = order['shipping_phone'] ?? '08123456789';
 
     showDialog(
@@ -550,11 +579,12 @@ class _LogisticsPartnerDashboardPageState
   }
 
   void _openInAppChat(Map<String, dynamic> order) {
-    final buyerName = order['recipient_name'] ?? 'Pembeli';
-    final messages = List<Map<String, dynamic>>.from(
+    final buyerName = order['shipping_name'] ?? 'Pembeli';
+    var messages = List<Map<String, dynamic>>.from(
       order['driver_messages'] as List? ?? [],
     );
     final textController = TextEditingController();
+    RealtimeChannel? chatChannel;
 
     showModalBottomSheet(
       context: context,
@@ -563,8 +593,53 @@ class _LogisticsPartnerDashboardPageState
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (bottomSheetContext) {
+        var subscribed = false;
         return StatefulBuilder(
           builder: (ctx, setModalState) {
+            if (!subscribed) {
+              subscribed = true;
+              supabase
+                  .from('orders')
+                  .select('driver_messages')
+                  .eq('id', order['id'])
+                  .maybeSingle()
+                  .then((val) {
+                if (val != null && val['driver_messages'] is List && ctx.mounted) {
+                  setModalState(() {
+                    messages = (val['driver_messages'] as List)
+                        .whereType<Map>()
+                        .map((e) => Map<String, dynamic>.from(e))
+                        .toList();
+                  });
+                }
+              });
+
+              chatChannel = supabase
+                  .channel('driver_chat_ojek:order_${order['id']}')
+                  .onPostgresChanges(
+                    event: PostgresChangeEvent.update,
+                    schema: 'public',
+                    table: 'orders',
+                    filter: PostgresChangeFilter(
+                      type: PostgresChangeFilterType.eq,
+                      column: 'id',
+                      value: order['id'],
+                    ),
+                    callback: (payload) {
+                      final raw = payload.newRecord['driver_messages'];
+                      if (raw is List && ctx.mounted) {
+                        setModalState(() {
+                          messages = raw
+                              .whereType<Map>()
+                              .map((e) => Map<String, dynamic>.from(e))
+                              .toList();
+                        });
+                      }
+                    },
+                  )
+                  .subscribe();
+            }
+
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -681,7 +756,7 @@ class _LogisticsPartnerDashboardPageState
                                 'sender_role': isOjek ? 'ojek' : 'ekspedisi',
                                 'sender_name': _driverName,
                                 'message': text,
-                                'created_at': DateTime.now().toIso8601String(),
+                                'sent_at': DateTime.now().toIso8601String(),
                               };
 
                               setModalState(() {
@@ -690,14 +765,28 @@ class _LogisticsPartnerDashboardPageState
                               textController.clear();
 
                               try {
-                                await supabase.rpc('append_order_driver_message', params: {
+                                final res = await supabase.rpc('append_order_driver_message', params: {
                                   'p_order_id': order['id'],
                                   'p_sender_role': isOjek ? 'ojek' : 'ekspedisi',
                                   'p_sender_name': _driverName,
                                   'p_message': text,
                                 });
+                                if (res is List && ctx.mounted) {
+                                  setModalState(() {
+                                    messages = res
+                                        .whereType<Map>()
+                                        .map((e) => Map<String, dynamic>.from(e))
+                                        .toList();
+                                  });
+                                }
                                 _fetchOrders();
-                              } catch (_) {}
+                              } catch (e) {
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(content: Text('Gagal mengirim pesan: $e')),
+                                  );
+                                }
+                              }
                             },
                           ),
                         ],
@@ -710,7 +799,9 @@ class _LogisticsPartnerDashboardPageState
           },
         );
       },
-    );
+    ).whenComplete(() {
+      chatChannel?.unsubscribe();
+    });
   }
 
   // --- UI BUILDERS ---
@@ -852,13 +943,13 @@ class _LogisticsPartnerDashboardPageState
 
   Widget _buildOrderCard(Map<String, dynamic> order, int tabIndex) {
     final orderId = (order['order_number'] ?? order['id']).toString();
-    final dStatus = (order['delivery_status'] ?? order['order_status'] ?? 'pending').toString();
+    final dStatus = (order['tracking_status'] ?? order['status'] ?? 'pending').toString();
     final storeName = (order['stores'] != null && order['stores']['name'] != null)
         ? order['stores']['name']
         : 'Toko UMK Mitra';
-    final recipient = order['recipient_name'] ?? 'Pembeli';
+    final recipient = order['shipping_name'] ?? 'Pembeli';
     final address = order['shipping_address'] ?? 'Alamat pengantaran';
-    final courier = (order['courier'] ?? (isOjek ? 'Ojek Lokal' : 'Ekspedisi')).toString();
+    final courier = (order['courier_name'] ?? (isOjek ? 'Ojek Lokal' : 'Ekspedisi')).toString();
     final waybill = order['waybill_id'] as String?;
 
     return Card(
