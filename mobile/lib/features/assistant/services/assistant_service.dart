@@ -229,6 +229,8 @@ class AssistantService {
   Future<List<StoreContentModel>> getStoreContents({
     required String storeId,
   }) async {
+    if (storeId.trim().isEmpty) return [];
+
     final response = await supabase
         .from('store_contents')
         .select('''
@@ -244,7 +246,13 @@ class AssistantService {
           )
         ''')
         .eq('store_id', storeId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => throw Exception(
+            'Waktu memuat konten habis. Periksa koneksi internet.',
+          ),
+        );
 
     final List<dynamic> data = response as List<dynamic>;
     return data.map((json) => StoreContentModel.fromMap(json)).toList();

@@ -135,7 +135,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                   title: 'Keranjang Belanja Pembeli',
                   subtitle: 'Pantau rincian produk yang disimpan di keranjang pembeli',
                   onTap: () {
-                    context.push('/seller/buyer-carts?storeId=');
+                    context.push('/seller/buyer-carts?storeId=${store.id}');
                   },
                 ),
 
@@ -143,10 +143,10 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                 _buildActionTile(
                   icon: Icons.auto_awesome_outlined,
-                  title: 'Rekomendasi Produk (Model Rumus)',
-                  subtitle: 'Kelola produk unggulan toko dengan skor rumus otomatis',
+                  title: 'Produk Rekomendasi Toko',
+                  subtitle: 'Pilih produk unggulan untuk ditonjolkan ke pembeli',
                   onTap: () {
-                    context.push('/seller/recommendations?storeId=');
+                    context.push('/seller/recommendations?storeId=${store.id}');
                   },
                 ),
 
@@ -157,7 +157,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                   title: 'Konten Promosi & Media Sosial',
                   subtitle: 'Kelola promosi, kisah produk, video, gambar, dan link medsos',
                   onTap: () {
-                    context.push('/assistant/contents?storeId=&storeName=');
+                    context.push('/assistant/contents?storeId=${store.id}&storeName=${Uri.encodeComponent(store.name)}');
                   },
                 ),
 

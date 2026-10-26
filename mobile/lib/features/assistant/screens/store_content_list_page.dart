@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/store/providers/store_provider.dart';
 // ignore: depend_on_referenced_packages
 import 'package:url_launcher/url_launcher.dart';
 
@@ -20,26 +21,82 @@ class StoreContentListPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final contentsAsync = ref.watch(storeContentsProvider(storeId));
+    final myStore = ref.watch(myStoreProvider).asData?.value;
+    final selectedStore = ref.watch(selectedStoreProvider);
+    final assignedStores = ref.watch(assignedStoresProvider).asData?.value;
+
+    final effectiveStoreId = storeId.trim().isNotEmpty
+        ? storeId.trim()
+        : (selectedStore?.storeId ??
+            myStore?.id ??
+            assignedStores?.firstOrNull?.storeId ??
+            '');
+
+    final effectiveStoreName = (storeName != null && storeName!.trim().isNotEmpty)
+        ? storeName!.trim()
+        : (selectedStore?.storeName ??
+            myStore?.name ??
+            assignedStores?.firstOrNull?.storeName);
+
+    final titleText = (effectiveStoreName != null && effectiveStoreName.isNotEmpty)
+        ? 'Konten $effectiveStoreName'
+        : 'Konten UMK';
+
+    if (effectiveStoreId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(titleText),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.store_outlined, size: 64, color: Colors.grey.shade400),
+                const SizedBox(height: 16),
+                const Text(
+                  'Toko Belum Ditemukan',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tidak ada data toko yang dipilih atau ditugaskan untuk melihat konten.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => context.pop(),
+                  child: const Text('Kembali'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final contentsAsync = ref.watch(storeContentsProvider(effectiveStoreId));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(storeName != null ? 'Konten $storeName' : 'Konten UMK'),
+        title: Text(titleText),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(storeContentsProvider(storeId)),
+            onPressed: () => ref.invalidate(storeContentsProvider(effectiveStoreId)),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await context.push<bool>(
-            '/assistant/contents/create?storeId=$storeId',
+            '/assistant/contents/create?storeId=$effectiveStoreId',
           );
           if (result == true) {
-            ref.invalidate(storeContentsProvider(storeId));
-            ref.invalidate(assistanceLogsProvider(storeId));
+            ref.invalidate(storeContentsProvider(effectiveStoreId));
+            ref.invalidate(assistanceLogsProvider(effectiveStoreId));
           }
         },
         icon: const Icon(Icons.add),
@@ -56,7 +113,7 @@ class StoreContentListPage extends ConsumerWidget {
               Text('Gagal memuat konten: $err'),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => ref.invalidate(storeContentsProvider(storeId)),
+                onPressed: () => ref.invalidate(storeContentsProvider(effectiveStoreId)),
                 child: const Text('Coba Lagi'),
               ),
             ],
@@ -94,11 +151,11 @@ class StoreContentListPage extends ConsumerWidget {
                   ElevatedButton.icon(
                     onPressed: () async {
                       final result = await context.push<bool>(
-                        '/assistant/contents/create?storeId=$storeId',
+                        '/assistant/contents/create?storeId=$effectiveStoreId',
                       );
                       if (result == true) {
-                        ref.invalidate(storeContentsProvider(storeId));
-                        ref.invalidate(assistanceLogsProvider(storeId));
+                        ref.invalidate(storeContentsProvider(effectiveStoreId));
+                        ref.invalidate(assistanceLogsProvider(effectiveStoreId));
                       }
                     },
                     icon: const Icon(Icons.add),
@@ -111,7 +168,7 @@ class StoreContentListPage extends ConsumerWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(storeContentsProvider(storeId));
+              ref.invalidate(storeContentsProvider(effectiveStoreId));
             },
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
@@ -119,7 +176,7 @@ class StoreContentListPage extends ConsumerWidget {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final item = contents[index];
-                return _buildContentCard(context, ref, item);
+                return _buildContentCard(context, ref, item, effectiveStoreId);
               },
             ),
           );
@@ -132,6 +189,7 @@ class StoreContentListPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     StoreContentModel item,
+    String currentStoreId,
   ) {
     final hasExternalUrl =
         item.externalUrl != null && item.externalUrl!.trim().isNotEmpty;
@@ -146,11 +204,11 @@ class StoreContentListPage extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
           final result = await context.push<bool>(
-            '/assistant/contents/edit/${item.id}?storeId=$storeId',
+            '/assistant/contents/edit/${item.id}?storeId=$currentStoreId',
             extra: item,
           );
           if (result == true) {
-            ref.invalidate(storeContentsProvider(storeId));
+            ref.invalidate(storeContentsProvider(currentStoreId));
             ref.invalidate(assistanceLogsProvider(storeId));
           }
         },
@@ -261,7 +319,7 @@ class StoreContentListPage extends ConsumerWidget {
                           size: 20,
                           color: Colors.red,
                         ),
-                        onPressed: () => _confirmDelete(context, ref, item),
+                        onPressed: () => _confirmDelete(context, ref, item, currentStoreId),
                       ),
                     ],
                   ),
@@ -371,6 +429,7 @@ class StoreContentListPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     StoreContentModel item,
+    String currentStoreId,
   ) {
     showDialog(
       context: context,
@@ -392,7 +451,7 @@ class StoreContentListPage extends ConsumerWidget {
                 final service = ref.read(assistantServiceProvider);
                 await service.deleteStoreContent(
                   contentId: item.id,
-                  storeId: storeId,
+                  storeId: currentStoreId,
                   title: item.title,
                 );
                 ref.invalidate(storeContentsProvider(storeId));

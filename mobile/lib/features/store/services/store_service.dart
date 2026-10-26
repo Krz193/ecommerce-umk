@@ -234,4 +234,21 @@ class StoreService {
         .delete()
         .eq('product_id', productId);
   }
+
+  Future<int> applyAutoStoreRecommendations({
+    required String storeId,
+    int topN = 3,
+  }) async {
+    final res = await _supabase.rpc(
+      'apply_auto_store_recommendations',
+      params: {
+        'p_store_id': storeId,
+        'p_top_n': topN,
+      },
+    );
+    if (res is Map) {
+      return (res['applied_count'] as num?)?.toInt() ?? 0;
+    }
+    return 0;
+  }
 }
