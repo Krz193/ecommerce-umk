@@ -8,10 +8,13 @@ type UserShowProps = {
     user: {
         id: string;
         full_name: string;
+        email: string | null;
         username: string | null;
         phone: string | null;
         avatar_url: string | null;
         role: string;
+        last_sign_in_at: string | null;
+        email_confirmed_at: string | null;
         created_at: string;
         updated_at: string;
     };
@@ -41,13 +44,16 @@ export default function UserShow({ user, stores, orders }: UserShowProps) {
                 <div>
                     <div className="mb-2"><StatusBadge status={user.role} /></div>
                     <h1 className="text-2xl font-semibold">{user.full_name}</h1>
-                    <p className="text-sm text-muted-foreground">{user.username || user.id}</p>
+                    <p className="text-sm text-muted-foreground">{user.email || user.username || user.id}</p>
                 </div>
 
                 <Card>
-                    <CardHeader><CardTitle>User Information</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>User Information & Login Credentials</CardTitle></CardHeader>
                     <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+                        <Info label="Email Login" value={user.email || '-'} />
+                        <Info label="Username" value={user.username || '-'} />
                         <Info label="Phone" value={user.phone || '-'} />
+                        <Info label="Last Sign In" value={user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Belum pernah login'} />
                         <Info label="Created" value={formatDate(user.created_at)} />
                         <Info label="Updated" value={formatDate(user.updated_at)} />
                         <Info label="User ID" value={user.id} />

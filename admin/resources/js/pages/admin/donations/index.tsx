@@ -190,56 +190,56 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                         <CardTitle>Riwayat Donasi Masuk</CardTitle>
                     </CardHeader>
                     <CardContent className="overflow-x-auto">
-                        <table className="w-full min-w-[1100px] text-sm">
+                        <table className="w-full min-w-[1150px] text-sm">
                             <thead className="border-b text-left text-muted-foreground">
                                 <tr>
-                                    <th className="pb-3 font-medium">Toko UMK Penerima</th>
-                                    <th className="pb-3 font-medium">Donatur</th>
-                                    <th className="pb-3 font-medium">Catatan / Doa</th>
-                                    <th className="pb-3 font-medium">Waktu Donasi</th>
-                                    <th className="pb-3 text-right font-medium">Nominal Donasi</th>
-                                    <th className="pb-3 font-medium">Tanggal Disalurkan</th>
-                                    <th className="pb-3 text-right font-medium">Besaran Disalurkan</th>
-                                    <th className="pb-3 text-center font-medium">Status Penyaluran</th>
-                                    <th className="pb-3 text-right font-medium">Aksi</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Toko UMK Penerima</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Donatur</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Catatan / Doa</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Waktu Donasi</th>
+                                    <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Nominal Donasi</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Tanggal Disalurkan</th>
+                                    <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Besaran Disalurkan</th>
+                                    <th className="px-3 pb-3 text-center font-medium whitespace-nowrap">Status Penyaluran</th>
+                                    <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {donations.data.map((donation) => (
                                     <tr key={donation.id} className="border-b transition hover:bg-muted/30 last:border-0">
-                                        <td className="py-3.5">
+                                        <td className="px-3 py-3.5 whitespace-nowrap">
                                             <div className="flex items-center gap-1.5 font-semibold text-primary">
-                                                <Store className="h-3.5 w-3.5" />
+                                                <Store className="h-3.5 w-3.5 shrink-0" />
                                                 {donation.store?.name}
                                             </div>
                                         </td>
-                                        <td className="py-3.5">
+                                        <td className="px-3 py-3.5 whitespace-nowrap">
                                             <div className="flex items-center gap-1.5 font-medium">
-                                                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                                <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                                 {donation.donor_name}
                                             </div>
                                             {donation.donor_phone && (
                                                 <p className="text-xs text-muted-foreground">{donation.donor_phone}</p>
                                             )}
                                         </td>
-                                        <td className="py-3.5 text-xs text-muted-foreground max-w-[200px]">
+                                        <td className="max-w-[200px] px-3 py-3.5 text-xs text-muted-foreground">
                                             {donation.note ? `"${donation.note}"` : '-'}
                                         </td>
-                                        <td className="py-3.5 text-xs text-muted-foreground">
+                                        <td className="px-3 py-3.5 text-xs whitespace-nowrap text-muted-foreground">
                                             {formatDate(donation.created_at)}
                                         </td>
-                                        <td className="py-3.5 text-right font-bold text-emerald-600">
+                                        <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-emerald-600">
                                             {formatCurrency(donation.amount)}
                                         </td>
-                                        <td className="py-3.5 text-xs text-muted-foreground">
+                                        <td className="px-3 py-3.5 text-xs whitespace-nowrap text-muted-foreground">
                                             {donation.status === 'distributed' ? formatDate(donation.distributed_at) : '-'}
                                         </td>
-                                        <td className="py-3.5 text-right font-bold text-blue-600">
+                                        <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-blue-600">
                                             {donation.status === 'distributed'
                                                 ? formatCurrency(donation.distributed_amount ?? donation.amount)
                                                 : '-'}
                                         </td>
-                                        <td className="py-3.5 text-center">
+                                        <td className="px-3 py-3.5 text-center whitespace-nowrap">
                                             <span
                                                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                                     donation.status === 'distributed'
@@ -252,7 +252,7 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                                 {donation.status === 'distributed' ? 'Tersalurkan' : 'Terkumpul (Siap Salur)'}
                                             </span>
                                         </td>
-                                        <td className="py-3.5 text-right">
+                                        <td className="px-3 py-3.5 text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1.5">
                                                 <Button
                                                     size="sm"

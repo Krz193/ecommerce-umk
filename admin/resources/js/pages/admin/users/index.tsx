@@ -35,6 +35,8 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<MarketplaceUserRow | null>(null);
     const [fullName, setFullName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
     const [phone, setPhone] = useState('');
     const [userRole, setUserRole] = useState('buyer');
@@ -47,6 +49,8 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
     function openCreateModal() {
         setEditingUser(null);
         setFullName('');
+        setEmail('');
+        setPassword('');
         setUsername('');
         setPhone('');
         setUserRole('buyer');
@@ -56,6 +60,8 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
     function openEditModal(user: MarketplaceUserRow) {
         setEditingUser(user);
         setFullName(user.full_name);
+        setEmail(user.email || '');
+        setPassword('');
         setUsername(user.username || '');
         setPhone(user.phone || '');
         setUserRole(user.role);
@@ -67,6 +73,8 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
 
         const payload = {
             full_name: fullName,
+            email,
+            password: password || undefined,
             username: username || undefined,
             phone: phone || undefined,
             role: userRole,
@@ -107,7 +115,7 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                     <CardHeader><CardTitle>Filters</CardTitle></CardHeader>
                     <CardContent>
                         <form onSubmit={submitFilter} className="flex flex-col gap-3 md:flex-row">
-                            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, username, or phone" />
+                            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, email, username, or phone" />
                             <select className="h-9 rounded-md border bg-background px-3 text-sm" value={role} onChange={(event) => setRole(event.target.value)}>
                                 <option value="">All roles</option>
                                 <option value="buyer">Buyer</option>
@@ -126,27 +134,33 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
 
                 <Card>
                     <CardContent className="overflow-x-auto pt-6">
-                        <table className="w-full min-w-[800px] text-sm">
+                        <table className="w-full min-w-[960px] text-sm">
                             <thead className="border-b text-left text-muted-foreground">
                                 <tr>
-                                    <th className="pb-3 font-medium">User</th>
-                                    <th className="pb-3 font-medium">Phone</th>
-                                    <th className="pb-3 font-medium">Role</th>
-                                    <th className="pb-3 font-medium">Created</th>
-                                    <th className="pb-3 text-right font-medium">Actions</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">User</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Email Login</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Phone</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Role</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Last Sign In</th>
+                                    <th className="px-3 pb-3 font-medium whitespace-nowrap">Created</th>
+                                    <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {users.data.map((user) => (
                                     <tr key={user.id} className="border-b last:border-0">
-                                        <td className="py-3">
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             <Link href={`/users/${user.id}`} className="font-medium hover:underline">{user.full_name}</Link>
                                             <div className="text-xs text-muted-foreground">{user.username || user.id}</div>
                                         </td>
-                                        <td className="py-3">{user.phone || '-'}</td>
-                                        <td className="py-3"><StatusBadge status={user.role} /></td>
-                                        <td className="py-3">{formatDate(user.created_at)}</td>
-                                        <td className="py-3">
+                                        <td className="px-3 py-3 font-mono text-xs whitespace-nowrap">{user.email || '-'}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap">{user.phone || '-'}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={user.role} /></td>
+                                        <td className="px-3 py-3 text-xs whitespace-nowrap text-muted-foreground">
+                                            {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : '-'}
+                                        </td>
+                                        <td className="px-3 py-3 text-xs whitespace-nowrap text-muted-foreground">{formatDate(user.created_at)}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             <div className="flex justify-end gap-2">
                                                 <Button asChild variant="outline" size="sm">
                                                     <Link href={`/users/${user.id}`}>Detail</Link>
@@ -179,12 +193,14 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
 
             {/* Create / Edit User Dialog */}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="sm:max-w-[450px]">
+                <DialogContent className="sm:max-w-[480px]">
                     <form onSubmit={handleSave}>
                         <DialogHeader>
-                            <DialogTitle>{editingUser ? 'Edit User Details' : 'Create User Profile'}</DialogTitle>
+                            <DialogTitle>{editingUser ? 'Edit User & Login Credentials' : 'Create User & Login Account'}</DialogTitle>
                             <DialogDescription>
-                                {editingUser ? 'Update user profile info and role.' : 'Register a new user profile manually.'}
+                                {editingUser
+                                    ? 'Update profile info, role, login email, or reset password.'
+                                    : 'Register a new user profile and active login credentials.'}
                             </DialogDescription>
                         </DialogHeader>
 
@@ -197,6 +213,33 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                                     onChange={(e) => setFullName(e.target.value)}
                                     placeholder="e.g. Ahmad Fauzi"
                                     required
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="user_email">Email Login *</Label>
+                                <Input
+                                    id="user_email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="e.g. ahmad@umk.local"
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="user_password">
+                                    {editingUser ? 'New Password (kosongkan jika tidak diubah)' : 'Password *'}
+                                </Label>
+                                <Input
+                                    id="user_password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder={editingUser ? 'Minimal 6 karakter untuk reset password' : 'Minimal 6 karakter'}
+                                    minLength={6}
+                                    required={!editingUser}
                                 />
                             </div>
 
