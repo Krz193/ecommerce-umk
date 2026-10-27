@@ -20,16 +20,27 @@ class UserLookupController extends Controller
 
         $users = DB::connection('marketplace')
             ->table('users')
-            ->select(['id', 'full_name', 'username', 'phone', 'role', 'created_at'])
-            ->when($role !== '', fn ($query) => $query->where('role', $role))
+            ->leftJoin('auth.users as au', 'au.id', '=', 'users.id')
+            ->select([
+                'users.id',
+                'users.full_name',
+                'users.username',
+                'users.phone',
+                'users.role',
+                'users.created_at',
+                'au.email',
+                'au.last_sign_in_at',
+            ])
+            ->when($role !== '', fn ($query) => $query->where('users.role', $role))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
-                    $query->where('full_name', 'ilike', "%{$search}%")
-                        ->orWhere('username', 'ilike', "%{$search}%")
-                        ->orWhere('phone', 'ilike', "%{$search}%");
+                    $query->where('users.full_name', 'ilike', "%{$search}%")
+                        ->orWhere('users.username', 'ilike', "%{$search}%")
+                        ->orWhere('users.phone', 'ilike', "%{$search}%")
+                        ->orWhere('au.email', 'ilike', "%{$search}%");
                 });
             })
-            ->orderByDesc('created_at')
+            ->orderByDesc('users.created_at')
             ->paginate(20)
             ->withQueryString();
 
@@ -47,8 +58,21 @@ class UserLookupController extends Controller
         $db = DB::connection('marketplace');
 
         $userRow = $db->table('users')
-            ->select(['id', 'full_name', 'username', 'phone', 'avatar_url', 'role', 'created_at', 'updated_at'])
-            ->where('id', $user)
+            ->leftJoin('auth.users as au', 'au.id', '=', 'users.id')
+            ->select([
+                'users.id',
+                'users.full_name',
+                'users.username',
+                'users.phone',
+                'users.avatar_url',
+                'users.role',
+                'users.created_at',
+                'users.updated_at',
+                'au.email',
+                'au.last_sign_in_at',
+                'au.email_confirmed_at',
+            ])
+            ->where('users.id', $user)
             ->firstOrFail();
 
         return Inertia::render('admin/users/show', [
@@ -80,51 +104,122 @@ class UserLookupController extends Controller
     {
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'password' => ['required', 'string', 'min:6', 'max:255'],
             'username' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'role' => ['required', 'string', 'in:buyer,seller,assistant,ekspedisi,ojek,admin'],
         ]);
 
         $db = DB::connection('marketplace');
+        $email = strtolower(trim($validated['email']));
+        $username = filled($validated['username'] ?? null)
+            ? trim($validated['username'])
+            : explode('@', $email)[0];
 
-        if (filled($validated['username'] ?? null)) {
-            $exists = $db->table('users')->where('username', $validated['username'])->exists();
+        $emailExists = $db->table('auth.users')
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->exists();
+        if ($emailExists) {
+            return back()->withErrors(['email' => 'Email login sudah digunakan.']);
+        }
+
+        if (filled($username)) {
+            $exists = $db->table('users')->where('username', $username)->exists();
             if ($exists) {
                 return back()->withErrors(['username' => 'Username sudah digunakan.']);
             }
         }
 
         $id = (string) Str::uuid();
+        $now = now();
+        $encryptedPassword = str_replace(
+            '$2y$',
+            '$2a$',
+            password_hash($validated['password'], PASSWORD_BCRYPT, ['cost' => 10]),
+        );
 
-        $db->table('users')->insert([
-            'id' => $id,
+        $userMeta = json_encode([
+            'sub' => $id,
+            'email' => $email,
+            'username' => $username,
             'full_name' => $validated['full_name'],
-            'username' => $validated['username'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'role' => $validated['role'],
-            'created_at' => now(),
-            'updated_at' => now(),
+            'email_verified' => true,
+            'phone_verified' => false,
         ]);
+
+        $db->transaction(function () use ($db, $id, $email, $encryptedPassword, $userMeta, $validated, $username, $now): void {
+            $db->table('auth.users')->insert([
+                'instance_id' => '00000000-0000-0000-0000-000000000000',
+                'id' => $id,
+                'aud' => 'authenticated',
+                'role' => 'authenticated',
+                'email' => $email,
+                'encrypted_password' => $encryptedPassword,
+                'email_confirmed_at' => $now,
+                'confirmation_token' => '',
+                'recovery_token' => '',
+                'email_change_token_new' => '',
+                'email_change' => '',
+                'phone_change' => '',
+                'phone_change_token' => '',
+                'email_change_token_current' => '',
+                'email_change_confirm_status' => 0,
+                'reauthentication_token' => '',
+                'raw_app_meta_data' => json_encode(['provider' => 'email', 'providers' => ['email']]),
+                'raw_user_meta_data' => $userMeta,
+                'is_sso_user' => false,
+                'is_anonymous' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $db->table('auth.identities')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $id,
+                'provider_id' => $id,
+                'identity_data' => $userMeta,
+                'provider' => 'email',
+                'last_sign_in_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $db->table('users')->updateOrInsert(
+                ['id' => $id],
+                [
+                    'full_name' => $validated['full_name'],
+                    'username' => $username ?: null,
+                    'phone' => $validated['phone'] ?? null,
+                    'role' => $validated['role'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            );
+        });
 
         $auditLogger->log(
             $request,
             'user.create',
             'user',
             $id,
-            "User {$validated['full_name']} dibuat secara manual dengan role {$validated['role']}.",
+            "User {$validated['full_name']} ({$email}) dibuat dengan role {$validated['role']}.",
             [
                 'full_name' => $validated['full_name'],
+                'email' => $email,
                 'role' => $validated['role'],
             ],
         );
 
-        return back()->with('success', 'User berhasil ditambahkan.');
+        return back()->with('success', 'User dan kredensial login berhasil ditambahkan.');
     }
 
     public function update(Request $request, AdminAuditLogger $auditLogger, string $user): RedirectResponse
     {
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'password' => ['nullable', 'string', 'min:6', 'max:255'],
             'username' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'role' => ['required', 'string', 'in:buyer,seller,assistant,ekspedisi,ojek,admin'],
@@ -132,10 +227,21 @@ class UserLookupController extends Controller
 
         $db = DB::connection('marketplace');
         $existing = $db->table('users')->where('id', $user)->firstOrFail();
+        $email = strtolower(trim($validated['email']));
+        $username = filled($validated['username'] ?? null) ? trim($validated['username']) : null;
 
-        if (filled($validated['username'] ?? null)) {
+        $emailExists = $db->table('auth.users')
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->where('id', '!=', $user)
+            ->exists();
+
+        if ($emailExists) {
+            return back()->withErrors(['email' => 'Email login sudah digunakan oleh user lain.']);
+        }
+
+        if (filled($username)) {
             $usernameExists = $db->table('users')
-                ->where('username', $validated['username'])
+                ->where('username', $username)
                 ->where('id', '!=', $user)
                 ->exists();
 
@@ -144,28 +250,69 @@ class UserLookupController extends Controller
             }
         }
 
-        $db->table('users')->where('id', $user)->update([
-            'full_name' => $validated['full_name'],
-            'username' => $validated['username'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'role' => $validated['role'],
-            'updated_at' => now(),
-        ]);
+        $now = now();
+        $passwordChanged = filled($validated['password'] ?? null);
+
+        $db->transaction(function () use ($db, $user, $validated, $email, $username, $now, $passwordChanged): void {
+            $db->table('users')->where('id', $user)->update([
+                'full_name' => $validated['full_name'],
+                'username' => $username,
+                'phone' => $validated['phone'] ?? null,
+                'role' => $validated['role'],
+                'updated_at' => $now,
+            ]);
+
+            $userMeta = json_encode([
+                'sub' => $user,
+                'email' => $email,
+                'username' => $username ?? explode('@', $email)[0],
+                'full_name' => $validated['full_name'],
+                'email_verified' => true,
+                'phone_verified' => false,
+            ]);
+
+            $authUpdate = [
+                'email' => $email,
+                'raw_user_meta_data' => $userMeta,
+                'updated_at' => $now,
+            ];
+
+            if ($passwordChanged) {
+                $authUpdate['encrypted_password'] = str_replace(
+                    '$2y$',
+                    '$2a$',
+                    password_hash($validated['password'], PASSWORD_BCRYPT, ['cost' => 10]),
+                );
+                $authUpdate['email_confirmed_at'] = $now;
+            }
+
+            $db->table('auth.users')->where('id', $user)->update($authUpdate);
+
+            $db->table('auth.identities')
+                ->where('user_id', $user)
+                ->where('provider', 'email')
+                ->update([
+                    'identity_data' => $userMeta,
+                    'updated_at' => $now,
+                ]);
+        });
 
         $auditLogger->log(
             $request,
             'user.update',
             'user',
             $user,
-            "User {$validated['full_name']} diperbarui (role: {$existing->role} -> {$validated['role']}).",
+            "User {$validated['full_name']} ({$email}) diperbarui (role: {$existing->role} -> {$validated['role']}).",
             [
                 'previous_role' => $existing->role,
                 'role' => $validated['role'],
                 'full_name' => $validated['full_name'],
+                'email' => $email,
+                'password_changed' => $passwordChanged,
             ],
         );
 
-        return back()->with('success', 'Informasi user berhasil diperbarui.');
+        return back()->with('success', 'Profil & kredensial login user berhasil diperbarui.');
     }
 
     public function destroy(Request $request, AdminAuditLogger $auditLogger, string $user): RedirectResponse
@@ -182,7 +329,10 @@ class UserLookupController extends Controller
             ]);
         }
 
-        $db->table('users')->where('id', $user)->delete();
+        $db->transaction(function () use ($db, $user): void {
+            $db->table('users')->where('id', $user)->delete();
+            $db->table('auth.users')->where('id', $user)->delete();
+        });
 
         $auditLogger->log(
             $request,

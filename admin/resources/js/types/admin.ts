@@ -89,9 +89,11 @@ export type OrderRow = {
 export type MarketplaceUserRow = {
     id: string;
     full_name: string;
+    email: string | null;
     username: string | null;
     phone: string | null;
     role: string;
+    last_sign_in_at: string | null;
     created_at: string;
 };
 

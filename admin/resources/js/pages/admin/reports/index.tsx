@@ -418,27 +418,27 @@ export default function ReportsIndex({
                             <table className="w-full min-w-[980px] text-sm">
                                 <thead className="border-b text-left text-muted-foreground">
                                     <tr>
-                                        <th className="pb-3 font-medium">Toko UMK Penerima</th>
-                                        <th className="pb-3 text-center font-medium">Total Donatur</th>
-                                        <th className="pb-3 text-right font-medium">Total Donasi Terkumpul</th>
-                                        <th className="pb-3 text-right font-medium">Total Disalurkan</th>
-                                        <th className="pb-3 text-right font-medium">Belum Disalurkan</th>
-                                        <th className="pb-3 text-right font-medium">Donasi Terakhir</th>
-                                        <th className="pb-3 text-right font-medium">Terakhir Disalurkan</th>
+                                        <th className="px-3 pb-3 font-medium whitespace-nowrap">Toko UMK Penerima</th>
+                                        <th className="px-3 pb-3 text-center font-medium whitespace-nowrap">Total Donatur</th>
+                                        <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Total Donasi Terkumpul</th>
+                                        <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Total Disalurkan</th>
+                                        <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Belum Disalurkan</th>
+                                        <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Donasi Terakhir</th>
+                                        <th className="px-3 pb-3 text-right font-medium whitespace-nowrap">Terakhir Disalurkan</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {donationReports.map((don) => (
                                         <tr key={don.store_id} className="border-b transition hover:bg-muted/30 last:border-0">
-                                            <td className="py-3 font-semibold">{don.store_name}</td>
-                                            <td className="py-3 text-center font-medium">{don.total_donors} Donatur</td>
-                                            <td className="py-3 text-right font-bold text-emerald-600">{formatCurrency(don.total_donations_collected)}</td>
-                                            <td className="py-3 text-right font-bold text-blue-600">{formatCurrency(don.total_distributed_amount)}</td>
-                                            <td className="py-3 text-right font-bold text-amber-600">{formatCurrency(don.pending_distribution_amount)}</td>
-                                            <td className="py-3 text-right text-xs text-muted-foreground">
+                                            <td className="px-3 py-3 font-semibold whitespace-nowrap">{don.store_name}</td>
+                                            <td className="px-3 py-3 text-center font-medium whitespace-nowrap">{don.total_donors} Donatur</td>
+                                            <td className="px-3 py-3 text-right font-bold whitespace-nowrap text-emerald-600">{formatCurrency(don.total_donations_collected)}</td>
+                                            <td className="px-3 py-3 text-right font-bold whitespace-nowrap text-blue-600">{formatCurrency(don.total_distributed_amount)}</td>
+                                            <td className="px-3 py-3 text-right font-bold whitespace-nowrap text-amber-600">{formatCurrency(don.pending_distribution_amount)}</td>
+                                            <td className="px-3 py-3 text-right text-xs whitespace-nowrap text-muted-foreground">
                                                 {don.last_donation_at ? formatDate(don.last_donation_at) : '-'}
                                             </td>
-                                            <td className="py-3 text-right text-xs text-muted-foreground">
+                                            <td className="px-3 py-3 text-right text-xs whitespace-nowrap text-muted-foreground">
                                                 {don.last_distributed_at ? formatDate(don.last_distributed_at) : '-'}
                                             </td>
                                         </tr>
