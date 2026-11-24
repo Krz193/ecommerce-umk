@@ -2,6 +2,7 @@ class StoreContentModel {
   final String id;
   final String storeId;
   final String createdBy;
+  final String? creatorName;
   final String title;
   final String contentType;
   final String? socialPlatform;
@@ -10,6 +11,11 @@ class StoreContentModel {
   final String? body;
   final List<String> mediaUrls;
   final bool isActive;
+  final int reachCount;
+  final int likesCount;
+  final int commentsCount;
+  final int sharesCount;
+  final int inquiriesCount;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? storeName;
@@ -18,10 +24,14 @@ class StoreContentModel {
   final int? productPrice;
   final String? productThumbnailUrl;
 
+  int get totalInteractions =>
+      likesCount + commentsCount + sharesCount + inquiriesCount;
+
   StoreContentModel({
     required this.id,
     required this.storeId,
     required this.createdBy,
+    this.creatorName,
     required this.title,
     required this.contentType,
     this.socialPlatform,
@@ -30,6 +40,11 @@ class StoreContentModel {
     this.body,
     required this.mediaUrls,
     required this.isActive,
+    this.reachCount = 0,
+    this.likesCount = 0,
+    this.commentsCount = 0,
+    this.sharesCount = 0,
+    this.inquiriesCount = 0,
     required this.createdAt,
     required this.updatedAt,
     this.storeName,
@@ -42,6 +57,9 @@ class StoreContentModel {
   factory StoreContentModel.fromMap(Map<String, dynamic> map) {
     final store = map['stores'] as Map<String, dynamic>?;
     final product = map['products'] as Map<String, dynamic>?;
+    final creator =
+        (map['users'] as Map<String, dynamic>?) ??
+        (map['creator'] as Map<String, dynamic>?);
     final media = map['media_urls'];
     List<String> parsedMedia = [];
     if (media is List) {
@@ -52,6 +70,8 @@ class StoreContentModel {
       id: map['id'] ?? '',
       storeId: map['store_id'] ?? '',
       createdBy: map['created_by'] ?? '',
+      creatorName:
+          (creator?['full_name'] as String?) ?? (map['creator_name'] as String?),
       title: map['title'] ?? '',
       contentType: map['content_type'] ?? 'promo',
       socialPlatform: map['social_platform'] as String?,
@@ -60,6 +80,11 @@ class StoreContentModel {
       body: map['body'],
       mediaUrls: parsedMedia,
       isActive: map['is_active'] ?? true,
+      reachCount: (map['reach_count'] as num?)?.toInt() ?? 0,
+      likesCount: (map['likes_count'] as num?)?.toInt() ?? 0,
+      commentsCount: (map['comments_count'] as num?)?.toInt() ?? 0,
+      sharesCount: (map['shares_count'] as num?)?.toInt() ?? 0,
+      inquiriesCount: (map['inquiries_count'] as num?)?.toInt() ?? 0,
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
           : DateTime.now(),
@@ -136,7 +161,7 @@ class StoreContentModel {
       case 'marketplace':
         return 'Marketplace';
       default:
-        return 'Aplikasi';
+        return 'Platform Eksternal';
     }
   }
 }

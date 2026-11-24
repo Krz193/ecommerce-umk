@@ -259,8 +259,8 @@ class AssistantDashboardPage extends ConsumerWidget {
                     children: [
                       _buildMenuCard(
                         context,
-                        title: 'Konten Promosi',
-                        subtitle: 'Medsos, Video & Gambar',
+                        title: 'Konten & Engagement',
+                        subtitle: 'Upload Link Bukti & Metrik',
                         icon: Icons.article_outlined,
                         color: Colors.orange.shade700,
                         onTap: activeStore == null
@@ -271,9 +271,9 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                       _buildMenuCard(
                         context,
-                        title: 'CRUD Engagement',
-                        subtitle: 'Reach, Likes & Aktivitas',
-                        icon: Icons.insights_outlined,
+                        title: 'Log Asistensi',
+                        subtitle: 'Riwayat Aktivitas Otomatis',
+                        icon: Icons.history_outlined,
                         color: Colors.purple.shade700,
                         onTap: () => context.push(
                           '/assistant/logs${activeStore != null ? '?storeId=${activeStore.storeId}' : ''}',

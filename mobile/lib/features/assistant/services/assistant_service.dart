@@ -107,84 +107,6 @@ class AssistantService {
     }
   }
 
-  Future<void> createEngagementLog({
-    required String storeId,
-    required String title,
-    required String actionType,
-    String? description,
-    String? channel,
-    int reachCount = 0,
-    int likesCount = 0,
-    int commentsCount = 0,
-    int sharesCount = 0,
-    int inquiriesCount = 0,
-  }) async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Pengguna belum terautentikasi');
-
-    await supabase.from('assistance_logs').insert({
-      'assistant_id': userId,
-      'store_id': storeId,
-      'action_type': actionType,
-      'title': title,
-      'description': description,
-      'channel': channel,
-      'reach_count': reachCount,
-      'likes_count': likesCount,
-      'comments_count': commentsCount,
-      'shares_count': sharesCount,
-      'inquiries_count': inquiriesCount,
-      'metadata': {
-        'channel': channel,
-        'reach_count': reachCount,
-        'likes_count': likesCount,
-        'comments_count': commentsCount,
-        'shares_count': sharesCount,
-        'inquiries_count': inquiriesCount,
-      },
-    });
-  }
-
-  Future<void> updateAssistanceLog({
-    required String logId,
-    required String title,
-    required String actionType,
-    String? description,
-    String? channel,
-    int reachCount = 0,
-    int likesCount = 0,
-    int commentsCount = 0,
-    int sharesCount = 0,
-    int inquiriesCount = 0,
-  }) async {
-    await supabase
-        .from('assistance_logs')
-        .update({
-          'title': title,
-          'action_type': actionType,
-          'description': description,
-          'channel': channel,
-          'reach_count': reachCount,
-          'likes_count': likesCount,
-          'comments_count': commentsCount,
-          'shares_count': sharesCount,
-          'inquiries_count': inquiriesCount,
-          'metadata': {
-            'channel': channel,
-            'reach_count': reachCount,
-            'likes_count': likesCount,
-            'comments_count': commentsCount,
-            'shares_count': sharesCount,
-            'inquiries_count': inquiriesCount,
-          },
-        })
-        .eq('id', logId);
-  }
-
-  Future<void> deleteAssistanceLog(String logId) async {
-    await supabase.from('assistance_logs').delete().eq('id', logId);
-  }
-
   Future<Map<String, dynamic>> getStoreDonationsSummary(String storeId) async {
     final rows = await supabase
         .from('donations')
@@ -231,28 +153,57 @@ class AssistantService {
   }) async {
     if (storeId.trim().isEmpty) return [];
 
-    final response = await supabase
-        .from('store_contents')
-        .select('''
-          *,
-          stores (
-            name
-          ),
-          products (
-            id,
-            name,
-            price,
-            thumbnail_url
-          )
-        ''')
-        .eq('store_id', storeId)
-        .order('created_at', ascending: false)
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => throw Exception(
-            'Waktu memuat konten habis. Periksa koneksi internet.',
-          ),
-        );
+    dynamic response;
+    try {
+      response = await supabase
+          .from('store_contents')
+          .select('''
+            *,
+            stores (
+              name
+            ),
+            products (
+              id,
+              name,
+              price,
+              thumbnail_url
+            ),
+            users:created_by (
+              full_name
+            )
+          ''')
+          .eq('store_id', storeId)
+          .order('created_at', ascending: false)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception(
+              'Waktu memuat konten habis. Periksa koneksi internet.',
+            ),
+          );
+    } catch (_) {
+      response = await supabase
+          .from('store_contents')
+          .select('''
+            *,
+            stores (
+              name
+            ),
+            products (
+              id,
+              name,
+              price,
+              thumbnail_url
+            )
+          ''')
+          .eq('store_id', storeId)
+          .order('created_at', ascending: false)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception(
+              'Waktu memuat konten habis. Periksa koneksi internet.',
+            ),
+          );
+    }
 
     final List<dynamic> data = response as List<dynamic>;
     return data.map((json) => StoreContentModel.fromMap(json)).toList();
@@ -262,13 +213,16 @@ class AssistantService {
     required String storeId,
     required String title,
     required String contentType,
-    String? socialPlatform,
+    required String socialPlatform,
     String mediaFormat = 'image',
-    String? externalUrl,
+    required String externalUrl,
     String? body,
-    List<String>? mediaUrls,
     String? productId,
-    bool isActive = true,
+    int reachCount = 0,
+    int likesCount = 0,
+    int commentsCount = 0,
+    int sharesCount = 0,
+    int inquiriesCount = 0,
   }) async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Pengguna belum terautentikasi');
@@ -284,9 +238,14 @@ class AssistantService {
           'media_format': mediaFormat,
           'external_url': externalUrl,
           'body': body,
-          'media_urls': mediaUrls ?? [],
+          'media_urls': <String>[],
           'product_id': productId,
-          'is_active': isActive,
+          'is_active': true,
+          'reach_count': reachCount,
+          'likes_count': likesCount,
+          'comments_count': commentsCount,
+          'shares_count': sharesCount,
+          'inquiries_count': inquiriesCount,
         })
         .select()
         .single();
@@ -298,12 +257,18 @@ class AssistantService {
       actionType: 'create_content',
       title: 'Membuat Konten: $title',
       description:
-          'Asisten UMK membuat konten ${newContent.contentTypeLabel} (${newContent.mediaFormatLabel})',
+          'Asisten UMK mencatat konten ${newContent.contentTypeLabel} (${newContent.mediaFormatLabel}) di ${newContent.socialPlatformLabel}',
       metadata: {
         'content_id': newContent.id,
         'content_type': contentType,
         'media_format': mediaFormat,
         'social_platform': socialPlatform,
+        'external_url': externalUrl,
+        'reach_count': reachCount,
+        'likes_count': likesCount,
+        'comments_count': commentsCount,
+        'shares_count': sharesCount,
+        'inquiries_count': inquiriesCount,
       },
     );
 
@@ -315,13 +280,16 @@ class AssistantService {
     required String storeId,
     required String title,
     required String contentType,
-    String? socialPlatform,
+    required String socialPlatform,
     String mediaFormat = 'image',
-    String? externalUrl,
+    required String externalUrl,
     String? body,
-    List<String>? mediaUrls,
     String? productId,
-    required bool isActive,
+    int reachCount = 0,
+    int likesCount = 0,
+    int commentsCount = 0,
+    int sharesCount = 0,
+    int inquiriesCount = 0,
   }) async {
     await supabase
         .from('store_contents')
@@ -332,9 +300,13 @@ class AssistantService {
           'media_format': mediaFormat,
           'external_url': externalUrl,
           'body': body,
-          'media_urls': mediaUrls ?? [],
           'product_id': productId,
-          'is_active': isActive,
+          'is_active': true,
+          'reach_count': reachCount,
+          'likes_count': likesCount,
+          'comments_count': commentsCount,
+          'shares_count': sharesCount,
+          'inquiries_count': inquiriesCount,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', contentId);
@@ -343,11 +315,18 @@ class AssistantService {
       storeId: storeId,
       actionType: 'update_content',
       title: 'Memperbarui Konten: $title',
-      description: 'Asisten UMK memperbarui konten toko ($mediaFormat)',
+      description:
+          'Asisten UMK memperbarui konten & engagement di $socialPlatform ($mediaFormat)',
       metadata: {
         'content_id': contentId,
         'media_format': mediaFormat,
         'social_platform': socialPlatform,
+        'external_url': externalUrl,
+        'reach_count': reachCount,
+        'likes_count': likesCount,
+        'comments_count': commentsCount,
+        'shares_count': sharesCount,
+        'inquiries_count': inquiriesCount,
       },
     );
   }
