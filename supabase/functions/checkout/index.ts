@@ -350,11 +350,15 @@ serve(async (req) => {
                     user_id,
                     recipient_name,
                     recipient_phone,
+                    province,
                     city,
+                    district,
                     postal_code,
                     full_address,
                     notes,
-                    biteship_area_id
+                    biteship_area_id,
+                    latitude,
+                    longitude
                 `
             )
             .eq("id", address_id)
@@ -381,6 +385,28 @@ serve(async (req) => {
                 }
             },);
         }
+
+        // Fetch store origin snapshot
+        const {data: store} = await supabase
+            .from("stores")
+            .select(
+                `
+                    id,
+                    name,
+                    phone,
+                    address,
+                    province,
+                    city,
+                    district,
+                    postal_code,
+                    notes,
+                    biteship_area_id,
+                    latitude,
+                    longitude
+                `
+            )
+            .eq("id", cart.store_id)
+            .maybeSingle();
 
         // Generate temporary order number
         const orderNumber = `ORD-${Date.now()}`;
@@ -413,6 +439,18 @@ serve(async (req) => {
                 destination_area_id: address.biteship_area_id || null,
                 shipping_city: address.city,
                 shipping_postal_code: address.postal_code,
+                shipping_latitude: address.latitude ?? null,
+                shipping_longitude: address.longitude ?? null,
+
+                origin_contact_name: store?.name ?? null,
+                origin_phone: store?.phone ?? null,
+                origin_address: store?.address ?? null,
+                origin_city: store?.city ?? null,
+                origin_postal_code: store?.postal_code ?? null,
+                origin_notes: store?.notes ?? null,
+                origin_area_id: store?.biteship_area_id ?? null,
+                origin_latitude: store?.latitude ?? null,
+                origin_longitude: store?.longitude ?? null,
 
                 courier_name: selected_courier?.courier_name || (selected_courier?.courier_code ? selected_courier.courier_code.toUpperCase() : "Kurir Standar"),
                 courier_code: selected_courier?.courier_code || "manual",
