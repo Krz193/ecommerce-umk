@@ -6,6 +6,7 @@ import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -21,6 +22,7 @@ class AssistantDashboardPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Dashboard Asisten UMK'),
         actions: [
+          const NotificationBellButton(),
           IconButton(
             icon: const Icon(Icons.person),
             tooltip: 'Profil Asisten',
@@ -349,7 +351,21 @@ class AssistantDashboardPage extends ConsumerWidget {
                         subtitle: 'Kelola Produk & Stok',
                         icon: Icons.inventory_2_outlined,
                         color: Colors.teal.shade700,
-                        onTap: () => context.push('/seller/products'),
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push('/seller/products'),
+                      ),
+                      _buildMenuCard(
+                        context,
+                        title: 'Flash Sale Toko',
+                        subtitle: 'Promo & Event Diskon',
+                        icon: Icons.bolt_outlined,
+                        color: Colors.deepOrange.shade600,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/seller/flash-sales?storeId=${activeStore.storeId}',
+                              ),
                       ),
                       _buildMenuCard(
                         context,

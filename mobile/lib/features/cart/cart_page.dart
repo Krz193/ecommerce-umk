@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/features/cart/services/cart_service.dart';
 import 'package:mobile/features/checkout/checkout_page.dart';
+import 'package:mobile/features/flash_sale/providers/flash_sale_provider.dart';
 
 class CartPage extends ConsumerWidget {
   const CartPage({super.key});
@@ -13,6 +15,8 @@ class CartPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final flashSales = ref.watch(cartFlashSalesProvider).asData?.value ?? const {};
+
     return Scaffold(
       appBar: AppBar(title: const Text('Cart')),
 
@@ -24,10 +28,13 @@ class CartPage extends ConsumerWidget {
                 return null;
               }
 
-              final total = carts.first.items.fold<int>(
-                0,
-                (total, item) => total + item.subtotal,
-              );
+              final total = carts.first.items.fold<int>(0, (sum, item) {
+                final split = flashSales[item.productId]?.splitForQuantity(
+                  item.quantity,
+                  fallbackRegularPrice: item.productPrice,
+                );
+                return sum + (split?.totalSubtotal ?? item.subtotal);
+              });
 
               return SafeArea(
                 top: false,
@@ -153,6 +160,13 @@ class CartPage extends ConsumerWidget {
 
                       itemBuilder: (context, index) {
                         final item = items[index];
+                        final split = flashSales[item.productId]
+                            ?.splitForQuantity(
+                              item.quantity,
+                              fallbackRegularPrice: item.productPrice,
+                            );
+                        final itemSubtotal =
+                            split?.totalSubtotal ?? item.subtotal;
 
                         return Container(
                           padding: const EdgeInsets.all(16),
@@ -200,7 +214,86 @@ class CartPage extends ConsumerWidget {
 
                               const SizedBox(height: 8),
 
-                              Text(CurrencyFormatter.format(item.productPrice)),
+                              if (split != null && split.isSplit) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: AppColors.primary.withAlpha(80),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '⚡ ${split.saleQty} pcs × ${CurrencyFormatter.format(split.salePrice)} (Harga Flash Sale)',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primaryHover,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '🏷️ ${split.regularQty} pcs × ${CurrencyFormatter.format(split.regularPrice)} (Harga Normal — Melewati sisa kuota/batas beli promo)',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ] else if (split != null && split.hasFlashSale) ...[
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDC2626),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        '⚡ Flash Sale',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      CurrencyFormatter.format(split.salePrice),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primaryHover,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      CurrencyFormatter.format(
+                                        split.regularPrice,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ] else
+                                Text(
+                                  CurrencyFormatter.format(item.productPrice),
+                                ),
 
                               const SizedBox(height: 8),
 
@@ -273,7 +366,10 @@ class CartPage extends ConsumerWidget {
                               const SizedBox(height: 12),
 
                               Text(
-                                'Subtotal: ${CurrencyFormatter.format(item.subtotal)}',
+                                'Subtotal: ${CurrencyFormatter.format(itemSubtotal)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),

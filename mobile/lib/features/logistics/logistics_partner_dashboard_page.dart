@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
+import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/order/widgets/in_app_call_dialog.dart';
 
 class LogisticsPartnerDashboardPage extends ConsumerStatefulWidget {
@@ -1208,6 +1209,7 @@ class _LogisticsPartnerDashboardPageState
         title: Text(partnerTitle),
         elevation: 0,
         actions: [
+          const NotificationBellButton(),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Segarkan Data',

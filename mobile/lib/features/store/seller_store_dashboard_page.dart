@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:mobile/core/utils/currency_formatter.dart';
+import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/order/models/order_model.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/product/models/product_model.dart';
@@ -23,6 +24,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Toko Saya'),
+        actions: const [NotificationBellButton()],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -169,6 +171,17 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                   subtitle: 'Buat harga spesial kenalan, diskon nominal/persen, atau 1x pakai',
                   onTap: () {
                     context.push('/seller/vouchers?storeId=${store.id}');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.bolt_outlined,
+                  title: 'Flash Sale & Promo Event',
+                  subtitle: 'Buat event Flash Sale toko atau daftarkan produk ke event Admin',
+                  onTap: () {
+                    context.push('/seller/flash-sales?storeId=${store.id}');
                   },
                 ),
               ],

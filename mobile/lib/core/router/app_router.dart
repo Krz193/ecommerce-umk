@@ -19,8 +19,10 @@ import 'package:mobile/features/cart/cart_page.dart';
 import 'package:mobile/features/donation/screens/buyer_donations_page.dart';
 import 'package:mobile/features/explore/explore_page.dart';
 import 'package:mobile/features/feedback/screens/feedback_page.dart';
+import 'package:mobile/features/flash_sale/screens/seller_flash_sale_page.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/logistics/logistics_partner_dashboard_page.dart';
+import 'package:mobile/features/notification/screens/notification_list_page.dart';
 import 'package:mobile/features/order/order_detail_page.dart';
 import 'package:mobile/features/order/orders_page.dart';
 import 'package:mobile/features/order/seller_order_detail_page.dart';
@@ -232,6 +234,19 @@ final appRouter = GoRouter(
         final storeId = state.uri.queryParameters['storeId'];
         return SellerVoucherListPage(storeId: storeId);
       },
+    ),
+
+    GoRoute(
+      path: '/seller/flash-sales',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return SellerFlashSalePage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationListPage(),
     ),
 
     GoRoute(

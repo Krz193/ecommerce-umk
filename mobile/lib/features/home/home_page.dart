@@ -8,6 +8,8 @@ import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/cart/widgets/cart_action_button.dart';
 import 'package:mobile/features/explore/explore_providers.dart';
+import 'package:mobile/features/flash_sale/widgets/flash_sale_home_section.dart';
+import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/product/models/product_model.dart';
 import 'package:mobile/features/product/providers/category_provider.dart';
 import 'package:mobile/features/product/providers/product_provider.dart';
@@ -85,7 +87,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           'E-commerce UMK',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        actions: const [CartActionButton()],
+        actions: const [NotificationBellButton(), CartActionButton()],
       ),
       body: ref
           .watch(productsProvider)
@@ -311,6 +313,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
 
                   const SizedBox(height: 20),
+
+                  // Flash Sale Ongoing & Upcoming Section
+                  const FlashSaleHomeSection(),
 
                   // Recommended Products Horizontal Scroll
                   recommendedAsync.when(

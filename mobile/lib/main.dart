@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
+import 'package:mobile/features/flash_sale/providers/flash_sale_provider.dart';
+import 'package:mobile/features/notification/providers/notification_provider.dart';
 import 'package:mobile/features/order/providers/orders_provider.dart';
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
@@ -101,6 +103,10 @@ class MyApp extends ConsumerWidget {
       ref.invalidate(sellerProductsProvider);
       ref.invalidate(sellerOrdersProvider);
       ref.invalidate(sellerOrderDetailProvider);
+      ref.invalidate(notificationsStreamProvider);
+      ref.invalidate(cartFlashSalesProvider);
+      ref.invalidate(productFlashSaleProvider);
+      ref.invalidate(sellerSaleEventsProvider);
     });
 
     return MaterialApp.router(

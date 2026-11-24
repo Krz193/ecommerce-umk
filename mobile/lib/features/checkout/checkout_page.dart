@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/features/cart/models/cart_model.dart';
 import 'package:mobile/features/checkout/providers/checkout_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
@@ -9,6 +10,8 @@ import 'package:mobile/features/address/models/address_model.dart';
 import 'package:mobile/features/address/providers/address_provider.dart';
 import 'package:mobile/features/checkout/models/shipping_rate_model.dart';
 import 'package:mobile/features/checkout/providers/shipping_provider.dart';
+import 'package:mobile/features/flash_sale/models/sale_event_model.dart';
+import 'package:mobile/features/flash_sale/providers/flash_sale_provider.dart';
 import 'package:mobile/features/payment/payment_page.dart';
 import 'package:mobile/features/voucher/services/voucher_service.dart';
 import 'package:go_router/go_router.dart';
@@ -60,10 +63,68 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     return addresses.first;
   }
 
+  ({
+    int effectiveSubtotal,
+    int flashSavings,
+    List<Map<String, dynamic>> voucherItems,
+    List<String> splitNotes,
+  }) _computeCartFlashSummary(
+    CartModel cart,
+    Map<String, ProductFlashSaleInfo> flashSales,
+  ) {
+    var effectiveSubtotal = 0;
+    final voucherItems = <Map<String, dynamic>>[];
+    final splitNotes = <String>[];
+
+    for (final item in cart.items) {
+      final split = flashSales[item.productId]?.splitForQuantity(
+        item.quantity,
+        fallbackRegularPrice: item.productPrice,
+      );
+
+      if (split != null && split.hasFlashSale) {
+        effectiveSubtotal += split.totalSubtotal;
+        voucherItems.add({
+          'product_id': item.productId,
+          'product_name': '${item.productName} (Flash Sale)',
+          'price': split.salePrice,
+          'quantity': split.saleQty,
+        });
+        if (split.regularQty > 0) {
+          voucherItems.add({
+            'product_id': item.productId,
+            'product_name': item.productName,
+            'price': split.regularPrice,
+            'quantity': split.regularQty,
+          });
+          splitNotes.add(
+            '${item.productName}: ${split.saleQty}x ${CurrencyFormatter.format(split.salePrice)} (Flash Sale) + ${split.regularQty}x ${CurrencyFormatter.format(split.regularPrice)} (Normal)',
+          );
+        }
+      } else {
+        effectiveSubtotal += item.subtotal;
+        voucherItems.add({
+          'product_id': item.productId,
+          'product_name': item.productName,
+          'price': item.productPrice,
+          'quantity': item.quantity,
+        });
+      }
+    }
+
+    final flashSavings = (cart.subtotal - effectiveSubtotal).clamp(0, cart.subtotal);
+    return (
+      effectiveSubtotal: effectiveSubtotal,
+      flashSavings: flashSavings,
+      voucherItems: voucherItems,
+      splitNotes: splitNotes,
+    );
+  }
+
   Future<void> applyVoucher(
     String storeId,
     int currentSubtotal,
-    List<dynamic> items,
+    List<Map<String, dynamic>> itemsPayload,
   ) async {
     final code = voucherController.text.trim().toUpperCase();
     if (code.isEmpty) {
@@ -72,13 +133,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       );
       return;
     }
-
-    final itemsPayload = items.map((i) => {
-      'product_id': i.productId,
-      'product_name': i.productName,
-      'price': i.productPrice,
-      'quantity': i.quantity,
-    }).toList();
 
     setState(() => isValidatingVoucher = true);
     try {
@@ -192,13 +246,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         );
       }
 
+      final flashSales =
+          ref.read(cartFlashSalesProvider).asData?.value ?? const {};
+      final flashSummary = _computeCartFlashSummary(cart, flashSales);
+      final effectiveSubtotal = flashSummary.effectiveSubtotal;
       final shippingCost = selectedCourier.price;
-      final discountedSubtotal = (cart.subtotal - voucherDiscount).clamp(0, cart.subtotal);
+      final discountedSubtotal =
+          (effectiveSubtotal - voucherDiscount).clamp(0, effectiveSubtotal);
       final grandTotal = discountedSubtotal + shippingCost + selectedDonationAmount;
 
       final confirmed = await confirmCheckout(
         itemCount: cart.totalItems,
-        subtotal: cart.subtotal,
+        subtotal: effectiveSubtotal,
         discount: voucherDiscount,
         shippingFee: shippingCost,
         grandTotal: grandTotal,
@@ -220,6 +279,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         voucherDiscount: voucherDiscount,
         donationAmount: selectedDonationAmount,
       );
+
+      ref.invalidate(cartFlashSalesProvider);
+      ref.invalidate(publicSaleEventsProvider);
 
       final orderData = result['order'];
       if (orderData != null && orderData['id'] != null) {
@@ -446,6 +508,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   Widget build(BuildContext context) {
     final addressState = ref.watch(addressProvider);
     final cartState = ref.watch(cartProvider);
+    final flashSales = ref.watch(cartFlashSalesProvider).asData?.value ?? const {};
     final selectedCourier = ref.watch(selectedShippingRateProvider);
 
     return Scaffold(
@@ -457,7 +520,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           }
 
           final cart = carts.first;
-          final subtotal = cart.subtotal;
+          final flashSummary = _computeCartFlashSummary(cart, flashSales);
+          final subtotal = flashSummary.effectiveSubtotal;
+          final flashSavings = flashSummary.flashSavings;
           final totalItems = cart.totalItems;
           final shippingCost = selectedCourier?.price ?? 0;
           final discountedSubtotal = (subtotal - voucherDiscount).clamp(0, subtotal);
@@ -495,9 +560,61 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Jumlah Barang ($totalItems item)'),
-                          Text(CurrencyFormatter.format(subtotal)),
+                          Text(CurrencyFormatter.format(cart.subtotal)),
                         ],
                       ),
+                      if (flashSavings > 0) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              '⚡ Hemat Flash Sale',
+                              style: TextStyle(
+                                color: Colors.deepOrange,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '- ${CurrencyFormatter.format(flashSavings)}',
+                              style: const TextStyle(
+                                color: Colors.deepOrange,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (flashSummary.splitNotes.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Rincian Split Kuota Flash Sale:',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepOrange,
+                                ),
+                              ),
+                              ...flashSummary.splitNotes.map(
+                                (note) => Text(
+                                  '• $note',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (voucherDiscount > 0) ...[
                         const SizedBox(height: 6),
                         Row(
@@ -581,7 +698,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 const SizedBox(height: 20),
 
                 // 1.5 Voucher Input Section (Phase Additional)
-                buildVoucherSection(cart.storeId, subtotal, cart.items),
+                buildVoucherSection(cart.storeId, subtotal, flashSummary.voucherItems),
 
                 const SizedBox(height: 20),
 
@@ -698,7 +815,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   Widget buildVoucherSection(
     String storeId,
     int currentSubtotal,
-    List<dynamic> items,
+    List<Map<String, dynamic>> itemsPayload,
   ) {
     final hasVoucher = appliedVoucherCode != null;
 
@@ -821,7 +938,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   ),
                   onPressed: isValidatingVoucher
                       ? null
-                      : () => applyVoucher(storeId, currentSubtotal, items),
+                      : () => applyVoucher(storeId, currentSubtotal, itemsPayload),
                   child: isValidatingVoucher
                       ? const SizedBox(
                           width: 16,
