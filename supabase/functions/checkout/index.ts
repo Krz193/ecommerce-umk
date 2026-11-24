@@ -11,6 +11,28 @@ interface ProductImageItem {
     sort_order: number;
 }
 
+interface FlashSaleRpcItem {
+    product_id: string;
+    sale_event_id: string;
+    sale_event_item_id: string;
+    event_title: string;
+    sale_price: number;
+    regular_price: number;
+    eligible_qty: number | null;
+}
+
+interface CheckoutLineItem {
+    product_id: string;
+    product_name: string;
+    unit_price: number;
+    quantity: number;
+    subtotal: number;
+    product_thumbnail: string | null;
+    is_flash_sale: boolean;
+    sale_event_id: string | null;
+    sale_event_item_id: string | null;
+}
+
 interface ProductRecord {
     id: string;
     name: string;
@@ -79,6 +101,11 @@ serve(async (req) => {
                 }
             },);
         }
+
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
+        const dbClient = serviceKey
+            ? createClient(Deno.env.get("SUPABASE_URL")!, serviceKey)
+            : supabase;
 
         // Parse request body
         const body = await req.json();
@@ -280,13 +307,86 @@ serve(async (req) => {
             }
         }
 
-        // Calculate totals
-        let subtotal = 0;
+        // Fetch active Flash Sale pricing per product (server-authoritative, Zero Client Trust)
+        const productIds = cartItems
+            .map((item) => {
+                const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
+                return product?.id;
+            })
+            .filter((id): id is string => Boolean(id));
 
+        const flashSaleMap = new Map<string, FlashSaleRpcItem>();
+        if (productIds.length > 0) {
+            const { data: flashSalesData, error: flashSalesError } = await supabase.rpc(
+                "get_active_product_flash_sales",
+                {
+                    p_product_ids: productIds,
+                    p_user_id: user.id,
+                },
+            );
+
+            if (!flashSalesError && Array.isArray(flashSalesData)) {
+                for (const fsItem of flashSalesData as FlashSaleRpcItem[]) {
+                    flashSaleMap.set(fsItem.product_id, fsItem);
+                }
+            }
+        }
+
+        // Build split checkout lines (Flash Sale portion + Regular Price overflow portion)
+        const checkoutLines: CheckoutLineItem[] = [];
         for (const item of cartItems) {
             const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
-            subtotal += Number(product?.price ?? 0) * item.quantity;
+            if (!product) continue;
+
+            const images = product.product_images;
+            const thumbnail = product.thumbnail_url ??
+                images?.slice().sort((a, b) => Number(a?.sort_order ?? 0) - Number(b?.sort_order ?? 0))?.[0]?.image_url ?? null;
+
+            const regularPrice = Math.round(Number(product.price ?? 0));
+            const flashInfo = flashSaleMap.get(product.id);
+            const salePrice = flashInfo ? Math.round(Number(flashInfo.sale_price ?? regularPrice)) : regularPrice;
+
+            let saleQty = 0;
+            if (flashInfo && salePrice < regularPrice) {
+                const eligibleQty = flashInfo.eligible_qty === null || flashInfo.eligible_qty === undefined
+                    ? item.quantity
+                    : Math.max(0, Number(flashInfo.eligible_qty));
+                saleQty = Math.min(item.quantity, eligibleQty);
+            }
+
+            const regularQty = item.quantity - saleQty;
+
+            if (saleQty > 0 && flashInfo) {
+                checkoutLines.push({
+                    product_id: product.id,
+                    product_name: `${product.name} (Flash Sale)`,
+                    unit_price: salePrice,
+                    quantity: saleQty,
+                    subtotal: salePrice * saleQty,
+                    product_thumbnail: thumbnail,
+                    is_flash_sale: true,
+                    sale_event_id: flashInfo.sale_event_id,
+                    sale_event_item_id: flashInfo.sale_event_item_id,
+                });
+            }
+
+            if (regularQty > 0) {
+                checkoutLines.push({
+                    product_id: product.id,
+                    product_name: product.name,
+                    unit_price: regularPrice,
+                    quantity: regularQty,
+                    subtotal: regularPrice * regularQty,
+                    product_thumbnail: thumbnail,
+                    is_flash_sale: false,
+                    sale_event_id: null,
+                    sale_event_item_id: null,
+                });
+            }
         }
+
+        // Calculate totals from split checkout lines
+        const subtotal = checkoutLines.reduce((sum, line) => sum + line.subtotal, 0);
 
         const shippingCost = selected_courier?.price ? Math.max(0, Number(selected_courier.price)) : 0;
         const applicationFee = 0;
@@ -298,15 +398,12 @@ serve(async (req) => {
 
         if (voucher_code || voucher_id) {
             try {
-                const voucherItemsPayload = cartItems.map((ci) => {
-                    const prod = (Array.isArray(ci.product) ? ci.product[0] : ci.product) as unknown as ProductRecord | null | undefined;
-                    return {
-                        product_id: prod?.id,
-                        product_name: prod?.name,
-                        price: Number(prod?.price ?? 0),
-                        quantity: ci.quantity
-                    };
-                });
+                const voucherItemsPayload = checkoutLines.map((line) => ({
+                    product_id: line.product_id,
+                    product_name: line.product_name,
+                    price: line.unit_price,
+                    quantity: line.quantity,
+                }));
 
                 const { data: vResult, error: vError } = await supabase.rpc('validate_and_apply_voucher', {
                     p_store_id: cart.store_id,
@@ -319,18 +416,9 @@ serve(async (req) => {
                     appliedVoucherDiscount = Math.min(subtotal, Math.max(0, Number(vResult.calculated_discount ?? 0)));
                     finalVoucherId = vResult.voucher_id ?? voucher_id ?? null;
                     finalVoucherCode = vResult.code ?? voucher_code ?? null;
-                } else if (voucher_discount && Number(voucher_discount) > 0) {
-                    appliedVoucherDiscount = Math.min(subtotal, Math.max(0, Number(voucher_discount)));
-                    finalVoucherId = voucher_id ?? null;
-                    finalVoucherCode = voucher_code ?? null;
                 }
             } catch (vErr) {
                 console.warn('Voucher verification error in checkout:', vErr);
-                if (voucher_discount && Number(voucher_discount) > 0) {
-                    appliedVoucherDiscount = Math.min(subtotal, Math.max(0, Number(voucher_discount)));
-                    finalVoucherId = voucher_id ?? null;
-                    finalVoucherCode = voucher_code ?? null;
-                }
             }
         }
 
@@ -435,54 +523,61 @@ serve(async (req) => {
             },);
         }
 
-        // Create order items snapshot
-        const orderItemsPayload =
-            cartItems.map((item) => {
+        // Reserve Flash Sale quota atomically and insert immutable order items snapshot
+        const orderItems = [];
+        for (const line of checkoutLines) {
+            if (line.is_flash_sale && line.sale_event_item_id) {
+                const { data: reserved, error: reserveErr } = await supabase.rpc(
+                    "reserve_flash_sale_quota",
+                    {
+                        p_sale_event_item_id: line.sale_event_item_id,
+                        p_qty: line.quantity,
+                        p_order_id: order.id,
+                    },
+                );
 
-                const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
-                const images = product?.product_images;
-                const thumbnail = product?.thumbnail_url ??
-                    images?.slice().sort((a, b) => Number(a?.sort_order ?? 0) - Number(b?.sort_order ?? 0))?.[0]?.image_url ?? null;
+                if (reserveErr || reserved !== true) {
+                    await dbClient.rpc("rollback_order_flash_sale_quota", { p_order_id: order.id });
+                    await dbClient.from("orders").delete().eq("id", order.id);
 
-                return {
+                    return jsonResponse(
+                        {
+                            error: `Kuota Flash Sale untuk ${line.product_name} baru saja habis. Silakan muat ulang keranjang Anda.`,
+                        },
+                        409,
+                    );
+                }
+            }
+
+            const { data: insertedItem, error: orderItemError } = await supabase
+                .from("order_items")
+                .insert({
                     order_id: order.id,
-                    product_id: product?.id,
-                    product_name: product?.name,
-                    product_price: product?.price,
-                    quantity: item.quantity,
-                    subtotal:
-                        Number(
-                            product?.price ?? 0,
-                        ) * item.quantity,
-                    product_thumbnail: thumbnail,
-                };
-            });
+                    product_id: line.product_id,
+                    product_name: line.product_name,
+                    product_price: line.unit_price,
+                    quantity: line.quantity,
+                    subtotal: line.subtotal,
+                    product_thumbnail: line.product_thumbnail,
+                    is_flash_sale: line.is_flash_sale,
+                    sale_event_id: line.sale_event_id,
+                    sale_event_item_id: line.sale_event_item_id,
+                })
+                .select()
+                .single();
 
-        console.log("Order items payload:", orderItemsPayload,);
+            if (orderItemError || !insertedItem) {
+                console.error("Order item insert error:", orderItemError);
+                await dbClient.rpc("rollback_order_flash_sale_quota", { p_order_id: order.id });
+                await dbClient.from("orders").delete().eq("id", order.id);
 
-        const {data: orderItems, error: orderItemsError} = await supabase
-            .from(
-                "order_items"
-            )
-            .insert(orderItemsPayload)
-            .select();
+                return jsonResponse({ error: "Failed to create order items" }, 500);
+            }
+
+            orderItems.push(insertedItem);
+        }
 
         console.log("Order items:", orderItems);
-        console.error("Order items error:", orderItemsError,);
-
-        if (orderItemsError) {
-            await supabase
-                .from("orders")
-                .delete()
-                .eq("id", order.id);
-
-            return new Response(JSON.stringify({error: "Failed to create order items"}), {
-                status: 500,
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            },);
-        }
 
         // Create payment record
         const {data: payment, error: paymentError} = await supabase
@@ -505,12 +600,13 @@ serve(async (req) => {
         console.error("Payment error:", paymentError,);
 
         if (paymentError || !payment) {
-            await supabase
+            await dbClient.rpc("rollback_order_flash_sale_quota", { p_order_id: order.id });
+            await dbClient
                 .from("order_items")
                 .delete()
                 .eq("order_id", order.id);
 
-            await supabase
+            await dbClient
                 .from("orders")
                 .delete()
                 .eq("id", order.id);
@@ -579,15 +675,12 @@ serve(async (req) => {
             },
 
             item_details: [
-                ...cartItems.map((item) => {
-                    const product = (Array.isArray(item.product) ? item.product[0] : item.product) as unknown as ProductRecord | null | undefined;
-                    return {
-                        id: product?.id,
-                        name: (product?.name || 'Produk').slice(0, 50),
-                        price: Number(product?.price ?? 0),
-                        quantity: item.quantity
-                    };
-                }),
+                ...checkoutLines.map((line) => ({
+                    id: line.is_flash_sale ? `${line.product_id}-FS` : line.product_id,
+                    name: line.product_name.slice(0, 50),
+                    price: line.unit_price,
+                    quantity: line.quantity,
+                })),
                 ...(shippingCost > 0 ? [{
                     id: "SHIPPING_FEE",
                     name: `Ongkir (${selected_courier?.courier_name ?? 'Kurir'} - ${selected_courier?.courier_service_name ?? 'Layanan'})`.slice(0, 50),
@@ -616,15 +709,16 @@ serve(async (req) => {
         console.log("Midtrans response:", midtransResult);
 
         if (!midtransResult.ok) {
+            await dbClient.rpc("rollback_order_flash_sale_quota", { p_order_id: order.id });
 
-            await supabase
+            await dbClient
                 .from("payments")
                 .update({
                     status: "failed",
                 })
                 .eq("id", payment.id);
 
-            await supabase
+            await dbClient
                 .from("orders")
                 .update({
                     status: "cancelled",
@@ -681,15 +775,16 @@ serve(async (req) => {
         );
 
         if (paymentUpdateError || !updatedPayment) {
+            await dbClient.rpc("rollback_order_flash_sale_quota", { p_order_id: order.id });
 
-            await supabase
+            await dbClient
                 .from("payments")
                 .update({
                     status: "failed",
                 })
                 .eq("id", payment.id);
 
-            await supabase
+            await dbClient
                 .from("orders")
                 .update({
                     status: "cancelled",

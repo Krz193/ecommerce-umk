@@ -348,6 +348,20 @@ serve(async (req) => {
                 "cancelled";
         }
 
+        // Release any reserved Flash Sale quota idempotently when payment expires or cancels
+        if (
+            body.transaction_status === "expire" ||
+            body.transaction_status === "cancel"
+        ) {
+            const { error: rollbackErr } = await supabase.rpc(
+                "rollback_order_flash_sale_quota",
+                { p_order_id: payment.order.id },
+            );
+            if (rollbackErr) {
+                console.error("Flash sale quota rollback error:", rollbackErr);
+            }
+        }
+
         /**
          * Inventory deduction lifecycle
          *
