@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/order/models/order_detail_model.dart';
+import 'package:mobile/features/order/providers/order_status_provider.dart';
 import 'package:mobile/features/order/providers/refund_request_provider.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/order/widgets/refund_request_dialog.dart';
+import 'package:mobile/features/order/widgets/shipment_tracking_section.dart';
+import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
 class SellerOrderDetailPage extends ConsumerStatefulWidget {
@@ -23,12 +29,84 @@ class SellerOrderDetailPage extends ConsumerStatefulWidget {
 class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
   bool isUpdating = false;
   bool isSubmittingRequest = false;
+  bool isSyncingTracking = false;
+  RealtimeChannel? _orderChannel;
+  String? _activeStoreId;
+
+  @override
+  void initState() {
+    super.initState();
+    _orderChannel = supabase
+        .channel('seller_order_detail_live:${widget.orderId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'orders',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.orderId,
+          ),
+          callback: (_) {
+            if (!mounted) return;
+            final storeId = _activeStoreId;
+            if (storeId != null) {
+              ref.invalidate(
+                sellerOrderDetailProvider(
+                  SellerOrderDetailParams(
+                    storeId: storeId,
+                    orderId: widget.orderId,
+                  ),
+                ),
+              );
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_orderChannel != null) {
+      supabase.removeChannel(_orderChannel!);
+    }
+    super.dispose();
+  }
+
+  Future<void> syncTracking(String storeId) async {
+    if (isSyncingTracking) return;
+    setState(() => isSyncingTracking = true);
+    try {
+      await ref
+          .read(orderStatusServiceProvider)
+          .syncOrderTracking(orderId: widget.orderId);
+      ref.invalidate(
+        sellerOrderDetailProvider(
+          SellerOrderDetailParams(storeId: storeId, orderId: widget.orderId),
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Status & titik pelacakan berhasil disinkronkan.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => isSyncingTracking = false);
+    }
+  }
 
   /// One-click automated dispatch & waybill creation (beginner-friendly)
   Future<void> handleAutoDispatch({
-    required String storeId,
+    required StoreModel store,
     required OrderDetailModel order,
   }) async {
+    final storeId = store.id;
     final courierDisplay = order.courierName?.isNotEmpty == true
         ? order.courierName!
         : (order.shippingProvider?.isNotEmpty == true
@@ -39,6 +117,38 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
         order.isInstantCourier ||
         courierDisplay.toLowerCase().contains('gojek') ||
         courierDisplay.toLowerCase().contains('grab');
+
+    final missingStoreCoords =
+        store.latitude == null ||
+        store.longitude == null ||
+        store.latitude == 0 ||
+        store.longitude == 0;
+
+    if (isInstant && missingStoreCoords) {
+      final goEdit = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Titik GPS Toko Belum Dipasang'),
+          content: const Text(
+            'Layanan kurir Instant/Same-Day membutuhkan koordinat GPS toko yang valid. Silakan set titik map toko terlebih dahulu.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Nanti'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Set Lokasi Toko'),
+            ),
+          ],
+        ),
+      );
+      if (goEdit == true && mounted) {
+        await context.push('/seller/edit-store', extra: store);
+      }
+      return;
+    }
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -388,6 +498,8 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
             return const Center(child: Text('Toko tidak ditemukan'));
           }
 
+          _activeStoreId = store.id;
+
           final orderAsync = ref.watch(
             sellerOrderDetailProvider(
               SellerOrderDetailParams(
@@ -399,19 +511,38 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
 
           return orderAsync.when(
             data: (order) {
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  buildHeaderCard(order),
-                  const SizedBox(height: 16),
-                  buildUnifiedShipmentSection(store.id, order),
-                  const SizedBox(height: 16),
-                  buildCustomerSection(order),
-                  const SizedBox(height: 16),
-                  buildItemsSection(order),
-                  const SizedBox(height: 16),
-                  buildRefundRequestSection(order),
-                ],
+              return RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(
+                    sellerOrderDetailProvider(
+                      SellerOrderDetailParams(
+                        storeId: store.id,
+                        orderId: widget.orderId,
+                      ),
+                    ),
+                  );
+                },
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    buildHeaderCard(order),
+                    const SizedBox(height: 16),
+                    SellerOriginDetailCard(
+                      order: order,
+                      isSellerView: true,
+                      onEditStoreLocation: () =>
+                          context.push('/seller/edit-store', extra: store),
+                    ),
+                    const SizedBox(height: 16),
+                    buildUnifiedShipmentSection(store, order),
+                    const SizedBox(height: 16),
+                    buildCustomerSection(order),
+                    const SizedBox(height: 16),
+                    buildItemsSection(order),
+                    const SizedBox(height: 16),
+                    buildRefundRequestSection(order),
+                  ],
+                ),
               );
             },
             error: (error, stackTrace) => Center(child: Text(error.toString())),
@@ -522,7 +653,8 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
   }
 
   /// Single Unified Shipment Section (Clean, 1-Click Dispatch, Zero Redundancy)
-  Widget buildUnifiedShipmentSection(String storeId, OrderDetailModel order) {
+  Widget buildUnifiedShipmentSection(StoreModel store, OrderDetailModel order) {
+    final storeId = store.id;
     final canShip =
         order.status == 'processing' && order.paymentStatus == 'paid';
     final isShipped = ['shipped', 'completed'].contains(order.status);
@@ -591,13 +723,39 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
                   buildInfoRow('Nama Driver', order.driverName!),
                 if (order.driverPhone != null && order.driverPhone!.isNotEmpty)
                   buildInfoRow('No. Telp Driver', order.driverPhone!),
+                if (order.driverVehiclePlate != null &&
+                    order.driverVehiclePlate!.isNotEmpty)
+                  buildInfoRow('Kendaraan / Plat', order.driverVehiclePlate!),
                 if (order.trackingStatus != null &&
                     order.trackingStatus!.isNotEmpty)
                   buildInfoRow(
                     'Status Logistik',
-                    order.trackingStatus!.toUpperCase(),
+                    formatOrderTrackingStatus(order.trackingStatus),
                   ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          ShipmentMapAndTrackingCard(
+            order: order,
+            isSyncing: isSyncingTracking,
+            onSyncTracking: () => syncTracking(storeId),
+          ),
+
+          const SizedBox(height: 12),
+
+          ShipmentDriverContactCard(
+            order: order,
+            currentUserRole: 'seller',
+            onOrderMutated: () => ref.invalidate(
+              sellerOrderDetailProvider(
+                SellerOrderDetailParams(
+                  storeId: storeId,
+                  orderId: widget.orderId,
+                ),
+              ),
             ),
           ),
 
@@ -619,7 +777,7 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
                 ),
                 onPressed: isUpdating
                     ? null
-                    : () => handleAutoDispatch(storeId: storeId, order: order),
+                    : () => handleAutoDispatch(store: store, order: order),
                 icon: isUpdating
                     ? const SizedBox(
                         width: 18,
@@ -683,6 +841,13 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
   }
 
   Widget buildCustomerSection(OrderDetailModel order) {
+    final destCityPostal = [
+      order.shippingCity,
+      order.shippingPostalCode,
+    ].where((e) => e != null && e.trim().isNotEmpty).join(' • ');
+    final destCoord =
+        '${order.effectiveDestLat.toStringAsFixed(5)}, ${order.effectiveDestLng.toStringAsFixed(5)}';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -700,8 +865,40 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
           buildInfoRow('Nama Penerima', order.shippingName),
           buildInfoRow('No. Telepon', order.shippingPhone),
           buildInfoRow('Alamat Lengkap', order.shippingAddress),
+          if (destCityPostal.isNotEmpty)
+            buildInfoRow('Kota / Kode Pos', destCityPostal),
           if (order.shippingNotes != null && order.shippingNotes!.isNotEmpty)
             buildInfoRow('Catatan / Patokan', order.shippingNotes!),
+          buildInfoRow('Koordinat GPS Tujuan', destCoord),
+          if (order.shippingPhone.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => launchWhatsAppChat(
+                    context,
+                    rawPhone: order.shippingPhone,
+                    message:
+                        'Halo Kak ${order.shippingName}, kami dari ${order.effectiveOriginName} mengonfirmasi pesanan ${order.orderNumber}.',
+                  ),
+                  icon: const Icon(Icons.chat_outlined, size: 16),
+                  label: const Text('Chat WA Pembeli'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      launchPhoneDialer(context, order.shippingPhone),
+                  icon: const Icon(Icons.call_outlined, size: 16),
+                  label: const Text('Telepon Pembeli'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

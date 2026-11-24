@@ -270,9 +270,16 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
   }
 
   Future<void> _dialCellularFallback() async {
-    final phone = widget.remotePartyPhone.trim().isNotEmpty
-        ? widget.remotePartyPhone.trim()
-        : '081200001111';
+    final phone = widget.remotePartyPhone.trim();
+    if (phone.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nomor telepon seluler pihak terkait belum tersedia.'),
+        ),
+      );
+      return;
+    }
     final uri = Uri(scheme: 'tel', path: phone);
     try {
       final launched = await launchUrl(uri);
@@ -282,7 +289,7 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
     await Clipboard.setData(ClipboardData(text: phone));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Nomor driver ($phone) disalin ke clipboard.')),
+      SnackBar(content: Text('Nomor telepon ($phone) disalin ke clipboard.')),
     );
   }
 
@@ -323,9 +330,8 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final phone = widget.remotePartyPhone.trim().isNotEmpty
-        ? widget.remotePartyPhone.trim()
-        : '081200001111';
+    final phone = widget.remotePartyPhone.trim();
+    final hasPhone = phone.isNotEmpty;
 
     return Dialog(
       backgroundColor: const Color(0xFF0F172A),
@@ -384,7 +390,9 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Order ${widget.orderNumber} • $phone',
+              hasPhone
+                  ? 'Order ${widget.orderNumber} • $phone'
+                  : 'Order ${widget.orderNumber}',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 10),
@@ -435,32 +443,34 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
               ],
             ),
 
-            const SizedBox(height: 20),
-            const Divider(color: Colors.white24),
-            const SizedBox(height: 10),
+            if (hasPhone) ...[
+              const SizedBox(height: 20),
+              const Divider(color: Colors.white24),
+              const SizedBox(height: 10),
 
-            // Fallback Cellular Call for External Biteship Gojek Drivers
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _dialCellularFallback,
-                icon: const Icon(
-                  Icons.phone_forwarded_rounded,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                label: Text(
-                  'Panggil Seluler Reguler ($phone)',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.white38),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Fallback Cellular Call when real phone number is available
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _dialCellularFallback,
+                  icon: const Icon(
+                    Icons.phone_forwarded_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    'Panggil Seluler Reguler ($phone)',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white38),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
