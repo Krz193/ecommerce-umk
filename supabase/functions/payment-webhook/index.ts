@@ -172,6 +172,128 @@ serve(async (req) => {
         );
 
         /**
+         * Handle UMK Donation Payment Webhook (DON-*)
+         */
+        if (String(order_id).startsWith("DON-")) {
+            const { data: donation, error: donationError } = await supabase
+                .from("donations")
+                .select("*")
+                .eq("donation_number", order_id)
+                .maybeSingle();
+
+            if (donationError) {
+                console.error("Webhook donation error:", donationError);
+            }
+
+            if (!donation) {
+                return new Response(
+                    JSON.stringify({
+                        error: "Donation not found",
+                    }),
+                    {
+                        status: 404,
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    },
+                );
+            }
+
+            const txStatus = String(body.transaction_status ?? "");
+            let nextDonationStatus = String(donation.status ?? "pending");
+
+            if (
+                txStatus === "settlement" ||
+                (txStatus === "capture" && body.fraud_status !== "deny")
+            ) {
+                nextDonationStatus = "paid";
+            } else if (txStatus === "expire") {
+                nextDonationStatus = "expired";
+            } else if (txStatus === "cancel" || txStatus === "deny") {
+                nextDonationStatus = "failed";
+            }
+
+            if (donation.status === "distributed") {
+                return new Response(
+                    JSON.stringify({
+                        success: true,
+                        message: "Distributed donation ignored",
+                        donation,
+                    }),
+                    {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    },
+                );
+            }
+
+            if (donation.status === "paid" && nextDonationStatus === "paid") {
+                return new Response(
+                    JSON.stringify({
+                        success: true,
+                        message: "Duplicate donation settlement ignored",
+                        donation,
+                    }),
+                    {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    },
+                );
+            }
+
+            const { data: updatedDonation, error: updateDonationError } =
+                await supabase
+                    .from("donations")
+                    .update({
+                        status: nextDonationStatus,
+                        paid_at:
+                            nextDonationStatus === "paid"
+                                ? (donation.paid_at ?? new Date().toISOString())
+                                : donation.paid_at,
+                        payment_raw_response: body,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", donation.id)
+                    .select()
+                    .single();
+
+            if (updateDonationError) {
+                console.error(
+                    "Updated webhook donation error:",
+                    updateDonationError,
+                );
+                return new Response(
+                    JSON.stringify({
+                        error: "Failed to update donation status",
+                    }),
+                    {
+                        status: 500,
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    },
+                );
+            }
+
+            return new Response(
+                JSON.stringify({
+                    success: true,
+                    donation: updatedDonation,
+                }),
+                {
+                    status: 200,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                },
+            );
+        }
+
+        /**
          * Lookup payment transaction
          */
         const { data: payment, error: paymentError } = await supabase
