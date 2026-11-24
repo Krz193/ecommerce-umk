@@ -3,10 +3,12 @@
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\NotificationBroadcastController;
 use App\Http\Controllers\Admin\OrderLookupController;
 use App\Http\Controllers\Admin\ProductModerationController;
 use App\Http\Controllers\Admin\RefundCaseController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\SaleEventController;
 use App\Http\Controllers\Admin\StoreModerationController;
 use App\Http\Controllers\Admin\UserLookupController;
 use App\Http\Controllers\Admin\ProductRecommendationController;
@@ -31,6 +33,21 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('recommendations', [ProductRecommendationController::class, 'store'])->name('admin.recommendations.store');
     Route::patch('recommendations/{recommendation}', [ProductRecommendationController::class, 'update'])->name('admin.recommendations.update');
     Route::delete('recommendations/{recommendation}', [ProductRecommendationController::class, 'destroy'])->name('admin.recommendations.destroy');
+
+    // Flash Sale & Sale Events CRUD
+    Route::get('sale-events', [SaleEventController::class, 'index'])->name('admin.sale-events.index');
+    Route::post('sale-events', [SaleEventController::class, 'store'])->name('admin.sale-events.store');
+    Route::get('sale-events/{saleEvent}', [SaleEventController::class, 'show'])->name('admin.sale-events.show');
+    Route::patch('sale-events/{saleEvent}', [SaleEventController::class, 'update'])->name('admin.sale-events.update');
+    Route::delete('sale-events/{saleEvent}', [SaleEventController::class, 'destroy'])->name('admin.sale-events.destroy');
+    Route::post('sale-events/{saleEvent}/items', [SaleEventController::class, 'addItem'])->name('admin.sale-events.items.store');
+    Route::patch('sale-events/{saleEvent}/items/{item}', [SaleEventController::class, 'updateItem'])->name('admin.sale-events.items.update');
+    Route::delete('sale-events/{saleEvent}/items/{item}', [SaleEventController::class, 'removeItem'])->name('admin.sale-events.items.destroy');
+
+    // Broadcast & In-App Notifications
+    Route::get('notifications', [NotificationBroadcastController::class, 'index'])->name('admin.notifications.index');
+    Route::post('notifications', [NotificationBroadcastController::class, 'store'])->name('admin.notifications.store');
+    Route::delete('notifications/{notification}', [NotificationBroadcastController::class, 'destroy'])->name('admin.notifications.destroy');
 
     // Dynamic Roles & Permissions (RBAC)
     Route::get('roles', [RoleController::class, 'index'])->name('admin.roles.index');

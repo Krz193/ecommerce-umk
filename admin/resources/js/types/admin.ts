@@ -140,3 +140,56 @@ export type SystemFeedbackRow = {
     user_phone: string | null;
     user_username: string | null;
 };
+
+export type SaleEventRow = {
+    id: string;
+    store_id: string | null;
+    title: string;
+    slug: string;
+    description: string | null;
+    banner_url: string | null;
+    start_time: string;
+    end_time: string;
+    is_active: boolean;
+    created_at: string;
+    store_name: string | null;
+    total_items?: number;
+    total_sold?: number;
+};
+
+export type SaleEventItemRow = {
+    id: string;
+    sale_event_id: string;
+    product_id: string;
+    store_id: string;
+    discount_type: 'percentage' | 'nominal' | 'fixed_price';
+    discount_value: string | number;
+    sale_price: string | number;
+    sale_quota: number | null;
+    sold_count: number;
+    max_qty_per_user: number | null;
+    is_active: boolean;
+    created_at: string;
+    product_name: string;
+    regular_price: string | number;
+    product_stock: number;
+    product_thumbnail: string | null;
+    product_status: string;
+    store_name: string;
+};
+
+export type NotificationRow = {
+    id: string;
+    user_id: string;
+    category: 'transaction' | 'promo' | 'system';
+    type: string;
+    title: string;
+    body: string;
+    target_route: string | null;
+    is_read: boolean;
+    read_at: string | null;
+    created_at: string;
+    user_name: string | null;
+    user_role: string | null;
+    user_email: string | null;
+};
