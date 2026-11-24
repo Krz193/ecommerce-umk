@@ -4,6 +4,8 @@ import 'package:mobile/features/address/models/address_model.dart';
 import 'package:mobile/features/address/models/biteship_area_model.dart';
 import 'package:mobile/features/auth/models/app_user_model.dart';
 import 'package:mobile/features/order/models/order_detail_model.dart';
+import 'package:mobile/features/order/widgets/shipment_tracking_section.dart';
+import 'package:mobile/features/store/models/store_model.dart';
 
 void main() {
   group('Biteship Logistics Unit & Automated Tests', () {
@@ -237,6 +239,281 @@ void main() {
           find.text('Patokan: Pagar hitam, seberang minimarket'),
           findsOneWidget,
         );
+      },
+    );
+
+    test('AddressModel & StoreModel parse GPS coordinates and administrative fields', () {
+      final address = AddressModel.fromMap({
+        'id': 'addr-gps-1',
+        'recipient_name': 'Siti',
+        'recipient_phone': '081122334455',
+        'province': 'Jawa Barat',
+        'city': 'Bandung',
+        'district': 'Coblong',
+        'postal_code': '40132',
+        'full_address': 'Jl. Dago No. 10',
+        'latitude': -6.8891,
+        'longitude': 107.6104,
+        'is_default': true,
+      });
+
+      expect(address.latitude, -6.8891);
+      expect(address.longitude, 107.6104);
+
+      final store = StoreModel.fromMap({
+        'id': 'store-gps-1',
+        'owner_id': 'owner-1',
+        'name': 'Batik Nusantara',
+        'slug': 'batik-nusantara',
+        'description': 'Batik tulis asli',
+        'phone': '081999111222',
+        'address': 'Jl. Malioboro No. 5',
+        'province': 'DI Yogyakarta',
+        'city': 'Yogyakarta',
+        'district': 'Gedongtengen',
+        'postal_code': '55272',
+        'notes': 'Depan halte bus',
+        'biteship_area_id': 'IDNP5IDNC552IDZ55272',
+        'latitude': -7.7926,
+        'longitude': 110.3658,
+        'status': 'active',
+      });
+
+      expect(store.province, 'DI Yogyakarta');
+      expect(store.city, 'Yogyakarta');
+      expect(store.district, 'Gedongtengen');
+      expect(store.postalCode, '55272');
+      expect(store.notes, 'Depan halte bus');
+      expect(store.biteshipAreaId, 'IDNP5IDNC552IDZ55272');
+      expect(store.latitude, -7.7926);
+      expect(store.longitude, 110.3658);
+    });
+
+    test(
+      'OrderDetailModel handles origin snapshot vs store fallback, courier classification, and resolvedCheckpoints',
+      () {
+        // 1. Order with explicit origin snapshot + Biteship expedition checkpoints (mixed coords)
+        final biteshipExpOrder = OrderDetailModel.fromJson({
+          'id': 'ord-bs-exp-1',
+          'user_id': 'buyer-1',
+          'store_id': 'store-1',
+          'store': {
+            'id': 'store-1',
+            'name': 'Toko Fallback',
+            'phone': '08111111111',
+            'address': 'Alamat Store Baru',
+            'latitude': -6.1000,
+            'longitude': 106.7000,
+          },
+          'origin_contact_name': 'Kopi Nusantara Snapshot',
+          'origin_phone': '081288889999',
+          'origin_address': 'Jl. Kemang Raya No. 8',
+          'origin_city': 'Jakarta Selatan',
+          'origin_postal_code': '12730',
+          'origin_notes': 'Sebelah toko roti',
+          'origin_latitude': -6.2600,
+          'origin_longitude': 106.8150,
+          'order_number': 'ORD-BS-100',
+          'status': 'shipped',
+          'subtotal': 100000,
+          'shipping_cost': 15000,
+          'total_amount': 115000,
+          'payment_status': 'paid',
+          'shipping_name': 'Andi',
+          'shipping_phone': '081377776666',
+          'shipping_address': 'Jl. Sudirman No. 1',
+          'shipping_latitude': -6.2100,
+          'shipping_longitude': 106.8200,
+          'created_at': '2026-11-20T10:00:00Z',
+          'shipping_provider': 'JNE Reguler',
+          'courier_name': 'JNE Reguler',
+          'courier_code': 'jne',
+          'courier_service_type': 'standard',
+          'biteship_order_id': 'bs_order_abc123',
+          'waybill_id': 'JNE99887766',
+          'tracking_number': 'JNE99887766',
+          'tracking_status': 'dropping_off',
+          'tracking_history': [
+            {
+              'status': 'allocated',
+              'checkpoint_name': 'Hub Pickup Jakarta Selatan',
+              'note': 'Paket dipickup kurir',
+              'latitude': -6.2500,
+              'longitude': 106.8160,
+              'timestamp': '2026-11-20T11:00:00Z',
+            },
+            {
+              'status': 'dropping_off',
+              'note': 'Transit Gudang Sortir Pusat',
+              'timestamp': '2026-11-20T15:00:00Z',
+            },
+          ],
+          'order_items': [],
+        });
+
+        expect(biteshipExpOrder.effectiveOriginName, 'Kopi Nusantara Snapshot');
+        expect(biteshipExpOrder.effectiveOriginPhone, '081288889999');
+        expect(biteshipExpOrder.effectiveOriginAddress, 'Jl. Kemang Raya No. 8');
+        expect(biteshipExpOrder.effectiveOriginNotes, 'Sebelah toko roti');
+        expect(biteshipExpOrder.effectiveStoreLat, -6.2600);
+        expect(biteshipExpOrder.effectiveStoreLng, 106.8150);
+        expect(biteshipExpOrder.isBiteshipManaged, isTrue);
+        expect(biteshipExpOrder.isLocalPartnerManaged, isFalse);
+        expect(biteshipExpOrder.hasRealDriverPhone, isFalse);
+        expect(biteshipExpOrder.isShipmentClosed, isFalse);
+
+        final cps = biteshipExpOrder.resolvedCheckpoints;
+        expect(cps.length, 2);
+        expect(cps[0].title, 'Hub Pickup Jakarta Selatan');
+        expect(cps[0].isEstimatedCoordinate, isFalse);
+        expect(cps[0].latitude, -6.2500);
+        expect(cps[1].isEstimatedCoordinate, isTrue);
+        expect(cps[1].latitude, inInclusiveRange(-6.2600, -6.2100));
+
+        // 2. Local partner order with store fallback & completed status
+        final localClosedOrder = OrderDetailModel.fromJson({
+          'id': 'ord-local-2',
+          'user_id': 'buyer-2',
+          'store_id': 'store-2',
+          'store': {
+            'id': 'store-2',
+            'name': 'Warung Sambal Bu Ani',
+            'phone': '085612345678',
+            'address': 'Jl. Pasar Baru No. 2',
+            'notes': 'Masuk gang melati',
+            'latitude': -6.1650,
+            'longitude': 106.8350,
+          },
+          'order_number': 'ORD-LOC-200',
+          'status': 'completed',
+          'total_amount': 45000,
+          'payment_status': 'paid',
+          'shipping_name': 'Rina',
+          'shipping_phone': '081512341234',
+          'shipping_address': 'Jl. Sabang No. 9',
+          'created_at': '2026-11-20T08:00:00Z',
+          'shipping_provider': 'Ojek Lokal UMKM',
+          'courier_name': 'Ojek Lokal UMKM',
+          'courier_code': 'ojek_lokal',
+          'courier_service_type': 'instant',
+          'driver_id': 'driver-uuid-1',
+          'driver_name': 'Pak Agus',
+          'driver_phone': '081900011122',
+          'tracking_number': '',
+          'tracking_status': 'delivered',
+          'order_items': [],
+        });
+
+        expect(localClosedOrder.effectiveOriginName, 'Warung Sambal Bu Ani');
+        expect(localClosedOrder.effectiveOriginPhone, '085612345678');
+        expect(localClosedOrder.effectiveOriginAddress, 'Jl. Pasar Baru No. 2');
+        expect(localClosedOrder.effectiveOriginNotes, 'Masuk gang melati');
+        expect(localClosedOrder.effectiveStoreLat, -6.1650);
+        expect(localClosedOrder.isBiteshipManaged, isFalse);
+        expect(localClosedOrder.isLocalPartnerManaged, isTrue);
+        expect(localClosedOrder.hasRealDriverPhone, isTrue);
+        expect(localClosedOrder.isShipmentClosed, isTrue);
+      },
+    );
+
+    testWidgets(
+      'SellerOriginDetailCard and ShipmentDriverContactCard enforce Biteship Call/Msg rules without fake numbers',
+      (tester) async {
+        final biteshipNoPhone = OrderDetailModel.fromJson({
+          'id': 'ord-widget-1',
+          'user_id': 'buyer-1',
+          'store_id': 'store-1',
+          'origin_contact_name': 'UMKM Keripik Apel',
+          'origin_phone': '081234560000',
+          'origin_address': 'Jl. Soekarno Hatta No. 12',
+          'origin_city': 'Malang',
+          'origin_postal_code': '65141',
+          'origin_notes': 'Ruko biru',
+          'order_number': 'ORD-W-1',
+          'status': 'shipped',
+          'total_amount': 50000,
+          'payment_status': 'paid',
+          'shipping_name': 'Budi',
+          'shipping_phone': '081200009999',
+          'shipping_address': 'Jl. Merdeka No. 1',
+          'created_at': '2026-11-20T08:00:00Z',
+          'shipping_provider': 'JNE Reguler',
+          'courier_name': 'JNE Reguler',
+          'courier_code': 'jne',
+          'biteship_order_id': 'bs-123',
+          'tracking_number': 'JNE12345',
+          'waybill_id': 'JNE12345',
+          'tracking_status': 'dropping_off',
+          'order_items': [],
+        });
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    SellerOriginDetailCard(order: biteshipNoPhone),
+                    ShipmentDriverContactCard(
+                      order: biteshipNoPhone,
+                      currentUserRole: 'buyer',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('UMKM Keripik Apel'), findsOneWidget);
+        expect(find.text('081234560000'), findsOneWidget);
+        expect(find.text('Ruko biru'), findsOneWidget);
+        // Never show fake fallback phone 081200001111 or Telepon Kurir button without real driver_phone
+        expect(find.textContaining('081200001111'), findsNothing);
+        expect(find.text('Telepon Kurir'), findsNothing);
+        expect(find.text('In-App Call (VoIP)'), findsNothing);
+
+        // Now test Biteship Instant with real driver_phone
+        final biteshipWithPhone = OrderDetailModel.fromJson({
+          'id': 'ord-widget-2',
+          'user_id': 'buyer-1',
+          'store_id': 'store-1',
+          'order_number': 'ORD-W-2',
+          'status': 'shipped',
+          'total_amount': 50000,
+          'payment_status': 'paid',
+          'shipping_name': 'Budi',
+          'shipping_phone': '081200009999',
+          'shipping_address': 'Jl. Merdeka No. 1',
+          'created_at': '2026-11-20T08:00:00Z',
+          'shipping_provider': 'Gojek - Instant',
+          'courier_name': 'Gojek - Instant',
+          'courier_code': 'gojek',
+          'courier_service_type': 'instant',
+          'biteship_order_id': 'bs-456',
+          'driver_name': 'Pak Joko Gojek',
+          'driver_phone': '08188887777',
+          'driver_vehicle_plate': 'B 1234 XYZ',
+          'tracking_number': 'GK-999',
+          'tracking_status': 'picking_up',
+          'order_items': [],
+        });
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ShipmentDriverContactCard(
+                order: biteshipWithPhone,
+                currentUserRole: 'buyer',
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('Pak Joko Gojek'), findsOneWidget);
+        expect(find.text('Telepon Kurir'), findsOneWidget);
+        expect(find.text('WhatsApp'), findsOneWidget);
+        expect(find.text('In-App Call (VoIP)'), findsNothing);
       },
     );
   });
