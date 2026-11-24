@@ -14,6 +14,9 @@ class StoreException implements Exception {
 class StoreService {
   final SupabaseClient _supabase = supabase;
 
+  static const String storeSelectColumns =
+      'id, owner_id, name, slug, description, phone, address, province, city, district, postal_code, notes, biteship_area_id, latitude, longitude, status';
+
   Future<StoreModel?> getMyStore() async {
     final user = _supabase.auth.currentUser;
 
@@ -23,7 +26,7 @@ class StoreService {
 
     final response = await _supabase
         .from('stores')
-        .select('id, owner_id, name, slug, description, phone, address, status')
+        .select(storeSelectColumns)
         .eq('owner_id', user.id)
         .maybeSingle();
 
@@ -37,7 +40,7 @@ class StoreService {
   Future<StoreModel?> getStoreById(String storeId) async {
     final response = await _supabase
         .from('stores')
-        .select('id, owner_id, name, slug, description, phone, address, status')
+        .select(storeSelectColumns)
         .eq('id', storeId)
         .maybeSingle();
 
@@ -54,6 +57,14 @@ class StoreService {
     String? description,
     String? phone,
     String? address,
+    String? province,
+    String? city,
+    String? district,
+    String? postalCode,
+    String? notes,
+    String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
   }) async {
     final response = await _supabase
         .from('stores')
@@ -62,10 +73,18 @@ class StoreService {
           'description': description,
           'phone': phone,
           'address': address,
+          'province': ?province,
+          'city': ?city,
+          'district': ?district,
+          'postal_code': ?postalCode,
+          'notes': notes,
+          'biteship_area_id': ?biteshipAreaId,
+          'latitude': ?latitude,
+          'longitude': ?longitude,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', storeId)
-        .select('id, owner_id, name, slug, description, phone, address, status')
+        .select(storeSelectColumns)
         .single();
 
     return StoreModel.fromMap(response);
@@ -77,6 +96,14 @@ class StoreService {
     String? description,
     String? phone,
     String? address,
+    String? province,
+    String? city,
+    String? district,
+    String? postalCode,
+    String? notes,
+    String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
   }) async {
     final user = _supabase.auth.currentUser;
 
@@ -94,11 +121,17 @@ class StoreService {
             'description': description,
             'phone': phone,
             'address': address,
+            'province': ?province,
+            'city': ?city,
+            'district': ?district,
+            'postal_code': ?postalCode,
+            'notes': ?notes,
+            'biteship_area_id': ?biteshipAreaId,
+            'latitude': ?latitude,
+            'longitude': ?longitude,
             'status': 'pending',
           })
-          .select(
-            'id, owner_id, name, slug, description, phone, address, status',
-          )
+          .select(storeSelectColumns)
           .single();
 
       return StoreModel.fromMap(response);

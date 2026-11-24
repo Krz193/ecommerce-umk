@@ -13,6 +13,22 @@ class StoreModel {
 
   final String? address;
 
+  final String? province;
+
+  final String? city;
+
+  final String? district;
+
+  final String? postalCode;
+
+  final String? notes;
+
+  final String? biteshipAreaId;
+
+  final double? latitude;
+
+  final double? longitude;
+
   final String status;
 
   StoreModel({
@@ -23,6 +39,14 @@ class StoreModel {
     required this.description,
     required this.phone,
     required this.address,
+    this.province,
+    this.city,
+    this.district,
+    this.postalCode,
+    this.notes,
+    this.biteshipAreaId,
+    this.latitude,
+    this.longitude,
     required this.status,
   });
 
@@ -35,6 +59,14 @@ class StoreModel {
       description: map['description'],
       phone: map['phone'],
       address: map['address'],
+      province: map['province'],
+      city: map['city'],
+      district: map['district'],
+      postalCode: map['postal_code'],
+      notes: map['notes'],
+      biteshipAreaId: map['biteship_area_id'],
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
       status: map['status'],
     );
   }

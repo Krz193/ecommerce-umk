@@ -36,6 +36,8 @@ class AddressService {
           full_address,
           notes,
           biteship_area_id,
+          latitude,
+          longitude,
           is_default
         ''')
         .eq('user_id', user.id)
@@ -58,6 +60,8 @@ class AddressService {
     String? postalCode,
     String? notes,
     String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
     bool isDefault = false,
   }) async {
     final user = _supabase.auth.currentUser;
@@ -88,6 +92,8 @@ class AddressService {
             'full_address': fullAddress,
             'notes': blankToNull(notes),
             'biteship_area_id': blankToNull(biteshipAreaId),
+            'latitude': ?latitude,
+            'longitude': ?longitude,
             'is_default': shouldBeDefault,
           })
           .select()
@@ -111,6 +117,8 @@ class AddressService {
     String? postalCode,
     String? notes,
     String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
     bool isDefault = false,
   }) async {
     final user = _supabase.auth.currentUser;
@@ -137,6 +145,8 @@ class AddressService {
             'full_address': fullAddress,
             'notes': blankToNull(notes),
             'biteship_area_id': blankToNull(biteshipAreaId),
+            'latitude': ?latitude,
+            'longitude': ?longitude,
             'is_default': isDefault,
           })
           .eq('id', addressId)
