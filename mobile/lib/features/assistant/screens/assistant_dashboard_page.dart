@@ -271,6 +271,18 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                       _buildMenuCard(
                         context,
+                        title: 'Monitoring Donasi',
+                        subtitle: 'Pantau Donasi & Penyaluran',
+                        icon: Icons.volunteer_activism_outlined,
+                        color: Colors.pink.shade700,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/assistant/donations?storeId=${activeStore.storeId}',
+                              ),
+                      ),
+                      _buildMenuCard(
+                        context,
                         title: 'CRUD Engagement',
                         subtitle: 'Reach, Likes & Aktivitas',
                         icon: Icons.insights_outlined,
@@ -461,8 +473,10 @@ class AssistantDashboardPage extends ConsumerWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => context.push('/seller/reports'),
-                child: const Text('Detail >'),
+                onPressed: () => context.push(
+                  '/assistant/donations?storeId=${activeStore.storeId}',
+                ),
+                child: const Text('Lihat Donasi >'),
               ),
             ],
           ),
@@ -475,6 +489,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                   value: CurrencyFormatter.format(totalSalesRevenue),
                   sub: '${paidOrders.length} transaksi',
                   color: Colors.green.shade700,
+                  onTap: () => context.push('/seller/reports'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -484,6 +499,9 @@ class AssistantDashboardPage extends ConsumerWidget {
                   value: CurrencyFormatter.format(totalDonationsCollected),
                   sub: '$donorCount donatur',
                   color: Colors.pink.shade700,
+                  onTap: () => context.push(
+                    '/assistant/donations?storeId=${activeStore.storeId}',
+                  ),
                 ),
               ),
             ],
@@ -497,6 +515,9 @@ class AssistantDashboardPage extends ConsumerWidget {
                   value: CurrencyFormatter.format(totalDonationsDistributed),
                   sub: 'Diterima UKM Binaan',
                   color: Colors.indigo.shade700,
+                  onTap: () => context.push(
+                    '/assistant/donations?storeId=${activeStore.storeId}',
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -506,6 +527,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                   value: '${orders.length} Pesanan',
                   sub: 'Semua status order',
                   color: Colors.blue.shade700,
+                  onTap: () => context.push('/seller/orders'),
                 ),
               ),
             ],
@@ -520,35 +542,40 @@ class AssistantDashboardPage extends ConsumerWidget {
     required String value,
     required String sub,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withAlpha(16),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: color,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withAlpha(16),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            sub,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              sub,
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
       ),
     );
   }

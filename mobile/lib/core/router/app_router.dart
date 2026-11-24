@@ -10,6 +10,7 @@ import 'package:mobile/features/address/address_list_page.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/screens/assistance_log_page.dart';
 import 'package:mobile/features/assistant/screens/assistant_dashboard_page.dart';
+import 'package:mobile/features/assistant/screens/assistant_donations_page.dart';
 import 'package:mobile/features/assistant/screens/assistant_profile_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_form_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_list_page.dart';
@@ -17,6 +18,8 @@ import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/auth/register_page.dart';
 import 'package:mobile/features/cart/cart_page.dart';
 import 'package:mobile/features/donation/screens/buyer_donations_page.dart';
+import 'package:mobile/features/donation/screens/donation_payment_page.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/explore/explore_page.dart';
 import 'package:mobile/features/feedback/screens/feedback_page.dart';
 import 'package:mobile/features/home/home_page.dart';
@@ -134,6 +137,24 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/donations',
       builder: (context, state) => const BuyerDonationsPage(),
+    ),
+    GoRoute(
+      path: '/donations/pay',
+      builder: (context, state) {
+        final qp = state.uri.queryParameters;
+        final initialDonation = state.extra is BuyerDonationRecord
+            ? state.extra as BuyerDonationRecord
+            : null;
+        return DonationPaymentPage(
+          storeId: qp['storeId'] ?? initialDonation?.storeId ?? '',
+          storeName: qp['storeName'] ?? initialDonation?.storeName,
+          contentId: qp['contentId'] ?? initialDonation?.contentId,
+          contentTitle: qp['contentTitle'] ?? initialDonation?.contentTitle,
+          donationId: qp['donationId'] ?? initialDonation?.id,
+          editMode: qp['edit'] == '1',
+          initialDonation: initialDonation,
+        );
+      },
     ),
 
     GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
@@ -309,6 +330,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/assistant/dashboard',
       builder: (context, state) => const AssistantDashboardPage(),
+    ),
+    GoRoute(
+      path: '/assistant/donations',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return AssistantDonationsPage(storeId: storeId);
+      },
     ),
     GoRoute(
       path: '/assistant/profile',

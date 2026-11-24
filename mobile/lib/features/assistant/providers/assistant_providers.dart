@@ -3,6 +3,7 @@ import 'package:mobile/features/assistant/models/assistance_log_model.dart';
 import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/services/assistant_service.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -54,6 +55,13 @@ final storeDonationsSummaryProvider = FutureProvider.autoDispose
       if (storeId.trim().isEmpty) return {};
       final service = ref.watch(assistantServiceProvider);
       return service.getStoreDonationsSummary(storeId);
+    });
+
+final storeDonationsListProvider = FutureProvider.autoDispose
+    .family<List<BuyerDonationRecord>, String>((ref, storeId) async {
+      if (storeId.trim().isEmpty) return [];
+      final service = ref.watch(assistantServiceProvider);
+      return service.getStoreDonationsList(storeId);
     });
 
 final handledStoreProvider = FutureProvider.autoDispose<StoreModel?>((

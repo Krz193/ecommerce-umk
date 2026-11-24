@@ -2,6 +2,7 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/features/assistant/models/assistance_log_model.dart';
 import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 
 class AssistantService {
   Future<void> becomeAssistant() async {
@@ -185,44 +186,97 @@ class AssistantService {
     await supabase.from('assistance_logs').delete().eq('id', logId);
   }
 
-  Future<Map<String, dynamic>> getStoreDonationsSummary(String storeId) async {
-    final rows = await supabase
-        .from('donations')
-        .select(
-          'id, donor_name, amount, distributed_amount, distributed_at, status, note, created_at',
-        )
-        .eq('store_id', storeId)
-        .order('created_at', ascending: false);
+  Future<List<BuyerDonationRecord>> getStoreDonationsList(String storeId) async {
+    if (storeId.trim().isEmpty) return [];
 
-    final list = rows as List<dynamic>;
+    try {
+      final rows = await supabase
+          .from('donations')
+          .select('''
+            *,
+            stores (
+              name
+            ),
+            store_contents (
+              title,
+              content_type
+            )
+          ''')
+          .eq('store_id', storeId)
+          .order('created_at', ascending: false);
+
+      return (rows as List<dynamic>)
+          .map(
+            (e) => BuyerDonationRecord.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (_) {
+      final fallback = await supabase
+          .from('donations')
+          .select('''
+            *,
+            stores (
+              name
+            )
+          ''')
+          .eq('store_id', storeId)
+          .order('created_at', ascending: false);
+
+      return (fallback as List<dynamic>)
+          .map(
+            (e) => BuyerDonationRecord.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    }
+  }
+
+  Future<Map<String, dynamic>> getStoreDonationsSummary(String storeId) async {
+    final donations = await getStoreDonationsList(storeId);
     int totalCollected = 0;
     int totalDistributed = 0;
+    int pendingDistribution = 0;
+    int pendingPaymentAmount = 0;
+    int pendingPaymentCount = 0;
     int donorCount = 0;
+    int contentTriggeredCount = 0;
+    int contentTriggeredAmount = 0;
 
-    for (final raw in list) {
-      final map = raw as Map<String, dynamic>;
-      final status = map['status'] as String? ?? 'paid';
-      final amount = (map['amount'] as num?)?.round() ?? 0;
-      final distAmount = (map['distributed_amount'] as num?)?.round() ?? amount;
-
-      if (status == 'paid' || status == 'distributed') {
-        totalCollected += amount;
+    for (final d in donations) {
+      if (d.status == 'paid' || d.status == 'distributed') {
+        totalCollected += d.amount;
         donorCount += 1;
+        if (d.contentId != null && d.contentId!.isNotEmpty) {
+          contentTriggeredCount += 1;
+          contentTriggeredAmount += d.amount;
+        }
       }
-      if (status == 'distributed') {
-        totalDistributed += distAmount;
+      if (d.status == 'paid') {
+        pendingDistribution += d.amount;
+      }
+      if (d.status == 'distributed') {
+        totalDistributed += d.distributedAmount ?? d.amount;
+      }
+      if (d.status == 'pending') {
+        pendingPaymentAmount += d.amount;
+        pendingPaymentCount += 1;
       }
     }
 
     return {
       'total_collected': totalCollected,
       'total_distributed': totalDistributed,
-      'pending_distribution': (totalCollected - totalDistributed).clamp(
-        0,
-        totalCollected,
-      ),
+      'pending_distribution': pendingDistribution,
+      'pending_payment_amount': pendingPaymentAmount,
+      'pending_payment_count': pendingPaymentCount,
       'donor_count': donorCount,
-      'recent_donations': list.take(5).toList(),
+      'content_triggered_count': contentTriggeredCount,
+      'content_triggered_amount': contentTriggeredAmount,
+      'donations': donations,
+      'recent_donations': donations.take(5).toList(),
     };
   }
 
