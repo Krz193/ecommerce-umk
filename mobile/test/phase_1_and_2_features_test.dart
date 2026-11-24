@@ -1,8 +1,18 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile/core/router/customer_shell.dart';
 import 'package:mobile/features/assistant/models/assistance_log_model.dart';
+import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
+import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/assistant/screens/assistance_log_page.dart';
+import 'package:mobile/features/assistant/screens/store_content_form_page.dart';
+import 'package:mobile/features/assistant/screens/store_content_list_page.dart';
 import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/product/models/product_model.dart';
+import 'package:mobile/features/store/providers/store_provider.dart';
 
 void main() {
   group('Phase 1 & Phase 2 Comprehensive Unit Tests', () {
@@ -161,21 +171,27 @@ void main() {
     });
 
     // -------------------------------------------------------------------------
-    // #17 Informasi Konten: Media Format, Social Platform, & External Link
+    // #17 Informasi Konten & Engagement: Media Format, Platform, Links, Metrics
     // -------------------------------------------------------------------------
-    test('StoreContentModel correctly parses media format, platform, and links', () {
+    test('StoreContentModel correctly parses media format, platform, links, creator, and engagement', () {
       final map = {
         'id': 'cnt-100',
         'store_id': 'store-55',
         'created_by': 'asst-1',
+        'users': {'full_name': 'Siti Asisten'},
         'title': 'Tutorial Menggunakan Tenun Ikat',
-        'content_type': 'story',
+        'content_type': 'storytelling',
         'social_platform': 'tiktok',
         'media_format': 'video',
         'external_url': 'https://www.tiktok.com/@tenun_ikat/video/123456',
         'body': 'Kisah pengrajin tenun tradisional',
         'media_urls': ['https://storage.umk.com/videos/tenun.mp4'],
         'is_active': true,
+        'reach_count': 5400,
+        'likes_count': 320,
+        'comments_count': 45,
+        'shares_count': 19,
+        'inquiries_count': 12,
         'created_at': '2026-10-23T12:00:00Z',
         'updated_at': '2026-10-23T12:00:00Z',
       };
@@ -183,12 +199,20 @@ void main() {
       final content = StoreContentModel.fromMap(map);
 
       expect(content.id, 'cnt-100');
+      expect(content.creatorName, 'Siti Asisten');
       expect(content.socialPlatform, 'tiktok');
       expect(content.mediaFormat, 'video');
       expect(content.externalUrl, contains('tiktok.com'));
       expect(content.mediaUrls.length, 1);
       expect(content.mediaFormatLabel, 'Video');
       expect(content.socialPlatformLabel, 'TikTok');
+      expect(content.reachCount, 5400);
+      expect(content.likesCount, 320);
+      expect(content.commentsCount, 45);
+      expect(content.sharesCount, 19);
+      expect(content.inquiriesCount, 12);
+      // Total Interactions = 320 + 45 + 19 + 12 = 396
+      expect(content.totalInteractions, 396);
     });
 
     // -------------------------------------------------------------------------
@@ -222,6 +246,156 @@ void main() {
       });
 
       expect(distributedDonation.canModify, isFalse); // immutable
+    });
+  });
+
+  group('Monitoring Konten & Engagement + Remove Explore UI Tests', () {
+    final sampleContent = StoreContentModel(
+      id: 'cnt-1',
+      storeId: 'store-1',
+      createdBy: 'asst-1',
+      creatorName: 'Siti Asisten',
+      title: 'Reels Promo Kopi Gayo',
+      contentType: 'promo',
+      socialPlatform: 'tiktok',
+      mediaFormat: 'short_video',
+      externalUrl: 'https://www.tiktok.com/@kopigayo/video/999',
+      body: 'Promo akhir bulan gratis ongkir',
+      mediaUrls: const [],
+      isActive: true,
+      reachCount: 1500,
+      likesCount: 120,
+      commentsCount: 15,
+      sharesCount: 9,
+      inquiriesCount: 6,
+      createdAt: DateTime(2026, 11, 1),
+      updatedAt: DateTime(2026, 11, 1),
+      storeName: 'Toko Kopi',
+      productId: 'prod-1',
+      productName: 'Kopi Gayo 250g',
+      productPrice: 65000,
+    );
+
+    testWidgets('CustomerShell only renders 3 tabs without Jelajah', (tester) async {
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          ShellRoute(
+            builder: (context, state, child) => CustomerShell(child: child),
+            routes: [
+              GoRoute(path: '/home', builder: (_, _) => const Text('Home Body')),
+              GoRoute(path: '/orders', builder: (_, _) => const Text('Orders Body')),
+              GoRoute(path: '/account', builder: (_, _) => const Text('Account Body')),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Beranda'), findsOneWidget);
+      expect(find.text('Pesanan'), findsOneWidget);
+      expect(find.text('Akun'), findsOneWidget);
+      expect(find.text('Jelajah'), findsNothing);
+    });
+
+    testWidgets('StoreContentListPage in Read-Only mode hides CRUD controls and shows monitoring info', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            myStoreProvider.overrideWith((ref) async => null),
+            assignedStoresProvider.overrideWith((ref) async => <AssignedStoreInfo>[]),
+            storeContentsProvider('store-1').overrideWith((ref) async => [sampleContent]),
+          ],
+          child: const MaterialApp(
+            home: StoreContentListPage(
+              storeId: 'store-1',
+              storeName: 'Toko Kopi',
+              isReadOnly: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Monitoring Konten & Engagement'), findsOneWidget);
+      expect(find.text('Catat Konten'), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+      expect(find.text('Diupload oleh Asisten: Siti Asisten'), findsOneWidget);
+      expect(find.text('1500 Reach'), findsOneWidget);
+      expect(find.text('Buka Bukti di TikTok'), findsOneWidget);
+      expect(find.text('Salin Link'), findsOneWidget);
+    });
+
+    testWidgets('StoreContentListPage in Assistant mode shows CRUD controls', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            myStoreProvider.overrideWith((ref) async => null),
+            assignedStoresProvider.overrideWith((ref) async => <AssignedStoreInfo>[]),
+            storeContentsProvider('store-1').overrideWith((ref) async => [sampleContent]),
+          ],
+          child: const MaterialApp(
+            home: StoreContentListPage(
+              storeId: 'store-1',
+              storeName: 'Toko Kopi',
+              isReadOnly: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Konten & Engagement Toko Kopi'), findsOneWidget);
+      expect(find.text('Catat Konten'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    });
+
+    testWidgets('StoreContentFormPage requires external URL and excludes photo upload and isActive toggle', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            publicStoreProductsProvider('store-1').overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
+            home: StoreContentFormPage(storeId: 'store-1'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tambah Foto / Thumbnail'), findsNothing);
+      expect(find.text('Status Aktif / Publikasi'), findsNothing);
+      expect(find.text('Internal Aplikasi Saja'), findsNothing);
+
+      final submitBtn = find.text('Simpan Konten & Engagement');
+      await tester.ensureVisible(submitBtn);
+      await tester.tap(submitBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Judul konten wajib diisi'), findsOneWidget);
+      expect(find.text('Link bukti konten wajib diisi'), findsOneWidget);
+    });
+
+    testWidgets('AssistanceLogPage is Read-Only without Catat Engagement button', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            assistanceLogsProvider('store-1').overrideWith((ref) async => <AssistanceLogModel>[]),
+          ],
+          child: const MaterialApp(
+            home: AssistanceLogPage(storeId: 'store-1'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Log Aktivitas Pendampingan'), findsOneWidget);
+      expect(find.text('Catat Engagement'), findsNothing);
+      expect(find.text('Belum Ada Riwayat Aktivitas'), findsOneWidget);
     });
   });
 }
