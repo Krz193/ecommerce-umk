@@ -48,6 +48,11 @@ export type StoreContentRow = {
     external_url: string | null;
     body: string | null;
     is_active: boolean;
+    reach_count: number;
+    likes_count: number;
+    comments_count: number;
+    shares_count: number;
+    inquiries_count: number;
     created_at: string;
     store_name: string;
     product_name: string | null;
