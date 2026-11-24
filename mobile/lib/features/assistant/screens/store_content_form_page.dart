@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
@@ -6,6 +7,7 @@ import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -412,6 +414,60 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                       'Tuliskan deskripsi promosi, narasi kisah produk, atau petunjuk penggunaan...',
                   border: OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      final donationLink = buildDonationPageLink(
+                        storeId: widget.storeId,
+                        contentId: widget.existingContent?.id,
+                      );
+                      final currentText = _bodyController.text.trimRight();
+                      _bodyController.text = currentText.isEmpty
+                          ? 'Dukung UMK via link donasi: $donationLink'
+                          : '$currentText\n\nDukung UMK via link donasi: $donationLink';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Link halaman donasi disisipkan ke caption konten.',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add_link, size: 16),
+                    label: Text(
+                      widget.existingContent != null
+                          ? 'Sisipkan Link Donasi Konten'
+                          : 'Sisipkan Link Donasi Toko',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final donationLink = buildDonationPageLink(
+                        storeId: widget.storeId,
+                        contentId: widget.existingContent?.id,
+                      );
+                      await Clipboard.setData(ClipboardData(text: donationLink));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Link halaman donasi disalin!'),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy_outlined, size: 15),
+                    label: const Text(
+                      'Salin Link Donasi',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 16),

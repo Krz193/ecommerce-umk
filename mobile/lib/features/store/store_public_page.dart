@@ -381,15 +381,15 @@ class StorePublicPage extends ConsumerWidget {
                                             height: 34,
                                             child: ElevatedButton.icon(
                                               onPressed: () {
-                                                showBuyerDonationDialog(
-                                                  context,
-                                                  ref,
-                                                  storeId: item.storeId,
-                                                  storeName:
-                                                      item.storeName ??
-                                                      'Toko UMK',
-                                                  contentId: item.id,
-                                                  contentTitle: item.title,
+                                                context.push(
+                                                  buildInternalDonationRoute(
+                                                    storeId: item.storeId,
+                                                    storeName:
+                                                        item.storeName ??
+                                                        'Toko UMK',
+                                                    contentId: item.id,
+                                                    contentTitle: item.title,
+                                                  ),
                                                 );
                                               },
                                               icon: const Icon(
@@ -652,11 +652,11 @@ class StorePublicPage extends ConsumerWidget {
             children: [
               ElevatedButton.icon(
                 onPressed: () {
-                  showBuyerDonationDialog(
-                    context,
-                    ref,
-                    storeId: store.id,
-                    storeName: store.name,
+                  context.push(
+                    buildInternalDonationRoute(
+                      storeId: store.id,
+                      storeName: store.name,
+                    ),
                   );
                 },
                 icon: const Icon(Icons.volunteer_activism, size: 16),
@@ -866,6 +866,7 @@ class StorePublicPage extends ConsumerWidget {
   ) {
     final hasExternalUrl =
         item.externalUrl != null && item.externalUrl!.trim().isNotEmpty;
+    final captionDonationRoute = extractInternalDonationRoute(item.body);
 
     showModalBottomSheet(
       context: context,
@@ -1006,6 +1007,30 @@ class StorePublicPage extends ConsumerWidget {
                         color: AppColors.textPrimary,
                       ),
                     ),
+                    if (captionDonationRoute != null) ...[
+                      const SizedBox(height: 10),
+                      ActionChip(
+                        avatar: Icon(
+                          Icons.volunteer_activism,
+                          size: 16,
+                          color: Colors.teal.shade800,
+                        ),
+                        label: Text(
+                          'Buka Link Donasi di Caption',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.teal.shade900,
+                          ),
+                        ),
+                        backgroundColor: Colors.teal.shade50,
+                        side: BorderSide(color: Colors.teal.shade200),
+                        onPressed: () {
+                          Navigator.pop(modalCtx);
+                          context.push(captionDonationRoute);
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 16),
                   ],
                   if (hasExternalUrl) ...[
@@ -1016,6 +1041,13 @@ class StorePublicPage extends ConsumerWidget {
                         OutlinedButton.icon(
                           onPressed: () async {
                             final rawUrl = item.externalUrl!;
+                            final internalRoute =
+                                extractInternalDonationRoute(rawUrl);
+                            if (internalRoute != null) {
+                              Navigator.pop(modalCtx);
+                              context.push(internalRoute);
+                              return;
+                            }
                             final normalized =
                                 rawUrl.startsWith('http://') ||
                                     rawUrl.startsWith('https://')
@@ -1060,13 +1092,13 @@ class StorePublicPage extends ConsumerWidget {
                   ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(modalCtx);
-                      showBuyerDonationDialog(
-                        context,
-                        ref,
-                        storeId: item.storeId,
-                        storeName: item.storeName ?? 'Toko UMK',
-                        contentId: item.id,
-                        contentTitle: item.title,
+                      context.push(
+                        buildInternalDonationRoute(
+                          storeId: item.storeId,
+                          storeName: item.storeName ?? 'Toko UMK',
+                          contentId: item.id,
+                          contentTitle: item.title,
+                        ),
                       );
                     },
                     icon: const Icon(Icons.volunteer_activism, size: 18),
