@@ -119,7 +119,7 @@ class BuyerDonationsPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Anda dapat berdonasi langsung saat melihat konten kisah atau promosi UMK di halaman Jelajah maupun Profil Toko.',
+                          'Anda dapat berdonasi langsung untuk mendukung UMK melalui halaman Profil Toko UMK.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,

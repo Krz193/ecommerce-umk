@@ -17,7 +17,6 @@ import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/auth/register_page.dart';
 import 'package:mobile/features/cart/cart_page.dart';
 import 'package:mobile/features/donation/screens/buyer_donations_page.dart';
-import 'package:mobile/features/explore/explore_page.dart';
 import 'package:mobile/features/feedback/screens/feedback_page.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/logistics/logistics_partner_dashboard_page.dart';
@@ -86,13 +85,6 @@ final appRouter = GoRouter(
       },
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomePage()),
-
-        GoRoute(
-          path: '/explore',
-          builder: (context, state) {
-            return const ExplorePage();
-          },
-        ),
 
         GoRoute(
           path: '/orders',
@@ -231,6 +223,19 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final storeId = state.uri.queryParameters['storeId'];
         return SellerVoucherListPage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/seller/content-monitoring',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'] ?? '';
+        final storeName = state.uri.queryParameters['storeName'];
+        return StoreContentListPage(
+          storeId: storeId,
+          storeName: storeName,
+          isReadOnly: true,
+        );
       },
     ),
 
