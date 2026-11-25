@@ -13,17 +13,25 @@ import {
 import { formatCurrency, formatDate } from '@/lib/format';
 import { HeartHandshake, CheckCircle, Store, User, ArrowRight, Trash2 } from 'lucide-react';
 
+type DonationStatus = 'pending' | 'paid' | 'distributed' | 'expired' | 'failed' | 'cancelled';
+
 type Donation = {
     id: string;
     user_id: string | null;
     store_id: string;
     order_id: string | null;
+    content_id?: string | null;
+    donation_number?: string | null;
+    payment_channel?: string | null;
+    va_number?: string | null;
     amount: string;
     donor_name: string;
     donor_email: string | null;
     donor_phone: string | null;
     note: string | null;
-    status: 'paid' | 'distributed' | 'cancelled';
+    status: DonationStatus;
+    expired_at?: string | null;
+    paid_at?: string | null;
     distributed_at: string | null;
     distributed_amount: string | null;
     created_at: string;
@@ -167,6 +175,9 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                         <option value="">Semua Status Donasi</option>
                         <option value="paid">Terkumpul / Belum Disalurkan</option>
                         <option value="distributed">Sudah Disalurkan</option>
+                        <option value="pending">Menunggu Pembayaran VA/QRIS</option>
+                        <option value="expired">Kadaluarsa</option>
+                        <option value="failed">Gagal</option>
                         <option value="cancelled">Dibatalkan</option>
                     </select>
 
@@ -221,6 +232,20 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                             {donation.donor_phone && (
                                                 <p className="text-xs text-muted-foreground">{donation.donor_phone}</p>
                                             )}
+                                            {(donation.payment_channel || donation.donation_number) && (
+                                                <div className="mt-1 flex flex-wrap items-center gap-1">
+                                                    {donation.payment_channel && (
+                                                        <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-teal-700">
+                                                            {donation.payment_channel}
+                                                        </span>
+                                                    )}
+                                                    {donation.donation_number && (
+                                                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                                            {donation.donation_number}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="max-w-[200px] px-3 py-3.5 text-xs text-muted-foreground">
                                             {donation.note ? `"${donation.note}"` : '-'}
@@ -246,10 +271,24 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                                         ? 'bg-blue-50 text-blue-700'
                                                         : donation.status === 'paid'
                                                           ? 'bg-emerald-50 text-emerald-700'
-                                                          : 'bg-gray-100 text-gray-700'
+                                                          : donation.status === 'pending'
+                                                            ? 'bg-amber-50 text-amber-700'
+                                                            : donation.status === 'expired' || donation.status === 'failed'
+                                                              ? 'bg-red-50 text-red-700'
+                                                              : 'bg-gray-100 text-gray-700'
                                                 }`}
                                             >
-                                                {donation.status === 'distributed' ? 'Tersalurkan' : 'Terkumpul (Siap Salur)'}
+                                                {donation.status === 'distributed'
+                                                    ? 'Tersalurkan'
+                                                    : donation.status === 'paid'
+                                                      ? 'Terkumpul (Siap Salur)'
+                                                      : donation.status === 'pending'
+                                                        ? 'Menunggu Pembayaran VA/QRIS'
+                                                        : donation.status === 'expired'
+                                                          ? 'Kadaluarsa'
+                                                          : donation.status === 'failed'
+                                                            ? 'Gagal'
+                                                            : 'Dibatalkan'}
                                             </span>
                                         </td>
                                         <td className="px-3 py-3.5 text-right whitespace-nowrap">
@@ -257,6 +296,12 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
+                                                    disabled={!['paid', 'distributed'].includes(donation.status)}
+                                                    title={
+                                                        ['paid', 'distributed'].includes(donation.status)
+                                                            ? 'Update status penyaluran donasi'
+                                                            : 'Hanya donasi lunas (Paid) yang dapat disalurkan'
+                                                    }
                                                     onClick={() => openStatusDialog(donation)}
                                                     className="h-8 gap-1 text-xs"
                                                 >

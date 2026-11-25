@@ -8,6 +8,7 @@ import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 // ignore: depend_on_referenced_packages
 import 'package:url_launcher/url_launcher.dart';
@@ -835,6 +836,39 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
                   ],
                 ),
               ],
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  foregroundColor: Colors.teal.shade800,
+                  side: BorderSide(color: Colors.teal.shade300),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                ),
+                onPressed: () async {
+                  final donationLink = buildDonationPageLink(
+                    storeId: currentStoreId,
+                    contentId: item.id,
+                  );
+                  await Clipboard.setData(ClipboardData(text: donationLink));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Link halaman donasi konten berhasil disalin untuk caption!',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.volunteer_activism_outlined, size: 15),
+                label: const Text(
+                  'Salin Link Donasi Konten',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
             ],
           ),
         ),

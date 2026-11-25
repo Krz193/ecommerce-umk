@@ -306,6 +306,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     final hasProduct = item.productId != null && item.productId!.isNotEmpty;
     final hasExternalUrl =
         item.externalUrl != null && item.externalUrl!.trim().isNotEmpty;
+    final captionDonationRoute = extractInternalDonationRoute(item.body);
 
     return Card(
       elevation: 2,
@@ -475,6 +476,27 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (captionDonationRoute != null) ...[
+                const SizedBox(height: 8),
+                ActionChip(
+                  avatar: Icon(
+                    Icons.volunteer_activism,
+                    size: 16,
+                    color: Colors.teal.shade800,
+                  ),
+                  label: Text(
+                    'Buka Link Donasi di Caption',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.teal.shade900,
+                    ),
+                  ),
+                  backgroundColor: Colors.teal.shade50,
+                  side: BorderSide(color: Colors.teal.shade200),
+                  onPressed: () => context.push(captionDonationRoute),
+                ),
+              ],
             ],
 
             // Media Gallery Preview (Only if photo uploaded)
@@ -683,13 +705,13 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      showBuyerDonationDialog(
-                        context,
-                        ref,
-                        storeId: item.storeId,
-                        storeName: item.storeName ?? 'Toko UMK',
-                        contentId: item.id,
-                        contentTitle: item.title,
+                      context.push(
+                        buildInternalDonationRoute(
+                          storeId: item.storeId,
+                          storeName: item.storeName ?? 'Toko UMK',
+                          contentId: item.id,
+                          contentTitle: item.title,
+                        ),
                       );
                     },
                     icon: const Icon(
@@ -722,6 +744,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   }
 
   Future<void> _openExternalUrl(BuildContext context, String rawUrl) async {
+    final internalDonationRoute = extractInternalDonationRoute(rawUrl);
+    if (internalDonationRoute != null) {
+      context.push(internalDonationRoute);
+      return;
+    }
+
     final normalized =
         rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
         ? rawUrl

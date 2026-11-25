@@ -27,7 +27,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool isLoading = false;
   String? selectedAddressId;
   String selectedFilterCategory = 'all'; // 'all', 'instant', 'regular'
-  int selectedDonationAmount = 0; // Voluntary UMK donation (Excel A58)
 
   // Voucher state (Phase Additional)
   final TextEditingController voucherController = TextEditingController();
@@ -253,7 +252,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final shippingCost = selectedCourier.price;
       final discountedSubtotal =
           (effectiveSubtotal - voucherDiscount).clamp(0, effectiveSubtotal);
-      final grandTotal = discountedSubtotal + shippingCost + selectedDonationAmount;
+      final grandTotal = discountedSubtotal + shippingCost;
 
       final confirmed = await confirmCheckout(
         itemCount: cart.totalItems,
@@ -277,7 +276,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         voucherId: appliedVoucherId,
         voucherCode: appliedVoucherCode,
         voucherDiscount: voucherDiscount,
-        donationAmount: selectedDonationAmount,
       );
 
       ref.invalidate(cartFlashSalesProvider);
@@ -313,23 +311,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               }).catchError((_) {});
             }
           }
-
-          // Record donation if donor opted in (Excel A58)
-          if (selectedDonationAmount > 0) {
-            final currentUser = supabase.auth.currentUser;
-            await supabase.from('donations').insert({
-              'user_id': currentUser?.id,
-              'store_id': cart.storeId,
-              'order_id': orderData['id'],
-              'amount': selectedDonationAmount,
-              'donor_name': selectedAddr.recipientName,
-              'donor_phone': selectedAddr.phoneNumber,
-              'note': 'Donasi sukarela saat checkout pesanan',
-              'status': 'paid',
-            });
-          }
         } catch (e) {
-          debugPrint('Error saving shipping details/donation/voucher: $e');
+          debugPrint('Error saving shipping details/voucher: $e');
         }
       }
 
@@ -526,7 +509,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           final totalItems = cart.totalItems;
           final shippingCost = selectedCourier?.price ?? 0;
           final discountedSubtotal = (subtotal - voucherDiscount).clamp(0, subtotal);
-          final totalAmount = discountedSubtotal + shippingCost + selectedDonationAmount;
+          final totalAmount = discountedSubtotal + shippingCost;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -654,22 +637,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           ),
                         ],
                       ),
-                      if (selectedDonationAmount > 0) ...[
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Donasi Sukarela Toko'),
-                            Text(
-                              '+ ${CurrencyFormatter.format(selectedDonationAmount)}',
-                              style: const TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                       const Divider(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -758,10 +725,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           cartId: cart.id,
                           addressId: activeAddr?.id,
                         ),
-                        const SizedBox(height: 16),
-
-                        // 4. Voluntary UMK Donation Section (Excel A58)
-                        buildDonationSection(),
                       ],
                     );
                   },
@@ -1276,74 +1239,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget buildDonationSection() {
-    final donationOptions = [0, 1000, 2000, 5000, 10000];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: selectedDonationAmount > 0
-              ? Colors.green.shade300
-              : Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.favorite, color: Colors.red, size: 18),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Donasi Sukarela Toko UMK',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Dukung pengembangan produk dan usaha toko UMK lokal ini.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            children: donationOptions.map((amount) {
-              final isSelected = selectedDonationAmount == amount;
-              return ChoiceChip(
-                label: Text(
-                  amount == 0
-                      ? 'Tanpa Donasi'
-                      : '+ ${CurrencyFormatter.format(amount)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: isSelected ? Colors.green.shade900 : Colors.black87,
-                  ),
-                ),
-                selected: isSelected,
-                selectedColor: Colors.green.shade100,
-                onSelected: (selected) {
-                  setState(() {
-                    selectedDonationAmount = selected ? amount : 0;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
     );
   }
 }

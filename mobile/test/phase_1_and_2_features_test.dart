@@ -246,6 +246,68 @@ void main() {
       });
 
       expect(distributedDonation.canModify, isFalse); // immutable
+      expect(distributedDonation.canChangePaymentOrCancel, isFalse);
+      expect(distributedDonation.isSettledOrDistributed, isTrue);
+    });
+
+    test('BuyerDonationRecord parses VA/QRIS fields and shareable donation link helpers', () {
+      final futureExpiry = DateTime.now().add(const Duration(minutes: 20)).toUtc().toIso8601String();
+      final pendingVaDonation = BuyerDonationRecord.fromMap({
+        'id': 'don-va-1',
+        'store_id': 'store-99',
+        'content_id': 'cnt-55',
+        'donation_number': 'DON-1700000000-123',
+        'amount': 50000,
+        'donor_name': 'Siti Aminah',
+        'donor_phone': '08123456789',
+        'status': 'pending',
+        'payment_type': 'bank_transfer',
+        'payment_channel': 'bca',
+        'va_number': '12345678901234',
+        'expired_at': futureExpiry,
+        'created_at': '2026-10-25T10:00:00Z',
+        'stores': {'name': 'Batik Nusantara'},
+        'store_contents': {'title': 'Kisah Pembatik Muda'},
+      });
+
+      expect(pendingVaDonation.donationNumber, 'DON-1700000000-123');
+      expect(pendingVaDonation.paymentChannel, 'bca');
+      expect(pendingVaDonation.paymentChannelLabel, 'BCA Virtual Account');
+      expect(pendingVaDonation.vaNumber, '12345678901234');
+      expect(pendingVaDonation.isPendingActive, isTrue);
+      expect(pendingVaDonation.canChangePaymentOrCancel, isTrue);
+      expect(pendingVaDonation.isSettledOrDistributed, isFalse);
+
+      final qrisDonation = BuyerDonationRecord.fromMap({
+        'id': 'don-qris-1',
+        'store_id': 'store-99',
+        'amount': 25000,
+        'donor_name': 'Hamba Allah (Anonim)',
+        'status': 'paid',
+        'payment_type': 'qris',
+        'payment_channel': 'qris',
+        'qr_url': 'https://api.sandbox.midtrans.com/v2/qris/sample/qr-code',
+        'paid_at': '2026-10-25T10:05:00Z',
+        'created_at': '2026-10-25T10:00:00Z',
+      });
+
+      expect(qrisDonation.paymentChannelShortLabel, 'QRIS');
+      expect(qrisDonation.qrUrl, contains('qr-code'));
+      expect(qrisDonation.canModify, isTrue); // nama/pesan masih bisa diedit sebelum distributed
+      expect(qrisDonation.canChangePaymentOrCancel, isFalse); // nominal/batal terkunci
+      expect(qrisDonation.isSettledOrDistributed, isTrue);
+
+      final link = buildDonationPageLink(
+        storeId: 'store-99',
+        contentId: 'cnt-55',
+      );
+      expect(link, 'umk://donations/pay?storeId=store-99&contentId=cnt-55');
+
+      final extractedFromCaption = extractInternalDonationRoute(
+        'Yuk dukung perajin lokal di sini: $link.',
+      );
+      expect(extractedFromCaption, '/donations/pay?storeId=store-99&contentId=cnt-55');
+      expect(extractInternalDonationRoute('https://instagram.com/p/abc'), isNull);
     });
   });
 
