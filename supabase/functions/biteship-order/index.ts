@@ -108,7 +108,10 @@ async function callBiteshipWithExponentialBackoff(
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     const attemptStart = Date.now();
     try {
-      const res = await fetch(url, options);
+      const res = await fetch(url, {
+        ...options,
+        signal: options.signal ?? AbortSignal.timeout(8000),
+      });
       const resData = await res.json().catch(() => ({}));
 
       // Log the attempt [OBS-001]
@@ -182,11 +185,49 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const userSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      },
+    );
+
     // =========================================================================
-    // Optional Mode: [FIN-002] Balance check cron job endpoint
+    // Optional Mode: [FIN-002] Balance check cron job endpoint (CRON_SECRET or Admin JWT)
     // =========================================================================
     const url = new URL(req.url);
     if (url.searchParams.get("action") === "check_balance") {
+      const cronSecret = Deno.env.get("CRON_SECRET");
+      const providedCronSecret = req.headers.get("x-cron-secret");
+      const hasValidCronSecret = Boolean(
+        cronSecret && providedCronSecret && providedCronSecret === cronSecret
+      );
+
+      if (!hasValidCronSecret) {
+        const { data: { user: adminCandidate }, error: adminAuthErr } = await userSupabase.auth.getUser();
+        if (adminAuthErr || !adminCandidate) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: roleRow } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", adminCandidate.id)
+          .maybeSingle();
+        if (roleRow?.role !== "admin") {
+          return new Response(JSON.stringify({ error: "Forbidden" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
       const apiKey = Deno.env.get("BITESHIP_API_KEY");
       if (!apiKey) {
         return new Response(JSON.stringify({ error: "BITESHIP_API_KEY not set" }), {
@@ -197,6 +238,7 @@ serve(async (req) => {
 
       const balRes = await fetch("https://api.biteship.com/v1/couriers", {
         headers: { authorization: apiKey },
+        signal: AbortSignal.timeout(8000),
       });
       const balData = await balRes.json().catch(() => ({}));
       const balance = balData.balance ?? balData.credit ?? null;
@@ -216,6 +258,21 @@ serve(async (req) => {
       });
     }
 
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        status: 405,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { order_id } = body;
 
@@ -229,7 +286,7 @@ serve(async (req) => {
     // Load order details
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("*, store:stores(id, name, address, postal_code, latitude, longitude)")
+      .select("*, store:stores(id, owner_id, name, address, postal_code, latitude, longitude)")
       .eq("id", order_id)
       .single();
 
@@ -238,6 +295,60 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Authorize store owner, store assistant, or admin
+    const isOwner = order.store?.owner_id === user.id;
+    let isAuthorized = isOwner;
+    if (!isAuthorized) {
+      const { data: assistantRow } = await supabase
+        .from("store_assistants")
+        .select("id")
+        .eq("store_id", order.store_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (assistantRow) {
+        isAuthorized = true;
+      } else {
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        isAuthorized = userRow?.role === "admin";
+      }
+    }
+
+    if (!isAuthorized) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (order.payment_status !== "paid" || order.status !== "processing") {
+      return new Response(
+        JSON.stringify({ error: "Order must be paid and in processing status before courier booking" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (order.biteship_order_id) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          idempotent_skip: true,
+          biteship_order_id: order.biteship_order_id,
+          waybill_id: order.waybill_id,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     // =========================================================================

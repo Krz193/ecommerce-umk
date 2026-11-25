@@ -24,21 +24,37 @@ class ReportController extends Controller
 
         $db = DB::connection('marketplace');
 
-        // 1. Store & Sales Reports (Excel A14, A16, A17)
+        // 1. Store & Sales Reports (Excel A14, A16, A17) - aggregated separately to avoid Cartesian multiplication
+        $productStatsSub = $db->table('products')
+            ->select([
+                'store_id',
+                DB::raw('count(*) as product_count'),
+                DB::raw("count(case when status = 'published' then 1 end) as published_product_count"),
+            ])
+            ->groupBy('store_id');
+
+        $orderStatsSub = $db->table('orders')
+            ->select([
+                'store_id',
+                DB::raw('count(*) as order_count'),
+                DB::raw('count(distinct user_id) as buyer_count'),
+                DB::raw("coalesce(sum(case when payment_status = 'paid' then total_amount else 0 end), 0) as paid_revenue"),
+            ])
+            ->groupBy('store_id');
+
         $storeReports = $db->table('stores')
-            ->leftJoin('products', 'products.store_id', '=', 'stores.id')
-            ->leftJoin('orders', 'orders.store_id', '=', 'stores.id')
+            ->leftJoinSub($productStatsSub, 'prod_stats', 'prod_stats.store_id', '=', 'stores.id')
+            ->leftJoinSub($orderStatsSub, 'order_stats', 'order_stats.store_id', '=', 'stores.id')
             ->select([
                 'stores.id',
                 'stores.name',
                 'stores.status',
-                DB::raw('count(distinct products.id) as product_count'),
-                DB::raw("count(distinct case when products.status = 'published' then products.id end) as published_product_count"),
-                DB::raw('count(distinct orders.id) as order_count'),
-                DB::raw('count(distinct orders.user_id) as buyer_count'),
-                DB::raw("coalesce(sum(case when orders.payment_status = 'paid' then orders.total_amount else 0 end), 0) as paid_revenue"),
+                DB::raw('coalesce(prod_stats.product_count, 0) as product_count'),
+                DB::raw('coalesce(prod_stats.published_product_count, 0) as published_product_count'),
+                DB::raw('coalesce(order_stats.order_count, 0) as order_count'),
+                DB::raw('coalesce(order_stats.buyer_count, 0) as buyer_count'),
+                DB::raw('coalesce(order_stats.paid_revenue, 0) as paid_revenue'),
             ])
-            ->groupBy('stores.id', 'stores.name', 'stores.status')
             ->orderByDesc('paid_revenue')
             ->limit(20)
             ->get();

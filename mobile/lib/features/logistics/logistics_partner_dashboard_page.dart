@@ -302,13 +302,15 @@ class _LogisticsPartnerDashboardPageState
     final orderId = order['id'];
 
     try {
+      final originLat = (order['origin_latitude'] as num?)?.toDouble();
+      final originLng = (order['origin_longitude'] as num?)?.toDouble();
       await supabase.rpc('claim_logistics_order', params: {
         'p_order_id': orderId,
         'p_driver_name': _driverName,
         'p_driver_phone': _driverPhone,
         'p_vehicle_plate': _vehiclePlate,
-        'p_latitude': isOjek ? -6.2088 : null,
-        'p_longitude': isOjek ? 106.8456 : null,
+        'p_latitude': originLat,
+        'p_longitude': originLng,
       });
 
       if (!mounted) return;
@@ -329,92 +331,46 @@ class _LogisticsPartnerDashboardPageState
 
   // 2. Update Resi Manual (Ekspedisi #13)
   void _showWaybillInputDialog(Map<String, dynamic> order) {
-    final controller = TextEditingController(text: order['waybill_id'] ?? '');
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          title: const Text('Input No Resi Manual'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Masukkan nomor resi fisik ekspedisi untuk pelacakan pembeli:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'Nomor Resi / AWB',
-                  hintText: 'Misal: EXP-2026-889901',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.qr_code_2),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final newWaybill = controller.text.trim();
-                if (newWaybill.isEmpty) return;
+      builder: (_) => _WaybillInputDialog(
+        initialWaybill: (order['waybill_id'] ?? '').toString(),
+        onSubmit: (newWaybill) async {
+          try {
+            await supabase.rpc('update_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_status': order['tracking_status'] ?? 'allocated',
+              'p_waybill_id': newWaybill,
+              'p_note': 'No resi diperbarui menjadi: $newWaybill',
+            });
 
-                Navigator.pop(dialogCtx);
-                try {
-                  await supabase.rpc('update_logistics_shipment', params: {
-                    'p_order_id': order['id'],
-                    'p_status': order['tracking_status'] ?? 'allocated',
-                    'p_waybill_id': newWaybill,
-                    'p_note': 'No resi diperbarui menjadi: $newWaybill',
-                  });
-
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Nomor resi berhasil disimpan!')),
-                  );
-                  _fetchOrders();
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal menyimpan resi: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text('Simpan Resi'),
-            ),
-          ],
-        );
-      },
-    ).whenComplete(() {
-      controller.dispose();
-    });
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Nomor resi berhasil disimpan!')),
+            );
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal menyimpan resi: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
+    );
   }
 
   // 3. Update Delivery Status (Ekspedisi / Ojek) with Per-Point Hub & GPS
   void _showUpdateStatusDialog(Map<String, dynamic> order) {
-    String selectedStatus = (order['tracking_status'] ?? 'allocated').toString();
-    final checkpointController = TextEditingController();
-    final noteController = TextEditingController();
-    double? checkpointLat = (order['driver_latitude'] as num?)?.toDouble() ??
-        (order['origin_latitude'] as num?)?.toDouble();
-    double? checkpointLng = (order['driver_longitude'] as num?)?.toDouble() ??
-        (order['origin_longitude'] as num?)?.toDouble();
-
     final statusOptions = isOjek
-        ? [
+        ? const [
             {'value': 'allocated', 'label': 'Dialokasikan ke Driver Ojek'},
             {'value': 'picking_up', 'label': 'Menuju Toko / Lokasi Pickup'},
             {'value': 'picked', 'label': 'Pesanan Diambil (Menuju Pembeli)'},
             {'value': 'on_delivery', 'label': 'Dalam Perjalanan Pengantaran'},
             {'value': 'delivered', 'label': 'Tiba & Diserahkan (Selesai)'},
           ]
-        : [
+        : const [
             {'value': 'allocated', 'label': 'Dialokasikan ke Kurir Ekspedisi'},
             {'value': 'picking_up', 'label': 'Penjemputan ke Penjual / Hub'},
             {'value': 'picked', 'label': 'Paket Masuk Hub Ekspedisi'},
@@ -423,339 +379,110 @@ class _LogisticsPartnerDashboardPageState
             {'value': 'delivered', 'label': 'Paket Diterima Pembeli (Selesai)'},
           ];
 
-    if (!statusOptions.any((o) => o['value'] == selectedStatus)) {
-      selectedStatus = statusOptions.first['value']!;
-    }
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              title: Text('Update Status ${isOjek ? "Ojek" : "Ekspedisi"}'),
-              content: SizedBox(
-                width: 420,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DropdownButtonFormField<String>(
-                        initialValue: statusOptions.any((o) => o['value'] == selectedStatus)
-                            ? selectedStatus
-                            : statusOptions.first['value'],
-                        decoration: const InputDecoration(
-                          labelText: 'Pilih Status Pengiriman',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: statusOptions.map((opt) {
-                          return DropdownMenuItem<String>(
-                            value: opt['value']!,
-                            child: Text(opt['label']!, style: const TextStyle(fontSize: 13)),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedStatus = val);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: checkpointController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nama Titik / Hub / Lokasi Checkpoint',
-                          hintText: 'Misal: Hub Sortir Jakarta Selatan / Gerai Denpasar',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: noteController,
-                        decoration: const InputDecoration(
-                          labelText: 'Catatan Rute / Keterangan',
-                          hintText: 'Misal: Paket telah disortir & siap diteruskan',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      MapPointPickerField(
-                        latitude: checkpointLat,
-                        longitude: checkpointLng,
-                        initialQuery: checkpointController.text.trim(),
-                        label: 'Titik GPS Checkpoint / Hub',
-                        helperText:
-                            'Pinpoint lokasi checkpoint saat ini agar tampil akurat di peta pelacakan.',
-                        previewHeight: 130,
-                        onPointSelected: (point) {
-                          setDialogState(() {
-                            checkpointLat = point.latitude;
-                            checkpointLng = point.longitude;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Batal'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(dialogCtx);
-                    try {
-                      await supabase.rpc('update_logistics_shipment', params: {
-                        'p_order_id': order['id'],
-                        'p_status': selectedStatus,
-                        'p_checkpoint_name': checkpointController.text.trim().isNotEmpty
-                            ? checkpointController.text.trim()
-                            : null,
-                        'p_latitude': checkpointLat,
-                        'p_longitude': checkpointLng,
-                        'p_note': noteController.text.trim().isNotEmpty
-                            ? noteController.text.trim()
-                            : 'Status diubah ke $selectedStatus',
-                      });
+      builder: (_) => _UpdateLogisticsStatusDialog(
+        isOjek: isOjek,
+        initialStatus: (order['tracking_status'] ?? 'allocated').toString(),
+        initialLat: (order['driver_latitude'] as num?)?.toDouble() ??
+            (order['origin_latitude'] as num?)?.toDouble(),
+        initialLng: (order['driver_longitude'] as num?)?.toDouble() ??
+            (order['origin_longitude'] as num?)?.toDouble(),
+        statusOptions: statusOptions,
+        onSubmit: (selectedStatus, checkpointName, note, lat, lng) async {
+          try {
+            await supabase.rpc('update_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_status': selectedStatus,
+              'p_checkpoint_name': checkpointName,
+              'p_latitude': lat,
+              'p_longitude': lng,
+              'p_note': note ?? 'Status diubah ke $selectedStatus',
+            });
 
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Status & titik checkpoint berhasil diperbarui!')),
-                      );
-                      _fetchOrders();
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Gagal update status: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  },
-                  child: const Text('Perbarui'),
-                ),
-              ],
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Status & titik checkpoint berhasil diperbarui!')),
             );
-          },
-        );
-      },
-    ).whenComplete(() {
-      checkpointController.dispose();
-      noteController.dispose();
-    });
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal update status: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
+    );
   }
 
   // 4. Update Live GPS (Ojek #14 & Ekspedisi) with Interactive Map Picker
   void _showUpdateGpsDialog(Map<String, dynamic> order) {
-    double currentLat = (order['driver_latitude'] as num?)?.toDouble() ??
+    final initialLat = (order['driver_latitude'] as num?)?.toDouble() ??
         (order['origin_latitude'] as num?)?.toDouble() ??
         -6.2088;
-    double currentLng = (order['driver_longitude'] as num?)?.toDouble() ??
+    final initialLng = (order['driver_longitude'] as num?)?.toDouble() ??
         (order['origin_longitude'] as num?)?.toDouble() ??
         106.8456;
 
-    final latController = TextEditingController(text: currentLat.toStringAsFixed(6));
-    final lngController = TextEditingController(text: currentLng.toStringAsFixed(6));
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            final parsedLat = double.tryParse(latController.text) ?? currentLat;
-            final parsedLng = double.tryParse(lngController.text) ?? currentLng;
-            return AlertDialog(
-              title: const Text('Update Koordinat GPS Driver'),
-              content: SizedBox(
-                width: 420,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Pilih titik di peta atau sesuaikan koordinat agar posisi driver real-time terlihat di aplikasi Pembeli & Penjual:',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 10),
-                      MapPointPickerField(
-                        latitude: parsedLat,
-                        longitude: parsedLng,
-                        label: 'Pinpoint Posisi Driver Saat Ini',
-                        helperText: 'Ketuk peta untuk menggeser lokasi driver secara presisi.',
-                        previewHeight: 150,
-                        onPointSelected: (point) {
-                          setDialogState(() {
-                            currentLat = point.latitude;
-                            currentLng = point.longitude;
-                            latController.text = point.latitude.toStringAsFixed(6);
-                            lngController.text = point.longitude.toStringAsFixed(6);
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: latController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Latitude',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: lngController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Longitude',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        children: [
-                          ActionChip(
-                            label: const Text('+0.005 Lat (Maju)', style: TextStyle(fontSize: 11)),
-                            onPressed: () {
-                              setDialogState(() {
-                                final val = (double.tryParse(latController.text) ?? -6.2088) + 0.005;
-                                latController.text = val.toStringAsFixed(6);
-                              });
-                            },
-                          ),
-                          ActionChip(
-                            label: const Text('+0.005 Lng (Belok)', style: TextStyle(fontSize: 11)),
-                            onPressed: () {
-                              setDialogState(() {
-                                final val = (double.tryParse(lngController.text) ?? 106.8456) + 0.005;
-                                lngController.text = val.toStringAsFixed(6);
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Batal'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final lat = double.tryParse(latController.text);
-                    final lng = double.tryParse(lngController.text);
-                    if (lat == null || lng == null) return;
+      builder: (_) => _UpdateGpsDialog(
+        initialLat: initialLat,
+        initialLng: initialLng,
+        onSubmit: (lat, lng) async {
+          try {
+            await supabase.rpc('update_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_status': order['tracking_status'] ?? 'on_delivery',
+              'p_checkpoint_name': 'Update Lokasi Driver',
+              'p_latitude': lat,
+              'p_longitude': lng,
+              'p_note': 'Posisi GPS diperbarui ($lat, $lng)',
+            });
 
-                    Navigator.pop(dialogCtx);
-                    try {
-                      await supabase.rpc('update_logistics_shipment', params: {
-                        'p_order_id': order['id'],
-                        'p_status': order['tracking_status'] ?? 'on_delivery',
-                        'p_checkpoint_name': 'Update Lokasi Driver',
-                        'p_latitude': lat,
-                        'p_longitude': lng,
-                        'p_note': 'Posisi GPS diperbarui ($lat, $lng)',
-                      });
-
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Lokasi GPS pengemudi berhasil dikirim!')),
-                      );
-                      _fetchOrders();
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Gagal update GPS: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  },
-                  child: const Text('Kirim GPS'),
-                ),
-              ],
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Lokasi GPS pengemudi berhasil dikirim!')),
             );
-          },
-        );
-      },
-    ).whenComplete(() {
-      latController.dispose();
-      lngController.dispose();
-    });
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal update GPS: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
+    );
   }
 
   // 5. CRUD Pembatalan Pengiriman Sisi Ekspedisi / Ojek (#13 req 4)
   void _showCancelShipmentDialog(Map<String, dynamic> order) {
-    final reasonController = TextEditingController();
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          title: const Text('Batalkan Pengiriman (Logistik)', style: TextStyle(color: Colors.red)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Pemberitahuan: Pembatalan dari sisi logistik akan mencatat riwayat kendala operasional dan mengembalikan status ke sistem.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Alasan Pembatalan Kendala *',
-                  hintText: 'Misal: Akses jalan banjir / Kendaraan mengalami kerusakan teknis',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Kembali'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                final reason = reasonController.text.trim();
-                if (reason.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Harap masukkan alasan kendala pembatalan')),
-                  );
-                  return;
-                }
+      builder: (_) => _CancelShipmentDialog(
+        onSubmit: (reason) async {
+          try {
+            await supabase.rpc('cancel_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_reason': reason,
+            });
 
-                Navigator.pop(dialogCtx);
-                try {
-                  await supabase.rpc('cancel_logistics_shipment', params: {
-                    'p_order_id': order['id'],
-                    'p_reason': reason,
-                  });
-
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Pengiriman berhasil dibatalkan oleh logistik')),
-                  );
-                  _fetchOrders();
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal membatalkan pengiriman: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text('Konfirmasi Batal', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    ).whenComplete(() {
-      reasonController.dispose();
-    });
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Pengiriman berhasil dibatalkan oleh logistik')),
+            );
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal membatalkan pengiriman: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
+    );
   }
 
   bool _isOrderClosed(Map<String, dynamic> order) {
@@ -1648,6 +1375,425 @@ class _LogisticsPartnerDashboardPageState
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: list.length,
       itemBuilder: (ctx, idx) => _buildOrderCard(list[idx], tabIndex),
+    );
+  }
+}
+
+class _WaybillInputDialog extends StatefulWidget {
+  final String initialWaybill;
+  final Future<void> Function(String newWaybill) onSubmit;
+
+  const _WaybillInputDialog({
+    required this.initialWaybill,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_WaybillInputDialog> createState() => _WaybillInputDialogState();
+}
+
+class _WaybillInputDialogState extends State<_WaybillInputDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialWaybill);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Input No Resi Manual'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Masukkan nomor resi fisik ekspedisi untuk pelacakan pembeli:',
+            style: TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              labelText: 'Nomor Resi / AWB',
+              hintText: 'Misal: EXP-2026-889901',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.qr_code_2),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final newWaybill = _controller.text.trim();
+            if (newWaybill.isEmpty) return;
+            Navigator.pop(context);
+            widget.onSubmit(newWaybill);
+          },
+          child: const Text('Simpan Resi'),
+        ),
+      ],
+    );
+  }
+}
+
+class _UpdateLogisticsStatusDialog extends StatefulWidget {
+  final bool isOjek;
+  final String initialStatus;
+  final double? initialLat;
+  final double? initialLng;
+  final List<Map<String, String>> statusOptions;
+  final Future<void> Function(
+    String status,
+    String? checkpointName,
+    String? note,
+    double? lat,
+    double? lng,
+  ) onSubmit;
+
+  const _UpdateLogisticsStatusDialog({
+    required this.isOjek,
+    required this.initialStatus,
+    required this.initialLat,
+    required this.initialLng,
+    required this.statusOptions,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_UpdateLogisticsStatusDialog> createState() =>
+      _UpdateLogisticsStatusDialogState();
+}
+
+class _UpdateLogisticsStatusDialogState
+    extends State<_UpdateLogisticsStatusDialog> {
+  late String _selectedStatus;
+  late final TextEditingController _checkpointController;
+  late final TextEditingController _noteController;
+  double? _checkpointLat;
+  double? _checkpointLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedStatus =
+        widget.statusOptions.any((o) => o['value'] == widget.initialStatus)
+        ? widget.initialStatus
+        : widget.statusOptions.first['value']!;
+    _checkpointController = TextEditingController();
+    _noteController = TextEditingController();
+    _checkpointLat = widget.initialLat;
+    _checkpointLng = widget.initialLng;
+  }
+
+  @override
+  void dispose() {
+    _checkpointController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Update Status ${widget.isOjek ? "Ojek" : "Ekspedisi"}'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _selectedStatus,
+                decoration: const InputDecoration(
+                  labelText: 'Pilih Status Pengiriman',
+                  border: OutlineInputBorder(),
+                ),
+                items: widget.statusOptions.map((opt) {
+                  return DropdownMenuItem<String>(
+                    value: opt['value']!,
+                    child: Text(opt['label']!, style: const TextStyle(fontSize: 13)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _selectedStatus = val);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _checkpointController,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Titik / Hub / Lokasi Checkpoint',
+                  hintText: 'Misal: Hub Sortir Jakarta Selatan / Gerai Denpasar',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Catatan Rute / Keterangan',
+                  hintText: 'Misal: Paket telah disortir & siap diteruskan',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              MapPointPickerField(
+                latitude: _checkpointLat,
+                longitude: _checkpointLng,
+                initialQuery: _checkpointController.text.trim(),
+                label: 'Titik GPS Checkpoint / Hub',
+                helperText:
+                    'Pinpoint lokasi checkpoint saat ini agar tampil akurat di peta pelacakan.',
+                previewHeight: 130,
+                onPointSelected: (point) {
+                  setState(() {
+                    _checkpointLat = point.latitude;
+                    _checkpointLng = point.longitude;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final checkpoint = _checkpointController.text.trim();
+            final note = _noteController.text.trim();
+            Navigator.pop(context);
+            widget.onSubmit(
+              _selectedStatus,
+              checkpoint.isNotEmpty ? checkpoint : null,
+              note.isNotEmpty ? note : null,
+              _checkpointLat,
+              _checkpointLng,
+            );
+          },
+          child: const Text('Perbarui'),
+        ),
+      ],
+    );
+  }
+}
+
+class _UpdateGpsDialog extends StatefulWidget {
+  final double initialLat;
+  final double initialLng;
+  final Future<void> Function(double lat, double lng) onSubmit;
+
+  const _UpdateGpsDialog({
+    required this.initialLat,
+    required this.initialLng,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_UpdateGpsDialog> createState() => _UpdateGpsDialogState();
+}
+
+class _UpdateGpsDialogState extends State<_UpdateGpsDialog> {
+  late double _currentLat;
+  late double _currentLng;
+  late final TextEditingController _latController;
+  late final TextEditingController _lngController;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentLat = widget.initialLat;
+    _currentLng = widget.initialLng;
+    _latController = TextEditingController(text: _currentLat.toStringAsFixed(6));
+    _lngController = TextEditingController(text: _currentLng.toStringAsFixed(6));
+  }
+
+  @override
+  void dispose() {
+    _latController.dispose();
+    _lngController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final parsedLat = double.tryParse(_latController.text) ?? _currentLat;
+    final parsedLng = double.tryParse(_lngController.text) ?? _currentLng;
+
+    return AlertDialog(
+      title: const Text('Update Koordinat GPS Driver'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Pilih titik di peta atau sesuaikan koordinat agar posisi driver real-time terlihat di aplikasi Pembeli & Penjual:',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              MapPointPickerField(
+                latitude: parsedLat,
+                longitude: parsedLng,
+                label: 'Pinpoint Posisi Driver Saat Ini',
+                helperText: 'Ketuk peta untuk menggeser lokasi driver secara presisi.',
+                previewHeight: 150,
+                onPointSelected: (point) {
+                  setState(() {
+                    _currentLat = point.latitude;
+                    _currentLng = point.longitude;
+                    _latController.text = point.latitude.toStringAsFixed(6);
+                    _lngController.text = point.longitude.toStringAsFixed(6);
+                  });
+                },
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _latController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                decoration: const InputDecoration(
+                  labelText: 'Latitude',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _lngController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                decoration: const InputDecoration(
+                  labelText: 'Longitude',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                children: [
+                  ActionChip(
+                    label: const Text('+0.005 Lat (Maju)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() {
+                        final val = (double.tryParse(_latController.text) ?? -6.2088) + 0.005;
+                        _latController.text = val.toStringAsFixed(6);
+                      });
+                    },
+                  ),
+                  ActionChip(
+                    label: const Text('+0.005 Lng (Belok)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() {
+                        final val = (double.tryParse(_lngController.text) ?? 106.8456) + 0.005;
+                        _lngController.text = val.toStringAsFixed(6);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final lat = double.tryParse(_latController.text);
+            final lng = double.tryParse(_lngController.text);
+            if (lat == null || lng == null) return;
+            Navigator.pop(context);
+            widget.onSubmit(lat, lng);
+          },
+          child: const Text('Kirim GPS'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CancelShipmentDialog extends StatefulWidget {
+  final Future<void> Function(String reason) onSubmit;
+
+  const _CancelShipmentDialog({required this.onSubmit});
+
+  @override
+  State<_CancelShipmentDialog> createState() => _CancelShipmentDialogState();
+}
+
+class _CancelShipmentDialogState extends State<_CancelShipmentDialog> {
+  final TextEditingController _reasonController = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Batalkan Pengiriman (Logistik)', style: TextStyle(color: Colors.red)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Pemberitahuan: Pembatalan dari sisi logistik akan mencatat riwayat kendala operasional dan mengembalikan status ke sistem.',
+            style: TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reasonController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Alasan Pembatalan Kendala *',
+              hintText: 'Misal: Akses jalan banjir / Kendaraan mengalami kerusakan teknis',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Kembali'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: () {
+            final reason = _reasonController.text.trim();
+            if (reason.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Harap masukkan alasan kendala pembatalan')),
+              );
+              return;
+            }
+            Navigator.pop(context);
+            widget.onSubmit(reason);
+          },
+          child: const Text('Konfirmasi Batal', style: TextStyle(color: Colors.white)),
+        ),
+      ],
     );
   }
 }

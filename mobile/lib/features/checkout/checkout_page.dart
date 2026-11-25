@@ -28,6 +28,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool isLoading = false;
   String? selectedAddressId;
   String? _lastCourierAddressId;
+  String? _lastCourierStoreId;
   String selectedFilterCategory = 'all'; // 'all', 'instant', 'regular'
 
   // Voucher state (Phase Additional)
@@ -37,6 +38,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   String? appliedVoucherId;
   String? appliedVoucherTitle;
   int voucherDiscount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(selectedShippingRateProvider.notifier).reset();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -339,6 +350,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         }
       }
 
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(readableCheckoutError(error))));
@@ -475,6 +487,23 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           final cart = _resolveTargetCart(carts);
           if (cart == null || cart.items.isEmpty) {
             return const Center(child: Text('Keranjang belanja kosong'));
+          }
+          if (cart.storeId != _lastCourierStoreId) {
+            final previousStoreId = _lastCourierStoreId;
+            _lastCourierStoreId = cart.storeId;
+            if (previousStoreId != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                ref.read(selectedShippingRateProvider.notifier).reset();
+                setState(() {
+                  appliedVoucherCode = null;
+                  appliedVoucherId = null;
+                  appliedVoucherTitle = null;
+                  voucherDiscount = 0;
+                  voucherController.clear();
+                });
+              });
+            }
           }
           final flashSummary = _computeCartFlashSummary(cart, flashSales);
           final subtotal = flashSummary.effectiveSubtotal;

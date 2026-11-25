@@ -16,6 +16,16 @@ import 'package:mobile/features/order/widgets/shipment_tracking_section.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
+bool isOrderEligibleForSellerRefund({
+  required String status,
+  required String paymentStatus,
+}) {
+  return status != 'pending' &&
+      status != 'cancelled' &&
+      status != 'completed' &&
+      paymentStatus == 'paid';
+}
+
 class SellerOrderDetailPage extends ConsumerStatefulWidget {
   final String orderId;
 
@@ -655,8 +665,13 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
   /// Single Unified Shipment Section (Clean, 1-Click Dispatch, Zero Redundancy)
   Widget buildUnifiedShipmentSection(StoreModel store, OrderDetailModel order) {
     final storeId = store.id;
+    final isWaitingLocalCourier =
+        order.isLocalPartnerCourier &&
+        (order.trackingStatus ?? '').toLowerCase() == 'ready_to_ship';
     final canShip =
-        order.status == 'processing' && order.paymentStatus == 'paid';
+        order.status == 'processing' &&
+        order.paymentStatus == 'paid' &&
+        !isWaitingLocalCourier;
     final isShipped = ['shipped', 'completed'].contains(order.status);
 
     final courierDisplay = order.courierName?.isNotEmpty == true
@@ -760,6 +775,30 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
           ),
 
           // Action Area: Single 1-Click Action for Seller
+          if (isWaitingLocalCourier) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.hourglass_top_rounded, color: Colors.amber.shade800, size: 20),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Siap Dijemput Kurir Toko. Menunggu kurir lokal toko mengklaim penugasan.',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (canShip) ...[
             const SizedBox(height: 16),
             SizedBox(
@@ -965,10 +1004,10 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
 
   Widget buildRefundRequestSection(OrderDetailModel order) {
     final requestsAsync = ref.watch(refundRequestsProvider(order.id));
-    final canRequest =
-        order.status != 'cancelled' &&
-        order.status != 'completed' &&
-        ['paid', 'pending'].contains(order.paymentStatus);
+    final canRequest = isOrderEligibleForSellerRefund(
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),

@@ -74,8 +74,8 @@ async function processDiscrepancy(supabase: SupabaseClient, payload: any) {
   const actualCost = Number(final_price ?? (origCost + Number(price_discrepancy ?? 0)));
   const diff = Number(price_discrepancy ?? (actualCost - origCost));
 
-  // 2. Call PostgreSQL RPC apply_shipping_discrepancy (ACID)
-  const { data: rpcResult, error: rpcError } = await supabase.rpc("apply_shipping_discrepancy", {
+  // 2. Call PostgreSQL RPC apply_shipping_discrepancy (ACID & idempotent)
+  const { error: rpcError } = await supabase.rpc("apply_shipping_discrepancy", {
     p_order_id: order.id,
     p_actual_shipping_cost: actualCost,
     p_discrepancy_amount: diff,
@@ -85,43 +85,8 @@ async function processDiscrepancy(supabase: SupabaseClient, payload: any) {
   });
 
   if (rpcError) {
-    console.error("[FIN-001] RPC discrepancy error, falling back to direct table update:", rpcError);
-
-    // Fallback: direct update
-    await supabase.from("orders").update({
-      actual_shipping_cost: actualCost,
-      shipping_discrepancy: diff,
-      updated_at: new Date().toISOString(),
-    }).eq("id", order.id);
-
-    // Adjust seller store balance
-    try {
-      const { error: rpcErr } = await supabase.rpc("decrement_store_balance", {
-        p_store_id: order.store_id,
-        p_amount: diff,
-      });
-      if (rpcErr) throw rpcErr;
-    } catch {
-      // Direct stores balance update if RPC not present
-      const { data: store } = await supabase.from("stores").select("balance").eq("id", order.store_id).single();
-      const currentBalance = Number(store?.balance ?? 0);
-      await supabase.from("stores").update({
-        balance: currentBalance - diff,
-        updated_at: new Date().toISOString(),
-      }).eq("id", order.store_id);
-    }
-
-    // Record discrepancy log
-    await supabase.from("biteship_discrepancies").insert({
-      order_id: order.id,
-      original_shipping_cost: origCost,
-      actual_shipping_cost: actualCost,
-      discrepancy_amount: diff,
-      original_weight: original_weight ? Number(original_weight) : null,
-      actual_weight: final_weight ? Number(final_weight) : null,
-      seller_balance_adjusted: true,
-      notes: discrepancy_reason || "Direct fallback discrepancy update",
-    });
+    console.error("[FIN-001] RPC discrepancy error:", rpcError);
+    throw new Error(`Discrepancy RPC failed: ${rpcError.message}`);
   }
 
   console.log("[FIN-001] Discrepancy successfully recorded & seller balance adjusted for order:", order.id);
@@ -178,7 +143,7 @@ async function processQueuedWebhookJob(supabase: SupabaseClient, jobId: string, 
     if (orFilters.length > 0) {
       const { data: order, error: findError } = await supabase
         .from("orders")
-        .select("id, status, biteship_order_id, tracking_status, tracking_history")
+        .select("id, status, payment_status, biteship_order_id, tracking_status, tracking_history")
         .or(orFilters.join(","))
         .maybeSingle();
 
@@ -234,13 +199,15 @@ async function processQueuedWebhookJob(supabase: SupabaseClient, jobId: string, 
         }
 
         if (status === "picking_up" || status === "allocated" || status === "dropping_off" || status === "picked") {
-          if (order.status === "processing") {
+          if (order.status === "processing" && order.payment_status === "paid") {
             updateFields.status = "shipped";
             updateFields.shipped_at = new Date().toISOString();
           }
         } else if (status === "delivered") {
-          updateFields.status = "completed";
-          updateFields.completed_at = new Date().toISOString();
+          if (order.payment_status === "paid" && order.status !== "cancelled") {
+            updateFields.status = "completed";
+            updateFields.completed_at = new Date().toISOString();
+          }
         }
 
         const { error: updateErr } = await supabase.from("orders").update(updateFields).eq("id", order.id);
@@ -318,35 +285,43 @@ serve(async (req) => {
     req.headers.get("signature");
 
   const secretKey = Deno.env.get("BITESHIP_WEBHOOK_SECRET");
-
-  if (secretKey) {
-    const isValid = await verifyHmacSha256Signature(secretKey, rawBody, signatureHeader ?? "");
-    if (!isValid) {
-      console.warn("[WHK-001] Rejected webhook: Invalid HMAC SHA256 signature");
-
-      // [OBS-001] Log rejected signature attempt
-      try {
-        await supabase.from("biteship_api_logs").insert({
-          url: req.url,
-          method: req.method,
-          request_body: payload,
-          status_code: 401,
-          response_body: { error: "Unauthorized: Invalid webhook signature" },
-          duration_ms: Date.now() - startTime,
-          error_message: "Signature verification failed",
-        });
-      } catch {
-        // ignore log error
+  if (!secretKey) {
+    console.error("[WHK-001] BITESHIP_WEBHOOK_SECRET is not configured");
+    return new Response(
+      JSON.stringify({ error: "Webhook secret not configured" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
+    );
+  }
 
-      return new Response(
-        JSON.stringify({ error: "Unauthorized: Invalid webhook signature" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+  const isValid = await verifyHmacSha256Signature(secretKey, rawBody, signatureHeader ?? "");
+  if (!isValid) {
+    console.warn("[WHK-001] Rejected webhook: Invalid HMAC SHA256 signature");
+
+    // [OBS-001] Log rejected signature attempt
+    try {
+      await supabase.from("biteship_api_logs").insert({
+        url: req.url,
+        method: req.method,
+        request_body: payload,
+        status_code: 401,
+        response_body: { error: "Unauthorized: Invalid webhook signature" },
+        duration_ms: Date.now() - startTime,
+        error_message: "Signature verification failed",
+      });
+    } catch {
+      // ignore log error
     }
+
+    return new Response(
+      JSON.stringify({ error: "Unauthorized: Invalid webhook signature" }),
+      {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 
   // =========================================================================

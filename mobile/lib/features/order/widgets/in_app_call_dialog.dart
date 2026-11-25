@@ -96,8 +96,13 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
       _verifiedCallerRole = serverRole;
       _verifiedCallerName = serverName;
 
-      // 2. Setup authorized Supabase Realtime Signaling Channel
-      _signalingChannel = supabase.channel(channelName);
+      // 2. Setup authorized Private Supabase Realtime Signaling Channel & await join
+      _signalingChannel = supabase.channel(
+        channelName,
+        opts: const RealtimeChannelConfig(private: true),
+      );
+
+      final subscribeCompleter = Completer<void>();
 
       _signalingChannel!
           .onBroadcast(
@@ -133,7 +138,27 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
               _callTimer?.cancel();
             },
           )
-          .subscribe();
+          .subscribe((status, [error]) {
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              if (!subscribeCompleter.isCompleted) {
+                subscribeCompleter.complete();
+              }
+            } else if (status == RealtimeSubscribeStatus.channelError ||
+                status == RealtimeSubscribeStatus.timedOut ||
+                status == RealtimeSubscribeStatus.closed) {
+              if (!subscribeCompleter.isCompleted) {
+                subscribeCompleter.completeError(
+                  error ?? Exception('Gagal terhubung ke saluran panggilan.'),
+                );
+              }
+            }
+          });
+
+      await subscribeCompleter.future.timeout(const Duration(seconds: 8));
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
 
       // 3. Request audio stream from microphone
       try {

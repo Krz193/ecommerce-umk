@@ -6,6 +6,9 @@ import 'package:mobile/features/account/account_page.dart';
 import 'package:mobile/features/account/change_password_page.dart';
 import 'package:mobile/features/auth/models/app_user_model.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
+import 'package:mobile/features/order/order_detail_page.dart';
+import 'package:mobile/features/order/seller_order_detail_page.dart';
+import 'package:mobile/features/order/widgets/shipment_tracking_section.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 import 'package:mobile/main.dart';
@@ -204,6 +207,28 @@ void main() {
 
       expect(find.text('Portal Driver Ojek'), findsOneWidget);
       expect(find.text('Portal Kurir Ekspedisi'), findsNothing);
+    });
+
+    test('Refund eligibility strictly blocks unpaid (paymentStatus == pending) orders for buyer and seller', () {
+      expect(isOrderEligibleForBuyerRefund(status: 'pending', paymentStatus: 'pending'), isFalse);
+      expect(isOrderEligibleForBuyerRefund(status: 'processing', paymentStatus: 'pending'), isFalse);
+      expect(isOrderEligibleForBuyerRefund(status: 'processing', paymentStatus: 'expired'), isFalse);
+      expect(isOrderEligibleForBuyerRefund(status: 'processing', paymentStatus: 'paid'), isTrue);
+      expect(isOrderEligibleForBuyerRefund(status: 'shipped', paymentStatus: 'paid'), isTrue);
+      expect(isOrderEligibleForBuyerRefund(status: 'delivered', paymentStatus: 'paid'), isTrue);
+      expect(isOrderEligibleForBuyerRefund(status: 'completed', paymentStatus: 'paid'), isFalse);
+      expect(isOrderEligibleForBuyerRefund(status: 'cancelled', paymentStatus: 'paid'), isFalse);
+
+      expect(isOrderEligibleForSellerRefund(status: 'pending', paymentStatus: 'pending'), isFalse);
+      expect(isOrderEligibleForSellerRefund(status: 'processing', paymentStatus: 'pending'), isFalse);
+      expect(isOrderEligibleForSellerRefund(status: 'processing', paymentStatus: 'paid'), isTrue);
+      expect(isOrderEligibleForSellerRefund(status: 'shipped', paymentStatus: 'paid'), isTrue);
+      expect(isOrderEligibleForSellerRefund(status: 'completed', paymentStatus: 'paid'), isFalse);
+      expect(isOrderEligibleForSellerRefund(status: 'cancelled', paymentStatus: 'paid'), isFalse);
+    });
+
+    test('formatOrderTrackingStatus maps ready_to_ship cleanly', () {
+      expect(formatOrderTrackingStatus('ready_to_ship'), 'Siap Dijemput Kurir Toko');
     });
   });
 }

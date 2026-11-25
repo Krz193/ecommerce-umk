@@ -97,17 +97,10 @@ serve(async (req) => {
             signature_key,
         } = body;
 
-        console.log(
-            "Has service role key:",
-            !!Deno.env.get(
-                "SUPABASE_SERVICE_ROLE_KEY",
-            ),
-        );
-
-        console.log(
-            "Webhook payload:",
-            body,
-        );
+        console.log("Midtrans webhook received:", {
+            order_id,
+            transaction_status: body.transaction_status,
+        });
 
         /**
          * Required webhook payload validation
@@ -199,6 +192,20 @@ serve(async (req) => {
                 );
             }
 
+            if (Math.round(Number(gross_amount)) !== Math.round(Number(donation.amount))) {
+                return new Response(
+                    JSON.stringify({
+                        error: "Donation gross amount mismatch",
+                    }),
+                    {
+                        status: 400,
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    },
+                );
+            }
+
             const txStatus = String(body.transaction_status ?? "");
             let nextDonationStatus = String(donation.status ?? "pending");
 
@@ -213,27 +220,11 @@ serve(async (req) => {
                 nextDonationStatus = "failed";
             }
 
-            if (donation.status === "distributed") {
+            if (donation.status === "distributed" || donation.status === "paid") {
                 return new Response(
                     JSON.stringify({
                         success: true,
-                        message: "Distributed donation ignored",
-                        donation,
-                    }),
-                    {
-                        status: 200,
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    },
-                );
-            }
-
-            if (donation.status === "paid" && nextDonationStatus === "paid") {
-                return new Response(
-                    JSON.stringify({
-                        success: true,
-                        message: "Duplicate donation settlement ignored",
+                        message: "Paid or distributed donation preserved",
                         donation,
                     }),
                     {
@@ -294,489 +285,64 @@ serve(async (req) => {
         }
 
         /**
-         * Lookup payment transaction
+         * Atomic order settlement / expiration / failure via PostgreSQL RPC
          */
-        const { data: payment, error: paymentError } = await supabase
-            .from("payments")
-            .select(`
-                *,
-                order:orders!inner (
-                    *
-                )
-            `)
-            .eq("order.order_number", order_id)
-            .maybeSingle();
+        const { data: settlementResult, error: settlementError } = await supabase.rpc(
+            "process_order_payment_webhook",
+            {
+                p_order_number: String(order_id),
+                p_transaction_status: String(body.transaction_status ?? ""),
+                p_fraud_status: body.fraud_status ? String(body.fraud_status) : null,
+                p_gross_amount: Number(gross_amount),
+                p_raw_response: body,
+            },
+        );
 
-        console.log("Webhook payment:", payment);
-
-        if (paymentError) {
-            console.error(
-                "Webhook payment error:",
-                paymentError,
-            );
-        }
-
-        if (!payment) {
+        if (settlementError) {
+            console.error("Order webhook RPC error:", settlementError);
             return new Response(
                 JSON.stringify({
-                    error: "Payment not found",
+                    error: "Failed to process payment webhook",
                 }),
                 {
-                    status: 404,
+                    status: 500,
                     headers: {
-                        "Content-Type":
-                            "application/json",
+                        "Content-Type": "application/json",
                     },
                 },
             );
         }
 
-        /**
-         * Idempotency guard
-         *
-         * Prevent duplicate settlement replay
-         * from mutating payment/order/stock
-         * multiple times.
-         */
-        if (
-            payment.status === "paid" &&
-            body.transaction_status ===
-                "settlement"
-        ) {
-            console.log(
-                "Skipping duplicate settlement webhook",
-            );
+        if (!settlementResult || settlementResult.ok !== true) {
+            const code = String(settlementResult?.code ?? "");
+            const statusCode =
+                code === "not_found" || code === "order_items_not_found" ? 404 : 400;
 
             return new Response(
                 JSON.stringify({
-                    success: true,
-                    message:
-                        "Duplicate settlement ignored",
+                    error: settlementResult?.error ?? "Webhook rejected",
                 }),
                 {
-                    status: 200,
+                    status: statusCode,
                     headers: {
-                        "Content-Type":
-                            "application/json",
+                        "Content-Type": "application/json",
                     },
                 },
             );
         }
 
-        console.log(
-            "Midtrans transaction status:",
-            body.transaction_status,
-        );
-
-        /**
-         * Load immutable order snapshot items
-         *
-         * Inventory lifecycle MUST use
-         * order_items instead of cart_items.
-         */
-        const {
-            data: orderItems,
-            error: orderItemsError,
-        } = await supabase
-            .from("order_items")
-            .select(`
-                *
-            `)
-            .eq(
-                "order_id",
-                payment.order.id,
-            );
-
-        console.log(
-            "Webhook order items:",
-            orderItems,
-        );
-
-        if (orderItemsError) {
-            console.error(
-                "Webhook order items error:",
-                orderItemsError,
-            );
-        }
-
-        if (
-            !orderItems ||
-            orderItems.length === 0
-        ) {
-            return new Response(
-                JSON.stringify({
-                    error:
-                        "Order items not found",
-                }),
-                {
-                    status: 404,
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                },
-            );
-        }
-
-        /**
-         * Payment lifecycle mapping
-         */
-        let paymentStatus =
-            payment.status;
-
-        let orderPaymentStatus =
-            payment.order
-                .payment_status;
-
-        let orderStatus =
-            payment.order.status;
-
-        if (
-            body.transaction_status ===
-            "settlement"
-        ) {
-            paymentStatus = "paid";
-            orderPaymentStatus =
-                "paid";
-            orderStatus =
-                "processing";
-        }
-
-        if (
-            body.transaction_status ===
-            "expire"
-        ) {
-            paymentStatus =
-                "expired";
-
-            orderPaymentStatus =
-                "expired";
-
-            orderStatus =
-                "cancelled";
-        }
-
-        if (
-            body.transaction_status ===
-            "cancel"
-        ) {
-            paymentStatus =
-                "failed";
-
-            orderPaymentStatus =
-                "failed";
-
-            orderStatus =
-                "cancelled";
-        }
-
-        // Release any reserved Flash Sale & Voucher quota idempotently when payment expires or cancels
-        if (
-            body.transaction_status === "expire" ||
-            body.transaction_status === "cancel"
-        ) {
-            const { error: rollbackErr } = await supabase.rpc(
-                "rollback_order_flash_sale_quota",
-                { p_order_id: payment.order.id },
-            );
-            if (rollbackErr) {
-                console.error("Flash sale quota rollback error:", rollbackErr);
-            }
-
-            const { error: voucherRollbackErr } = await supabase.rpc(
-                "rollback_voucher_quota",
-                { p_order_id: payment.order.id },
-            );
-            if (voucherRollbackErr) {
-                console.error("Voucher quota rollback error:", voucherRollbackErr);
-            }
-        }
-
-        /**
-         * Inventory deduction lifecycle
-         *
-         * Only deduct inventory after
-         * successful settlement.
-         */
-        if (
-            body.transaction_status ===
-            "settlement"
-        ) {
-
-            for (const item of orderItems) {
-
-                const {
-                    data: product,
-                    error: productError,
-                } = await supabase
-                    .from("products")
-                    .select(`
-                        id,
-                        stock
-                    `)
-                    .eq(
-                        "id",
-                        item.product_id,
-                    )
-                    .single();
-
-                console.log(
-                    "Webhook product:",
-                    product,
-                );
-
-                if (productError) {
-                    console.error(
-                        "Webhook product error:",
-                        productError,
-                    );
-                }
-
-                if (!product) {
-                    throw new Error(
-                        `Product ${item.product_id} not found`,
-                    );
-                }
-
-                /**
-                 * Prevent invalid settlement
-                 * if inventory becomes inconsistent
-                 */
-                if (
-                    product.stock <
-                    item.quantity
-                ) {
-
-                    console.error(
-                        "Insufficient stock during settlement",
-                        {
-                            product_id:
-                                product.id,
-
-                            current_stock:
-                                product.stock,
-
-                            requested_quantity:
-                                item.quantity,
-                        },
-                    );
-
-                    throw new Error(
-                        `Insufficient stock for product ${product.id}`,
-                    );
-                }
-
-                const newStock =
-                    product.stock -
-                    item.quantity;
-
-                const {
-                    data: updatedProduct,
-                    error:
-                        updatedProductError,
-                } = await supabase
-                    .from("products")
-                    .update({
-                        stock:
-                            newStock,
-                    })
-                    .eq(
-                        "id",
-                        product.id,
-                    )
-                    .select()
-                    .single();
-
-                console.log(
-                    "Updated product stock:",
-                    updatedProduct,
-                );
-
-                if (
-                    updatedProductError
-                ) {
-
-                    console.error(
-                        "Updated product stock error:",
-                        updatedProductError,
-                    );
-
-                    throw new Error(
-                        `Failed to update stock for product ${product.id}`,
-                    );
-                }
-            }
-
-            /**
-             * Cleanup cart items
-             *
-             * Cart container survives.
-             * Only purchased cart_items
-             * are removed after settlement.
-             */
-            const {
-                data: cart,
-                error: cartError,
-            } = await supabase
-                .from("carts")
-                .select(`
-                    id
-                `)
-                .eq(
-                    "user_id",
-                    payment.order.user_id,
-                )
-                .eq(
-                    "store_id",
-                    payment.order.store_id,
-                )
-                .single();
-
-            console.log(
-                "Webhook cart:",
-                cart,
-            );
-
-            if (cartError) {
-                console.error(
-                    "Webhook cart error:",
-                    cartError,
-                );
-            }
-
-            if (cart) {
-
-                const {
-                    error:
-                        deleteCartItemsError,
-                } = await supabase
-                    .from("cart_items")
-                    .delete()
-                    .eq(
-                        "cart_id",
-                        cart.id,
-                    );
-
-                if (
-                    deleteCartItemsError
-                ) {
-
-                    console.error(
-                        "Delete cart items error:",
-                        deleteCartItemsError,
-                    );
-
-                    throw new Error(
-                        "Failed to cleanup cart items",
-                    );
-                }
-            }
-        }
-
-        /**
-         * Update payment lifecycle state
-         */
-        const {
-            data: updatedPayment,
-            error:
-                updatedPaymentError,
-        } = await supabase
-            .from("payments")
-            .update({
-                status:
-                    paymentStatus,
-
-                paid_at:
-                    paymentStatus ===
-                        "paid"
-                        ? new Date()
-                              .toISOString()
-                        : null,
-
-                raw_response:
-                    body,
-            })
-            .eq(
-                "id",
-                payment.id,
-            )
-            .select()
-            .single();
-
-        console.log(
-            "Updated webhook payment:",
-            updatedPayment,
-        );
-
-        if (
-            updatedPaymentError
-        ) {
-            console.error(
-                "Updated webhook payment error:",
-                updatedPaymentError,
-            );
-        }
-
-        /**
-         * Update order payment state
-         */
-        const {
-            data: updatedOrder,
-            error:
-                updatedOrderError,
-        } = await supabase
-            .from("orders")
-            .update({
-                status:
-                    orderStatus,
-
-                payment_status:
-                    orderPaymentStatus,
-
-                paid_at:
-                    paymentStatus ===
-                        "paid"
-                        ? new Date()
-                              .toISOString()
-                        : null,
-            })
-            .eq(
-                "id",
-                payment.order.id,
-            )
-            .select()
-            .single();
-
-        console.log(
-            "Updated webhook order:",
-            updatedOrder,
-        );
-
-        if (
-            updatedOrderError
-        ) {
-            console.error(
-                "Updated webhook order error:",
-                updatedOrderError,
-            );
-        }
-
-        /**
-         * Webhook success response
-         */
         return new Response(
             JSON.stringify({
                 success: true,
-                payment:
-                    updatedPayment,
-                order:
-                    updatedOrder,
+                ignored: Boolean(settlementResult.ignored),
+                message: settlementResult.message ?? undefined,
+                payment: settlementResult.payment ?? null,
+                order: settlementResult.order ?? null,
             }),
             {
                 status: 200,
                 headers: {
-                    "Content-Type":
-                        "application/json",
+                    "Content-Type": "application/json",
                 },
             },
         );

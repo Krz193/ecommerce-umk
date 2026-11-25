@@ -96,6 +96,8 @@ String formatOrderTrackingStatus(String? status) {
   switch (status.toLowerCase()) {
     case 'pending':
       return 'Menunggu Penjemputan / Diproses';
+    case 'ready_to_ship':
+      return 'Siap Dijemput Kurir Toko';
     case 'allocated':
     case 'confirmed':
       return 'Kurir Dialokasikan (Allocated)';

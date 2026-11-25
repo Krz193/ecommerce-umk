@@ -770,9 +770,13 @@ CREATE TABLE IF NOT EXISTS public.private_internal_secrets (
 ALTER TABLE public.private_internal_secrets ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.private_internal_secrets FROM public, anon, authenticated;
 
-INSERT INTO public.private_internal_secrets (key, secret_value)
-VALUES ('webrtc_channel_hmac_secret', encode(gen_random_bytes(32), 'hex'))
-ON CONFLICT (key) DO NOTHING;
+DO $$
+BEGIN
+    PERFORM set_config('search_path', 'public, extensions', true);
+    INSERT INTO public.private_internal_secrets (key, secret_value)
+    VALUES ('webrtc_channel_hmac_secret', encode(gen_random_bytes(32), 'hex'))
+    ON CONFLICT (key) DO NOTHING;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.is_order_call_participant(
     p_order_id UUID,

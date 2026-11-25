@@ -122,22 +122,24 @@ class RoleController extends Controller
         $db = DB::connection('marketplace');
         $existing = $db->table('roles')->where('id', $role)->firstOrFail();
 
-        $db->table('roles')->where('id', $role)->update([
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-        ]);
+        $db->transaction(function () use ($db, $role, $validated): void {
+            $db->table('roles')->where('id', $role)->update([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+            ]);
 
-        // Sync role_permissions
-        $db->table('role_permissions')->where('role_id', $role)->delete();
+            // Sync role_permissions
+            $db->table('role_permissions')->where('role_id', $role)->delete();
 
-        if (! empty($validated['permission_ids'] ?? [])) {
-            $insertRows = array_map(fn ($permId) => [
-                'role_id' => $role,
-                'permission_id' => $permId,
-            ], $validated['permission_ids']);
+            if (! empty($validated['permission_ids'] ?? [])) {
+                $insertRows = array_map(fn ($permId) => [
+                    'role_id' => $role,
+                    'permission_id' => $permId,
+                ], $validated['permission_ids']);
 
-            $db->table('role_permissions')->insert($insertRows);
-        }
+                $db->table('role_permissions')->insert($insertRows);
+            }
+        });
 
         $auditLogger->log(
             $request,
@@ -192,16 +194,18 @@ class RoleController extends Controller
         $db = DB::connection('marketplace');
         $userRow = $db->table('users')->where('id', $user)->firstOrFail();
 
-        $db->table('user_roles')->where('user_id', $user)->delete();
+        $db->transaction(function () use ($db, $user, $validated): void {
+            $db->table('user_roles')->where('user_id', $user)->delete();
 
-        if (! empty($validated['role_ids'] ?? [])) {
-            $insertRows = array_map(fn ($roleId) => [
-                'user_id' => $user,
-                'role_id' => $roleId,
-            ], $validated['role_ids']);
+            if (! empty($validated['role_ids'] ?? [])) {
+                $insertRows = array_map(fn ($roleId) => [
+                    'user_id' => $user,
+                    'role_id' => $roleId,
+                ], $validated['role_ids']);
 
-            $db->table('user_roles')->insert($insertRows);
-        }
+                $db->table('user_roles')->insert($insertRows);
+            }
+        });
 
         $auditLogger->log(
             $request,

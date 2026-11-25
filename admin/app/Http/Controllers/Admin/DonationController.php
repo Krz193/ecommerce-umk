@@ -81,6 +81,9 @@ class DonationController extends Controller
         // Distribution date/amount only apply to distributed donations; default to now / full amount.
         $validated['distributed_at'] = $isDistributed ? ($validated['distributed_at'] ?? now()) : null;
         $validated['distributed_amount'] = $isDistributed ? ($validated['distributed_amount'] ?? $donation->amount) : null;
+        if ($validated['status'] === 'paid') {
+            $validated['paid_at'] = $donation->paid_at ?? now();
+        }
 
         $oldStatus = $donation->status;
         $donation->update($validated);
@@ -104,6 +107,12 @@ class DonationController extends Controller
 
     public function destroy(Request $request, Donation $donation, AdminAuditLogger $auditLogger): RedirectResponse
     {
+        if (in_array($donation->status, ['paid', 'distributed'], true)) {
+            throw ValidationException::withMessages([
+                'donation' => 'Donasi yang sudah lunas atau disalurkan tidak dapat dihapus.',
+            ]);
+        }
+
         $id = $donation->id;
         $amount = $donation->amount;
         $donation->delete();

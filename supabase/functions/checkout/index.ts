@@ -638,7 +638,7 @@ serve(async (req) => {
         const orderItems = [];
         for (const line of checkoutLines) {
             if (line.is_flash_sale && line.sale_event_item_id) {
-                const {data: reserved, error: reserveErr} = await supabase.rpc(
+                const {data: reserved, error: reserveErr} = await dbClient.rpc(
                     "reserve_flash_sale_quota",
                     {
                         p_sale_event_item_id: line.sale_event_item_id,
@@ -788,7 +788,15 @@ serve(async (req) => {
         }
 
         const {transaction_id, expiry_time} = midtransResult.data;
-        const expiredAtUtc = new Date(`${expiry_time} +0700`).toISOString();
+        let expiredAtUtc: string;
+        if (typeof expiry_time === "string" && expiry_time.trim().length > 0) {
+            const parsedExpiry = new Date(`${expiry_time.trim()} +0700`);
+            expiredAtUtc = Number.isNaN(parsedExpiry.getTime())
+                ? new Date(Date.now() + 30 * 60 * 1000).toISOString()
+                : parsedExpiry.toISOString();
+        } else {
+            expiredAtUtc = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        }
 
         const {data: updatedPayment, error: paymentUpdateError} = await dbClient
             .from("payments")

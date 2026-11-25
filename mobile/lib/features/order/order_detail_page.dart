@@ -18,6 +18,14 @@ import 'package:mobile/features/product/providers/product_review_providers.dart'
 import 'package:mobile/features/product/widgets/product_review_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+bool isOrderEligibleForBuyerRefund({
+  required String status,
+  required String paymentStatus,
+}) {
+  return const ['processing', 'shipped', 'delivered'].contains(status) &&
+      paymentStatus == 'paid';
+}
+
 class OrderDetailPage extends ConsumerStatefulWidget {
   final String orderId;
 
@@ -722,14 +730,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
 
   Widget buildRefundRequestSection(OrderDetailModel order) {
     final requestsAsync = ref.watch(refundRequestsProvider(order.id));
-    final canRequest =
-        const [
-          'pending',
-          'processing',
-          'shipped',
-          'delivered',
-        ].contains(order.status) &&
-        const ['paid', 'pending'].contains(order.paymentStatus);
+    final canRequest = isOrderEligibleForBuyerRefund(
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+    );
 
     return Container(
       width: double.infinity,

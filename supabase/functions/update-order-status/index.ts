@@ -303,7 +303,11 @@ serve(async (req) => {
             .eq("id", order_id)
             .single();
 
-        console.log("Operational order:", order);
+        console.log("Operational order lookup:", {
+            order_id: order?.id,
+            status: order?.status,
+            payment_status: order?.payment_status,
+        });
 
         if (orderError) {
             console.error(orderError);
@@ -530,6 +534,10 @@ serve(async (req) => {
             ].includes(normalizedOrderCourier);
 
             if (isLocalStoreCourier && !trackingNumber) {
+                if (order.tracking_status === "ready_to_ship") {
+                    return jsonResponse({success: true, order}, 200);
+                }
+
                 // Local UMKM courier: mark order ready_to_ship in queue so assigned store courier can claim it
                 updates.status = "processing";
                 updates.shipping_provider = shippingProvider;
@@ -866,7 +874,11 @@ serve(async (req) => {
             .select()
             .single();
 
-        console.log("Updated operational order:", updatedOrder);
+        console.log("Updated operational order:", {
+            order_id: updatedOrder?.id,
+            status: updatedOrder?.status,
+            tracking_status: updatedOrder?.tracking_status,
+        });
 
         if (updatedOrderError) {
             console.error("Order update error:", updatedOrderError);
