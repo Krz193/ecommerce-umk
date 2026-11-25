@@ -286,13 +286,63 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 ],
                               ),
                             ),
-                          Text(
-                            CurrencyFormatter.format(product.price),
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                          if (product.hasDiscount)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  CurrencyFormatter.format(product.price),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 3),
+                                  child: Text(
+                                    CurrencyFormatter.format(
+                                      product.effectiveOriginalPrice,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.grey.shade500,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade600,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    product.effectiveDiscountPercent > 0
+                                        ? '-${product.effectiveDiscountPercent}%'
+                                        : 'PROMO',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Text(
+                              CurrencyFormatter.format(product.price),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
                         ],
                       );
                     },

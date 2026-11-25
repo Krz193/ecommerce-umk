@@ -1,9 +1,9 @@
-import { useState, type FormEventHandler, type ChangeEvent } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
+import { Calendar, Users, Video, Plus, Edit2, Trash2, UserPlus } from 'lucide-react';
+import { useState   } from 'react';
+import type {FormEventHandler, ChangeEvent} from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Dialog,
     DialogContent,
@@ -12,8 +12,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatDate } from '@/lib/format';
-import { Calendar, Users, Video, Plus, Edit2, Trash2, UserPlus } from 'lucide-react';
 
 type Training = {
     id: string;
@@ -135,6 +136,7 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
 
     const handleSubmitTraining: FormEventHandler = (e) => {
         e.preventDefault();
+
         if (editingTraining) {
             form.patch(`/trainings/${editingTraining.id}`, {
                 preserveScroll: true,
@@ -161,7 +163,10 @@ export default function TrainingsIndex({ trainings, stores }: TrainingsIndexProp
 
     const handleAddParticipant: FormEventHandler = (e) => {
         e.preventDefault();
-        if (!managingParticipantsTraining) return;
+
+        if (!managingParticipantsTraining) {
+return;
+}
 
         participantForm.post(`/trainings/${managingParticipantsTraining.id}/participants`, {
             preserveScroll: true,

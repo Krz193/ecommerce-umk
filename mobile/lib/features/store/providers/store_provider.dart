@@ -97,7 +97,7 @@ final publicStoreRecommendedProductsProvider =
               badge_text,
               priority,
               is_active,
-              product:product_id (
+              product:product_id!inner (
                 id,
                 store_id,
                 name,
@@ -112,16 +112,12 @@ final publicStoreRecommendedProductsProvider =
               )
             ''')
             .eq('is_active', true)
+            .eq('product.store_id', storeId)
+            .eq('product.status', 'published')
             .order('priority', ascending: false)
             .timeout(const Duration(seconds: 10));
 
-        final list = List<Map<String, dynamic>>.from(response as List);
-        return list.where((item) {
-          final product = item['product'] as Map<String, dynamic>?;
-          return product != null &&
-              product['store_id'] == storeId &&
-              product['status'] == 'published';
-        }).toList();
+        return List<Map<String, dynamic>>.from(response as List);
       } catch (_) {
         return [];
       }

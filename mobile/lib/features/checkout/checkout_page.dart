@@ -27,6 +27,7 @@ class CheckoutPage extends ConsumerStatefulWidget {
 class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool isLoading = false;
   String? selectedAddressId;
+  String? _lastCourierAddressId;
   String selectedFilterCategory = 'all'; // 'all', 'instant', 'regular'
 
   // Voucher state (Phase Additional)
@@ -653,7 +654,12 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => context.push('/addresses'),
+                      onPressed: () async {
+                        await context.push('/addresses');
+                        if (mounted) {
+                          ref.invalidate(addressProvider);
+                        }
+                      },
                       child: const Text('Kelola Alamat'),
                     ),
                   ],
@@ -685,6 +691,20 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                     }
 
                     final activeAddr = selectedAddress(addresses);
+
+                    if (activeAddr?.id != _lastCourierAddressId) {
+                      final previousAddressId = _lastCourierAddressId;
+                      _lastCourierAddressId = activeAddr?.id;
+                      if (previousAddressId != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            ref
+                                .read(selectedShippingRateProvider.notifier)
+                                .reset();
+                          }
+                        });
+                      }
+                    }
 
                     return Column(
                       children: [

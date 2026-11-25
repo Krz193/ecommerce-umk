@@ -1,6 +1,7 @@
-import { FormEvent, useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, CalendarClock, Plus, Zap } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useMemo, useState } from 'react';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,12 +43,15 @@ function computePreviewSalePrice(
     if (!Number.isFinite(discountValue) || discountValue <= 0) {
         return basePrice;
     }
+
     if (discountType === 'percentage') {
         return Math.max(0, Math.round(basePrice * (1 - Math.min(100, discountValue) / 100)));
     }
+
     if (discountType === 'nominal') {
         return Math.max(0, Math.round(basePrice - discountValue));
     }
+
     return Math.max(0, Math.min(basePrice, Math.round(discountValue)));
 }
 
@@ -72,12 +76,14 @@ export default function SaleEventShow({ event, items, products }: SaleEventShowP
                 store_name: editingItem.store_name,
             };
         }
+
         return products.find((p) => p.id === productId);
     }, [editingItem, productId, products]);
 
     const previewSalePrice = useMemo(() => {
         const base = Number(selectedProduct?.price ?? 0);
         const val = Number(discountValue);
+
         return computePreviewSalePrice(base, discountType, val);
     }, [selectedProduct, discountType, discountValue]);
 

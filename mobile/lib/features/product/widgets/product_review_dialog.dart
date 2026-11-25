@@ -104,6 +104,31 @@ class _ProductReviewDialogState extends ConsumerState<ProductReviewDialog> {
 
   Future<void> _delete() async {
     if (widget.existingReview == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hapus Ulasan?'),
+        content: const Text('Ulasan yang dihapus tidak dapat dikembalikan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     setState(() => isSubmitting = true);
     final service = ref.read(productReviewServiceProvider);
 

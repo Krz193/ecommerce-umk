@@ -1,6 +1,7 @@
-import { FormEvent, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Copy, ExternalLink, Megaphone, Search } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { Pagination } from '@/components/admin/pagination';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 function toSafeHttpUrl(rawUrl: string): string {
     const trimmed = rawUrl.trim();
+
     return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 

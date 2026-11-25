@@ -41,7 +41,10 @@ export default function StoreShow({ store, metrics, recentProducts, assistant = 
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const userId = formData.get('user_id') as string;
-        if (!userId) return;
+
+        if (!userId) {
+return;
+}
 
         router.post(`/stores/${store.id}/assistants`, { user_id: userId });
     };

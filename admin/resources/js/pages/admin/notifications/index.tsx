@@ -1,6 +1,7 @@
-import { FormEvent, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Bell, Search, Send } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { Pagination } from '@/components/admin/pagination';
 import { Badge } from '@/components/ui/badge';
@@ -393,7 +394,9 @@ export default function NotificationsIndex({
                                     id="notif-route-preset"
                                     value={ROUTE_PRESETS.some((p) => p.value === targetRoute) ? targetRoute : ''}
                                     onChange={(e) => {
-                                        if (e.target.value) setTargetRoute(e.target.value);
+                                        if (e.target.value) {
+setTargetRoute(e.target.value);
+}
                                     }}
                                     className="mb-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                                 >

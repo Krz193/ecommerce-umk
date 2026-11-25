@@ -412,8 +412,9 @@ class AccountPage extends ConsumerWidget {
     );
   }
 
-  void openSellerArea(BuildContext context, WidgetRef ref) {
-    final store = ref.read(myStoreProvider).asData?.value;
+  Future<void> openSellerArea(BuildContext context, WidgetRef ref) async {
+    final store = await ref.read(myStoreProvider.future);
+    if (!context.mounted) return;
 
     if (store == null) {
       context.push('/seller/onboarding');

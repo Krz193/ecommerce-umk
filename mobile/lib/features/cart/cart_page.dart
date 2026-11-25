@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/core/theme/app_colors.dart';
@@ -21,6 +22,112 @@ class CartPage extends ConsumerStatefulWidget {
 
 class _CartPageState extends ConsumerState<CartPage> {
   final Set<String> _busyItemIds = <String>{};
+  final Map<String, int> _optimisticQuantities = <String, int>{};
+
+  int _effectiveQty(CartItemModel item) {
+    return _optimisticQuantities[item.id] ?? item.quantity;
+  }
+
+  Future<void> _updateQuantityOptimistic(
+    CartItemModel item,
+    int nextQty,
+  ) async {
+    if (_busyItemIds.contains(item.id)) return;
+    if (nextQty > item.productStock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Stok tidak mencukupi (tersisa ${item.productStock})'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _busyItemIds.add(item.id);
+      _optimisticQuantities[item.id] = nextQty;
+    });
+
+    try {
+      await CartPage.cartService.updateCartQuantity(
+        cartItemId: item.id,
+        quantity: nextQty,
+      );
+      await ref.refresh(cartProvider.future).then((_) {});
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyItemIds.remove(item.id);
+          _optimisticQuantities.remove(item.id);
+        });
+      }
+    }
+  }
+
+  Future<void> _showQuantityPickerDialog(CartItemModel item) async {
+    if (item.productStock <= 0) return;
+    final controller = TextEditingController(text: '${_effectiveQty(item)}');
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Ubah Jumlah'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.productName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: 'Jumlah (maks ${item.productStock})',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final parsed = int.tryParse(controller.text.trim());
+              if (parsed == null || parsed <= 0) {
+                Navigator.of(dialogContext).pop(0);
+                return;
+              }
+              final clamped = parsed > item.productStock
+                  ? item.productStock
+                  : parsed;
+              Navigator.of(dialogContext).pop(clamped);
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (picked != null && mounted && picked != _effectiveQty(item)) {
+      await _updateQuantityOptimistic(item, picked);
+    }
+  }
 
   Future<void> _runItemAction(
     String itemId,
@@ -54,11 +161,13 @@ class _CartPageState extends ConsumerState<CartPage> {
     Map<String, ProductFlashSaleInfo> flashSales,
   ) {
     return cart.items.fold<int>(0, (sum, item) {
+      final qty = _effectiveQty(item);
+      if (qty <= 0) return sum;
       final split = flashSales[item.productId]?.splitForQuantity(
-        item.quantity,
+        qty,
         fallbackRegularPrice: item.productPrice,
       );
-      return sum + (split?.totalSubtotal ?? item.subtotal);
+      return sum + (split?.totalSubtotal ?? (item.productPrice * qty));
     });
   }
 
@@ -210,11 +319,12 @@ class _CartPageState extends ConsumerState<CartPage> {
     Map<String, ProductFlashSaleInfo> flashSales,
   ) {
     final isBusy = _busyItemIds.contains(item.id);
+    final qty = _effectiveQty(item);
     final split = flashSales[item.productId]?.splitForQuantity(
-      item.quantity,
+      qty,
       fallbackRegularPrice: item.productPrice,
     );
-    final itemSubtotal = split?.totalSubtotal ?? item.subtotal;
+    final itemSubtotal = split?.totalSubtotal ?? (item.productPrice * qty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,26 +448,31 @@ class _CartPageState extends ConsumerState<CartPage> {
             IconButton(
               onPressed: isBusy
                   ? null
-                  : () => _runItemAction(
-                      item.id,
-                      () => CartPage.cartService.updateCartQuantity(
-                        cartItemId: item.id,
-                        quantity: item.quantity - 1,
-                      ),
-                    ),
+                  : () => _updateQuantityOptimistic(item, qty - 1),
               icon: const Icon(Icons.remove),
             ),
-            Text('${item.quantity}'),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: isBusy ? null : () => _showQuantityPickerDialog(item),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$qty',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
             IconButton(
-              onPressed: (isBusy || item.quantity >= item.productStock)
+              onPressed: (isBusy || qty >= item.productStock)
                   ? null
-                  : () => _runItemAction(
-                      item.id,
-                      () => CartPage.cartService.updateCartQuantity(
-                        cartItemId: item.id,
-                        quantity: item.quantity + 1,
-                      ),
-                    ),
+                  : () => _updateQuantityOptimistic(item, qty + 1),
               icon: const Icon(Icons.add),
             ),
             const Spacer(),

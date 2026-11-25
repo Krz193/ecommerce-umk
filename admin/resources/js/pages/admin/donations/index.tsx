@@ -1,5 +1,6 @@
-import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
+import { Store, User, ArrowRight, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -11,7 +12,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { HeartHandshake, CheckCircle, Store, User, ArrowRight, Trash2 } from 'lucide-react';
 
 type DonationStatus = 'pending' | 'paid' | 'distributed' | 'expired' | 'failed' | 'cancelled';
 
@@ -84,12 +84,18 @@ export default function DonationsIndex({ donations, stores, metrics, filters }: 
 
     const handleFilterChange = (key: string, value: string) => {
         const newFilters = { ...filters, [key]: value };
-        if (!value) delete (newFilters as any)[key];
+
+        if (!value) {
+delete (newFilters as any)[key];
+}
+
         router.get('/donations', newFilters, { preserveState: true });
     };
 
     const handleUpdateStatus = () => {
-        if (!selectedDonation) return;
+        if (!selectedDonation) {
+return;
+}
 
         router.patch(
             `/donations/${selectedDonation.id}`,

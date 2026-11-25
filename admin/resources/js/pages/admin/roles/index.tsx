@@ -1,8 +1,8 @@
-import { FormEvent, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Check, Plus, Shield, ShieldCheck, Trash2 } from 'lucide-react';
+import { Check, Plus, Shield, ShieldCheck } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
-import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -78,7 +78,9 @@ export default function RolesIndex({
     }
 
     function savePermissions() {
-        if (!selectedRole) return;
+        if (!selectedRole) {
+return;
+}
 
         router.patch(`/roles/${selectedRole.id}`, {
             name: selectedRole.name,
@@ -115,6 +117,7 @@ export default function RolesIndex({
         const cat = perm.category || 'general';
         acc[cat] = acc[cat] || [];
         acc[cat].push(perm);
+
         return acc;
     }, {});
 

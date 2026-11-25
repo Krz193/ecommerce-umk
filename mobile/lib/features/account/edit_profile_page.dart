@@ -182,7 +182,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     const Icon(Icons.badge_outlined, color: AppColors.primary),
                     const SizedBox(width: 12),
                     Text(
-                      'Tipe Akun: ${user.role == 'seller' ? 'Penjual UMK 🏬' : 'Pembeli 🛒'}',
+                      'Tipe Akun: ${user.roleBadgeLabel}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppColors.primaryHover,

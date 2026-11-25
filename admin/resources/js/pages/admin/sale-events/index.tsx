@@ -1,6 +1,7 @@
-import { FormEvent, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { CalendarClock, Plus, Search, Zap } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { Pagination } from '@/components/admin/pagination';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,7 @@ type SaleEventsIndexProps = {
 function toLocalInputValue(iso?: string | null): string {
     const date = iso ? new Date(iso) : new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
+
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
@@ -52,6 +54,7 @@ function getEventState(event: SaleEventRow): {
     if (!event.is_active) {
         return { label: 'Nonaktif', variant: 'outline' };
     }
+
     const now = Date.now();
     const start = new Date(event.start_time).getTime();
     const end = new Date(event.end_time).getTime();
@@ -59,9 +62,11 @@ function getEventState(event: SaleEventRow): {
     if (now < start) {
         return { label: 'Akan Datang', variant: 'secondary' };
     }
+
     if (now > end) {
         return { label: 'Berakhir', variant: 'destructive' };
     }
+
     return { label: 'Sedang Berlangsung', variant: 'default' };
 }
 
@@ -245,6 +250,7 @@ export default function SaleEventsIndex({
                             <tbody className="divide-y">
                                 {events.data.map((eventItem) => {
                                     const state = getEventState(eventItem);
+
                                     return (
                                         <tr key={eventItem.id} className="align-top">
                                             <td className="py-3 pr-4">

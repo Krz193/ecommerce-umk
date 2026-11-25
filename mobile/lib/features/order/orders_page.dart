@@ -27,7 +27,9 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
   }
 
   void startPolling() {
-    refreshTimer?.cancel();
+    if (refreshTimer?.isActive == true) {
+      return;
+    }
 
     refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       debugPrint('refreshing orders page');
@@ -38,6 +40,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
   void stopPolling() {
     refreshTimer?.cancel();
+    refreshTimer = null;
   }
 
   @override
@@ -196,6 +199,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<dynamic>>>(ordersProvider, (_, next) {
+      next.whenData((orders) {
+        if (hasPendingOrders(orders)) {
+          startPolling();
+        } else {
+          stopPolling();
+        }
+      });
+    });
+
     final ordersAsync = ref.watch(ordersProvider);
 
     return Scaffold(
@@ -203,20 +216,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
       body: ordersAsync.when(
         data: (orders) {
-          if (hasPendingOrders(orders)) {
-            startPolling();
-          } else {
-            stopPolling();
-          }
-
           if (orders.isEmpty) {
             return const Center(child: Text('Belum ada pesanan'));
           }
 
           return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(ordersProvider);
-            },
+            onRefresh: () => ref.refresh(ordersProvider.future),
 
             child: ListView.separated(
               padding: const EdgeInsets.all(24),

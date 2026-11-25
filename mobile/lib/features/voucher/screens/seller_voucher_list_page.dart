@@ -34,12 +34,21 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
     if (widget.storeId != null && widget.storeId!.isNotEmpty) {
       return widget.storeId;
     }
-    final store = ref.read(myStoreProvider).asData?.value;
+    final store = ref.read(managedStoreProvider).asData?.value;
+    return store?.id;
+  }
+
+  Future<String?> _resolveEffectiveStoreId() async {
+    if (widget.storeId != null && widget.storeId!.isNotEmpty) {
+      return widget.storeId;
+    }
+    final store = await ref.read(managedStoreProvider.future);
     return store?.id;
   }
 
   Future<void> _fetchVouchersAndProducts() async {
-    final storeId = _getEffectiveStoreId();
+    final storeId = await _resolveEffectiveStoreId();
+    if (!mounted) return;
     if (storeId == null) {
       setState(() {
         _isLoading = false;

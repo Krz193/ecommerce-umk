@@ -690,7 +690,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
   @override
   Widget build(BuildContext context) {
-    final storeAsync = ref.watch(myStoreProvider);
+    final storeAsync = ref.watch(managedStoreProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ubah & Kelola Produk')),

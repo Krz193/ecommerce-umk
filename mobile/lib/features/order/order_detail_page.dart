@@ -67,6 +67,28 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   }
 
   Future<void> confirmReceived() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Konfirmasi Pesanan Diterima?'),
+        content: const Text(
+          'Pastikan barang sudah diterima dalam kondisi baik. Status pesanan akan diselesaikan dan tidak dapat dibatalkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Ya, Sudah Diterima'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     setState(() {
       isUpdating = true;
     });
@@ -387,10 +409,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           }
 
           return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(orderDetailProvider(widget.orderId));
-              await ref.read(orderDetailProvider(widget.orderId).future);
-            },
+            onRefresh: () =>
+                ref.refresh(orderDetailProvider(widget.orderId).future),
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
