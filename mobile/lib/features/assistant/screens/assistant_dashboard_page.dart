@@ -389,6 +389,18 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                       _buildMenuCard(
                         context,
+                        title: 'Ongkir Lokal',
+                        subtitle: 'Tarif Ojek & Kurir Toko',
+                        icon: Icons.two_wheeler_outlined,
+                        color: Colors.green.shade800,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/seller/local-shipping?storeId=${activeStore.storeId}',
+                              ),
+                      ),
+                      _buildMenuCard(
+                        context,
                         title: 'Ulasan Produk',
                         subtitle: 'Respon Ulasan Pembeli',
                         icon: Icons.rate_review_outlined,

@@ -38,50 +38,9 @@ class _LogisticsPartnerDashboardPageState
   String _driverPhone = '';
   String _vehiclePlate = '';
 
-  @override
-  void initState() {
-    super.initState();
-    // Ensure current user has proper logistics role in database
-    supabase.rpc('become_logistics_partner', params: {'p_role': widget.partnerMode}).then((_) {
-      if (mounted) ref.invalidate(appUserProvider);
-    }).catchError((_) {});
-    _tabController = TabController(length: 3, vsync: this);
-    _initializePartner();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  bool get isOjek => widget.partnerMode == 'ojek';
-  String get partnerTitle => isOjek ? 'Portal Driver Ojek' : 'Portal Mitra Ekspedisi';
-
-  Future<void> _initializePartner() async {
-    final user = ref.read(appUserProvider).asData?.value;
-    setState(() {
-      _driverName = (user != null && user.fullName.isNotEmpty)
-          ? user.fullName
-          : (isOjek ? 'Driver Ojek Mitra' : 'Mitra Ekspedisi Express');
-      _driverPhone = user?.phone ?? '';
-      _vehiclePlate = isOjek ? 'B 4123 ABC (Honda Vario)' : 'B 9876 XYZ (Truk Box)';
-    });
-
-    await _fetchOrders();
-  }
-
-  Future<void> _fetchOrders() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final response = await supabase
-          .from('orders')
-          .select('''
+  static const String _orderSelectColumns = '''
             id,
+            store_id,
             order_number,
             status,
             tracking_status,
@@ -127,13 +86,131 @@ class _LogisticsPartnerDashboardPageState
               latitude,
               longitude
             )
-          ''')
+          ''';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _initializePartner();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  bool get isOjek => widget.partnerMode == 'ojek';
+  String get partnerTitle => isOjek ? 'Portal Driver Ojek' : 'Portal Mitra Ekspedisi';
+
+  List<String> get _allowedCourierCodes => isOjek
+      ? const ['ojek', 'ojek_lokal', 'instant_lokal']
+      : const ['ekspedisi', 'ekspedisi_lokal', 'kurir_toko', 'manual'];
+
+  Future<void> _initializePartner() async {
+    final user = await ref.read(appUserProvider.future);
+    if (!mounted) return;
+
+    final authorized =
+        (isOjek && user?.isOjek == true) ||
+        (!isOjek && user?.isEkspedisi == true) ||
+        user?.isAdmin == true;
+
+    if (!authorized) {
+      context.go('/home');
+      return;
+    }
+
+    setState(() {
+      _driverName = (user != null && user.fullName.isNotEmpty)
+          ? user.fullName
+          : (isOjek ? 'Driver Ojek Mitra' : 'Mitra Ekspedisi Express');
+      _driverPhone = user?.phone ?? '';
+      _vehiclePlate = isOjek ? 'B 4123 ABC (Honda Vario)' : 'B 9876 XYZ (Truk Box)';
+    });
+
+    await _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final user = ref.read(appUserProvider).asData?.value;
+      final isAdmin = user?.isAdmin == true;
+
+      // 1. Fetch active UMKM store assignments for this courier on server
+      List<String> assignedStoreIds = [];
+      if (!isAdmin) {
+        final storeLinks = await supabase
+            .from('store_couriers')
+            .select('store_id')
+            .eq('user_id', currentUserId)
+            .eq('courier_type', isOjek ? 'ojek' : 'ekspedisi')
+            .eq('is_active', true);
+
+        assignedStoreIds = (storeLinks as List)
+            .map((row) => (row as Map)['store_id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet()
+            .toList();
+      }
+
+      // 2. Fetch orders owned by this driver (strict driver_id match)
+      final myOrdersRes = await supabase
+          .from('orders')
+          .select(_orderSelectColumns)
+          .eq('driver_id', currentUserId)
           .order('created_at', ascending: false)
           .limit(30);
 
+      // 3. Fetch claimable paid unassigned local orders scoped to assigned UMKM stores & role
+      List<dynamic> poolOrdersRes = const [];
+      if (isAdmin || assignedStoreIds.isNotEmpty) {
+        var poolQuery = supabase
+            .from('orders')
+            .select(_orderSelectColumns)
+            .isFilter('driver_id', null)
+            .isFilter('biteship_order_id', null)
+            .eq('payment_status', 'paid')
+            .inFilter('status', const ['processing', 'pending'])
+            .inFilter('courier_code', _allowedCourierCodes);
+
+        if (!isAdmin) {
+          poolQuery = poolQuery.inFilter('store_id', assignedStoreIds);
+        }
+
+        poolOrdersRes = await poolQuery
+            .order('created_at', ascending: false)
+            .limit(30);
+      }
+
+      final mergedById = <String, Map<String, dynamic>>{};
+      for (final raw in [...poolOrdersRes, ...(myOrdersRes as List)]) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final id = map['id']?.toString();
+        if (id != null && id.isNotEmpty) {
+          mergedById[id] = map;
+        }
+      }
+
+      final combined = mergedById.values.toList()
+        ..sort((a, b) {
+          final bCreated = b['created_at']?.toString() ?? '';
+          final aCreated = a['created_at']?.toString() ?? '';
+          return bCreated.compareTo(aCreated);
+        });
+
       if (mounted) {
         setState(() {
-          _orders = List<Map<String, dynamic>>.from(response as List);
+          _orders = combined;
           _isLoading = false;
         });
       }
@@ -151,39 +228,40 @@ class _LogisticsPartnerDashboardPageState
   List<Map<String, dynamic>> _getFilteredOrders(int tabIndex) {
     final currentUserId = supabase.auth.currentUser?.id;
 
-    // Helper: Is order intended for current partner mode (Ojek vs Ekspedisi)
     bool isMatchingCourier(Map<String, dynamic> o) {
       final code = (o['courier_code'] ?? '').toString().toLowerCase();
       final hasBiteship = o['biteship_order_id'] != null;
 
-      // Never show external Biteship-managed orders in local driver portal
-      if (hasBiteship || code == 'jne' || code == 'sicepat' || code == 'jnt' || code == 'anteraja') {
+      if (hasBiteship ||
+          code == 'gojek' ||
+          code == 'grab' ||
+          code == 'jne' ||
+          code == 'sicepat' ||
+          code == 'jnt' ||
+          code == 'anteraja') {
         return false;
       }
 
-      if (isOjek) {
-        // Ojek lokal: ojek, ojek_lokal, instant_lokal, or instant/same_day service
-        final sType = (o['courier_service_type'] ?? '').toString().toLowerCase();
-        return code == 'ojek' || code == 'ojek_lokal' || code == 'instant_lokal' || sType == 'instant' || sType == 'same_day';
-      } else {
-        // Ekspedisi / armada toko
-        return code == 'ekspedisi' || code == 'ekspedisi_lokal' || code == 'kurir_toko' || code == 'manual' || code.isEmpty;
-      }
+      return _allowedCourierCodes.contains(code);
     }
 
     if (tabIndex == 0) {
-      // Tab 0: Pending / Unassigned / Ready to pickup (Local orders without driver)
+      // Tab 0: Paid unassigned local orders ready for pickup
       return _orders.where((o) {
         if (!isMatchingCourier(o)) return false;
+        if (o['payment_status'] != 'paid') return false;
+        if (o['driver_id'] != null) return false;
         final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
-        final hasDriver = o['driver_id'] != null || (o['driver_name'] != null && o['driver_name'].toString().isNotEmpty);
-        return !hasDriver && (dStatus == 'ready_to_ship' || dStatus == 'pending' || dStatus == 'processing' || dStatus == 'allocated');
+        return dStatus == 'ready_to_ship' ||
+            dStatus == 'pending' ||
+            dStatus == 'processing' ||
+            dStatus == 'allocated';
       }).toList();
     } else if (tabIndex == 1) {
-      // Tab 1: Active / On Delivery (Claimed by current driver)
+      // Tab 1: Active / On Delivery (strictly owned via driver_id)
       return _orders.where((o) {
         final orderDriverId = o['driver_id']?.toString();
-        final isMine = currentUserId != null && (orderDriverId == currentUserId || (orderDriverId == null && o['driver_name'] == _driverName));
+        final isMine = currentUserId != null && orderDriverId == currentUserId;
         if (!isMine) return false;
 
         final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
@@ -193,10 +271,10 @@ class _LogisticsPartnerDashboardPageState
             dStatus == 'on_delivery';
       }).toList();
     } else {
-      // Tab 2: Completed / Cancelled (Finished by current driver)
+      // Tab 2: Completed / Cancelled (strictly owned via driver_id)
       return _orders.where((o) {
         final orderDriverId = o['driver_id']?.toString();
-        final isMine = currentUserId != null && (orderDriverId == currentUserId || (orderDriverId == null && o['driver_name'] == _driverName));
+        final isMine = currentUserId != null && orderDriverId == currentUserId;
         if (!isMine) return false;
 
         final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
@@ -209,8 +287,18 @@ class _LogisticsPartnerDashboardPageState
 
   // --- ACTIONS ---
 
-  // 1. Approval Pengiriman (Atomic Claim & Tugaskan Diri)
+  // 1. Approval Pengiriman (Atomic Claim & Tugaskan Diri - wajib paid)
   Future<void> _approveShipment(Map<String, dynamic> order) async {
+    if (order['payment_status'] != 'paid') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pesanan belum lunas (paid) dan tidak dapat diklaim.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final orderId = order['id'];
 
     try {

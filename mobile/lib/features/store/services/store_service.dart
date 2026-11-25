@@ -15,7 +15,7 @@ class StoreService {
   final SupabaseClient _supabase = supabase;
 
   static const String storeSelectColumns =
-      'id, owner_id, name, slug, description, phone, address, province, city, district, postal_code, notes, biteship_area_id, latitude, longitude, status';
+      'id, owner_id, name, slug, description, phone, address, province, city, district, postal_code, notes, biteship_area_id, latitude, longitude, local_ojek_enabled, local_ojek_rates, local_ekspedisi_enabled, local_ekspedisi_rates, status';
 
   Future<StoreModel?> getMyStore() async {
     final user = _supabase.auth.currentUser;
@@ -283,5 +283,67 @@ class StoreService {
       return (res['applied_count'] as num?)?.toInt() ?? 0;
     }
     return 0;
+  }
+
+  Future<StoreModel> updateLocalShippingSettings({
+    required String storeId,
+    required bool localOjekEnabled,
+    required List<LocalShippingRateTier> localOjekRates,
+    required bool localEkspedisiEnabled,
+    required List<LocalShippingRateTier> localEkspedisiRates,
+  }) async {
+    final response = await _supabase
+        .from('stores')
+        .update({
+          'local_ojek_enabled': localOjekEnabled,
+          'local_ojek_rates': localOjekRates.map((e) => e.toMap()).toList(),
+          'local_ekspedisi_enabled': localEkspedisiEnabled,
+          'local_ekspedisi_rates': localEkspedisiRates
+              .map((e) => e.toMap())
+              .toList(),
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', storeId)
+        .select(storeSelectColumns)
+        .single();
+
+    return StoreModel.fromMap(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getStoreCouriers(String storeId) async {
+    final res = await _supabase.rpc(
+      'get_store_couriers',
+      params: {'p_store_id': storeId},
+    );
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> assignStoreCourierByEmail({
+    required String storeId,
+    required String email,
+    required String courierType,
+  }) async {
+    final res = await _supabase.rpc(
+      'assign_store_courier_by_email',
+      params: {
+        'p_store_id': storeId,
+        'p_email': email.trim().toLowerCase(),
+        'p_courier_type': courierType,
+      },
+    );
+    return Map<String, dynamic>.from(res as Map);
+  }
+
+  Future<void> removeStoreCourier(String assignmentId) async {
+    await _supabase.rpc(
+      'remove_store_courier',
+      params: {'p_assignment_id': assignmentId},
+    );
   }
 }

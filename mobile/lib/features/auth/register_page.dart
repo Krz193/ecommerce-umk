@@ -145,7 +145,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     decoration: const InputDecoration(labelText: 'Password'),
 
                     validator: (value) {
-                      if (value == null || value.length < 6) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Password required';
+                      }
+                      if (value.length < 6) {
                         return 'Minimum 6 characters';
                       }
 

@@ -87,9 +87,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> login() async {
     final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+    final password = passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
+    if (email.isEmpty || password.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Harap masukkan email dan kata sandi')),
       );

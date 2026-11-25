@@ -423,11 +423,26 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                     final code = codeCtrl.text.trim().toUpperCase();
                     final title = titleCtrl.text.trim();
                     final val = double.tryParse(valueCtrl.text.trim());
-                    final minP = double.tryParse(minPurchaseCtrl.text.trim()) ?? 0;
+                    final rawMinP = minPurchaseCtrl.text.trim();
+                    final minP = rawMinP.isEmpty ? 0.0 : double.tryParse(rawMinP);
 
                     if (code.isEmpty || title.isEmpty || val == null || val <= 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Lengkapi kode, catatan, dan nilai diskon')),
+                        const SnackBar(content: Text('Lengkapi kode, catatan, dan nilai diskon lebih dari 0')),
+                      );
+                      return;
+                    }
+
+                    if (selectedType == 'percentage' && val > 100) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Persentase diskon tidak boleh melebihi 100%')),
+                      );
+                      return;
+                    }
+
+                    if (minP == null || minP < 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Minimal belanja tidak boleh bernilai negatif')),
                       );
                       return;
                     }
@@ -635,6 +650,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
       valueDisplay = 'Harga Khusus ${CurrencyFormatter.format(voucher.discountValue.round())}';
     }
 
+    final isNotStarted = voucher.isNotStarted;
     final isExpired = voucher.isExpired;
     final isExhausted = voucher.isQuotaExhausted;
 
@@ -721,7 +737,17 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
                 const Spacer(),
-                if (isExpired)
+                if (isNotStarted)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('Belum Mulai',
+                        style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
+                  )
+                else if (isExpired)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(

@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:mobile/core/utils/csv_exporter.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/order/models/order_model.dart';
@@ -185,6 +184,18 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                   subtitle: 'Buat event Flash Sale toko atau daftarkan produk ke event Admin',
                   onTap: () {
                     context.push('/seller/flash-sales?storeId=${store.id}');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.two_wheeler_outlined,
+                  title: 'Pengiriman Lokal Toko',
+                  subtitle:
+                      'Atur opsional ongkir Ojek Lokal, Ekspedisi Lokal, range jarak, & kurir toko',
+                  onTap: () {
+                    context.push('/seller/local-shipping?storeId=${store.id}');
                   },
                 ),
               ],
@@ -897,34 +908,17 @@ class SellerStoreReportsPage extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final directory = _exportDirectory();
       final filename =
           '${_safeFileName(storeName)}-$reportName-${_dateStamp()}.csv';
-      final file = File('${directory.path}${Platform.pathSeparator}$filename');
-
-      await directory.create(recursive: true);
-      await file.writeAsString(_toCsv(rows));
-
-      messenger.showSnackBar(
-        SnackBar(content: Text('Export saved: ${file.path}')),
+      final message = await saveOrShareCsvReport(
+        filename: filename,
+        csvContent: _toCsv(rows),
       );
+
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $error')));
     }
-  }
-
-  Directory _exportDirectory() {
-    final userProfile = Platform.environment['USERPROFILE'];
-    if (Platform.isWindows && userProfile != null && userProfile.isNotEmpty) {
-      return Directory('$userProfile${Platform.pathSeparator}Downloads');
-    }
-
-    final home = Platform.environment['HOME'];
-    if (home != null && home.isNotEmpty) {
-      return Directory('$home${Platform.pathSeparator}Downloads');
-    }
-
-    return Directory.systemTemp;
   }
 
   String _toCsv(List<List<String>> rows) {
@@ -936,16 +930,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
   }
 
   String _escapeCsvValue(String value) {
-    final escaped = value.replaceAll('"', '""');
-
-    if (escaped.contains(',') ||
-        escaped.contains('\n') ||
-        escaped.contains('\r') ||
-        escaped.contains('"')) {
-      return '"$escaped"';
-    }
-
-    return escaped;
+    return escapeCsvCell(value);
   }
 
   String _safeFileName(String value) {

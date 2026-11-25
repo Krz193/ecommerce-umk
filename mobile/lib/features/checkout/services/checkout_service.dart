@@ -7,27 +7,19 @@ class CheckoutService {
   Future<Map<String, dynamic>> checkout({
     required String cartId,
     required String addressId,
-    Map<String, dynamic>? selectedCourier,
-    String? voucherId,
+    required String courierCode,
+    required String courierServiceCode,
     String? voucherCode,
-    int? voucherDiscount,
   }) async {
     final payload = <String, dynamic>{
       'cart_id': cartId,
       'address_id': addressId,
+      'courier_code': courierCode,
+      'courier_service_code': courierServiceCode,
     };
 
-    if (selectedCourier != null) {
-      payload['selected_courier'] = selectedCourier;
-    }
-    if (voucherId != null) {
-      payload['voucher_id'] = voucherId;
-    }
-    if (voucherCode != null) {
-      payload['voucher_code'] = voucherCode;
-    }
-    if (voucherDiscount != null) {
-      payload['voucher_discount'] = voucherDiscount;
+    if (voucherCode != null && voucherCode.trim().isNotEmpty) {
+      payload['voucher_code'] = voucherCode.trim().toUpperCase();
     }
 
     final response = await _supabase.functions.invoke(
@@ -39,6 +31,6 @@ class CheckoutService {
       throw response.data;
     }
 
-    return response.data;
+    return Map<String, dynamic>.from(response.data as Map);
   }
 }

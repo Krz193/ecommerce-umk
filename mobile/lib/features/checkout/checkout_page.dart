@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/features/cart/models/cart_model.dart';
 import 'package:mobile/features/checkout/providers/checkout_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
@@ -272,49 +271,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final result = await checkoutService.checkout(
         cartId: cart.id,
         addressId: selectedAddr.id,
-        selectedCourier: selectedCourier.toMap(),
-        voucherId: appliedVoucherId,
+        courierCode: selectedCourier.courierCode,
+        courierServiceCode: selectedCourier.courierServiceCode,
         voucherCode: appliedVoucherCode,
-        voucherDiscount: voucherDiscount,
       );
 
       ref.invalidate(cartFlashSalesProvider);
       ref.invalidate(publicSaleEventsProvider);
-
-      final orderData = result['order'];
-      if (orderData != null && orderData['id'] != null) {
-        try {
-          await supabase.rpc(
-            'set_order_shipping_details',
-            params: {
-              'p_order_id': orderData['id'],
-              'p_courier_name': selectedCourier.displayName,
-              'p_courier_code': selectedCourier.courierCode,
-              'p_courier_service_code': selectedCourier.courierServiceCode,
-              'p_courier_service_type': selectedCourier.serviceType,
-              'p_shipping_cost': selectedCourier.price,
-            },
-          );
-
-          // Update voucher reference if applied
-          if (appliedVoucherCode != null) {
-            await supabase.from('orders').update({
-              'voucher_id': appliedVoucherId,
-              'voucher_code': appliedVoucherCode,
-              'voucher_discount': voucherDiscount,
-            }).eq('id', orderData['id']);
-
-            // Increment used_count on store_vouchers
-            if (appliedVoucherId != null) {
-              await supabase.rpc('increment_voucher_usage', params: {
-                'p_voucher_id': appliedVoucherId,
-              }).catchError((_) {});
-            }
-          }
-        } catch (e) {
-          debugPrint('Error saving shipping details/voucher: $e');
-        }
-      }
 
       if (!mounted) return;
 

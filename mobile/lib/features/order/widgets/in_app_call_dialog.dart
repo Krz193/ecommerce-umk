@@ -41,6 +41,8 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
   bool _isSpeakerOn = false;
   int _elapsedSeconds = 0;
   final String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+  String _verifiedCallerRole = '';
+  String _verifiedCallerName = '';
 
   static const Map<String, dynamic> _rtcConfiguration = {
     'iceServers': [
@@ -64,8 +66,28 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
 
   Future<void> _initWebRtcCall() async {
     try {
-      // 1. Setup Supabase Realtime Signaling Channel scoped to orderId
-      final channelName = 'webrtc:order_${widget.orderId}';
+      // 1. Verify order participation & obtain HMAC-protected channel topic + authoritative role from server
+      final authResponse = await supabase.rpc(
+        'authorize_order_webrtc_call',
+        params: {'p_order_id': widget.orderId},
+      );
+
+      if (authResponse is! Map || authResponse['authorized'] != true) {
+        throw Exception('Akses panggilan tidak diizinkan untuk akun ini.');
+      }
+
+      final channelName = authResponse['channel_topic']?.toString() ?? '';
+      final serverRole = authResponse['caller_role']?.toString() ?? '';
+      final serverName = authResponse['caller_name']?.toString() ?? '';
+
+      if (channelName.isEmpty || serverRole.isEmpty) {
+        throw Exception('Token saluran panggilan tidak valid.');
+      }
+
+      _verifiedCallerRole = serverRole;
+      _verifiedCallerName = serverName;
+
+      // 2. Setup authorized Supabase Realtime Signaling Channel
       _signalingChannel = supabase.channel(channelName);
 
       _signalingChannel!
@@ -104,7 +126,7 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
           )
           .subscribe();
 
-      // 2. Request audio stream from microphone
+      // 3. Request audio stream from microphone
       try {
         _localStream = await navigator.mediaDevices.getUserMedia({
           'audio': {
@@ -119,7 +141,7 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
         _localStream = null;
       }
 
-      // 3. Create PeerConnection
+      // 4. Create PeerConnection
       _peerConnection = await createPeerConnection(_rtcConfiguration);
 
       if (_localStream != null) {
@@ -134,6 +156,7 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
           event: 'ice-candidate',
           payload: {
             'sender_session': _sessionId,
+            'caller_role': _verifiedCallerRole,
             'candidate': candidate.candidate,
             'sdpMid': candidate.sdpMid,
             'sdpMLineIndex': candidate.sdpMLineIndex,
@@ -155,7 +178,7 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
         }
       };
 
-      // 4. Create & broadcast SDP Offer
+      // 5. Create & broadcast SDP Offer using server-verified role
       final offer = await _peerConnection!.createOffer({
         'offerToReceiveAudio': 1,
         'offerToReceiveVideo': 0,
@@ -166,7 +189,8 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
         event: 'call-offer',
         payload: {
           'sender_session': _sessionId,
-          'caller_role': widget.callerRole,
+          'caller_role': _verifiedCallerRole,
+          'caller_name': _verifiedCallerName,
           'sdp': offer.sdp,
           'type': offer.type,
         },
@@ -179,11 +203,14 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
             'Memanggil ${widget.remotePartyName} via In-App VoIP...';
       });
     } catch (e) {
+      await _cleanupCall(sendHangup: false);
       if (!mounted) return;
+      final cleanMsg = e.toString().replaceFirst('Exception: ', '').trim();
       setState(() {
-        _callState = 'ringing';
-        _statusMessage =
-            'Saluran In-App siap. Menunggu ${widget.remotePartyName}...';
+        _callState = 'ended';
+        _statusMessage = cleanMsg.isNotEmpty
+            ? cleanMsg
+            : 'Gagal mengotorisasi saluran panggilan pesanan ini.';
       });
     }
   }
@@ -203,6 +230,8 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
       event: 'call-answer',
       payload: {
         'sender_session': _sessionId,
+        'caller_role': _verifiedCallerRole,
+        'caller_name': _verifiedCallerName,
         'sdp': answer.sdp,
         'type': answer.type,
       },

@@ -13,15 +13,18 @@ class ChangePasswordPage extends StatefulWidget {
 
 class _ChangePasswordPageState extends State<ChangePasswordPage> {
   final formKey = GlobalKey<FormState>();
+  final currentPasswordController = TextEditingController();
   final newPasswordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
+  bool obscureCurrentPassword = true;
   bool obscureNewPassword = true;
   bool obscureConfirmPassword = true;
   bool isSaving = false;
 
   @override
   void dispose() {
+    currentPasswordController.dispose();
     newPasswordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
@@ -30,9 +33,30 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Future<void> _updatePassword() async {
     if (!formKey.currentState!.validate()) return;
 
+    final currentEmail = supabase.auth.currentUser?.email?.trim() ?? '';
+    if (currentEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sesi akun tidak valid. Silakan masuk kembali.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => isSaving = true);
 
     try {
+      // Mandatory re-authentication before mutating account password
+      try {
+        await supabase.auth.signInWithPassword(
+          email: currentEmail,
+          password: currentPasswordController.text,
+        );
+      } on AuthException {
+        throw Exception('Kata sandi saat ini tidak sesuai.');
+      }
+
       await supabase.auth.updateUser(
         UserAttributes(password: newPasswordController.text),
       );
@@ -50,9 +74,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     } catch (error) {
       if (!mounted) return;
 
+      final cleanMsg = error.toString().replaceFirst('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal memperbarui kata sandi: $error'),
+          content: Text('Gagal memperbarui kata sandi: $cleanMsg'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -87,7 +112,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Buat kata sandi baru yang kuat minimal 6 karakter demi keamanan akun Anda.',
+                          'Masukkan kata sandi saat ini untuk verifikasi, lalu buat kata sandi baru minimal 6 karakter.',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.primaryHover,
@@ -99,6 +124,34 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                TextFormField(
+                  controller: currentPasswordController,
+                  obscureText: obscureCurrentPassword,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Kata Sandi Saat Ini',
+                    prefixIcon: const Icon(Icons.verified_user_outlined),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureCurrentPassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscureCurrentPassword = !obscureCurrentPassword;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Masukkan kata sandi saat ini';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: newPasswordController,
                   obscureText: obscureNewPassword,
@@ -120,8 +173,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.trim().length < 6) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Kata sandi baru tidak boleh kosong';
+                    }
+                    if (value.length < 6) {
                       return 'Kata sandi minimal 6 karakter';
+                    }
+                    if (value == currentPasswordController.text) {
+                      return 'Kata sandi baru harus berbeda dari kata sandi saat ini';
                     }
                     return null;
                   },

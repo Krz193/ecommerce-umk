@@ -5,16 +5,40 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:mobile/core/router/app_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/core/theme/app_theme.dart';
+import 'package:mobile/features/address/providers/address_provider.dart';
+import 'package:mobile/features/assistant/providers/assistant_providers.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
+import 'package:mobile/features/feedback/providers/feedback_provider.dart';
 import 'package:mobile/features/flash_sale/providers/flash_sale_provider.dart';
 import 'package:mobile/features/notification/providers/notification_provider.dart';
-import 'package:mobile/features/order/providers/orders_provider.dart';
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
+import 'package:mobile/features/order/providers/orders_provider.dart';
+import 'package:mobile/features/order/providers/refund_request_provider.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
-import 'package:mobile/features/address/providers/address_provider.dart';
 import 'package:mobile/features/product/providers/seller_product_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
+
+/// Determines whether user-scoped Riverpod providers must be invalidated on an
+/// [AuthState] transition. Returns `false` for `tokenRefreshed` (and same-user
+/// metadata updates) so active screens are not reset mid-session.
+bool shouldInvalidateOnAuthChange({
+  required AuthChangeEvent event,
+  required String? previousUserId,
+  required String? nextUserId,
+}) {
+  if (event == AuthChangeEvent.tokenRefreshed) {
+    return false;
+  }
+  if (event == AuthChangeEvent.signedOut) {
+    return true;
+  }
+  if (event == AuthChangeEvent.initialSession) {
+    return false;
+  }
+  return previousUserId != nextUserId;
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,9 +114,24 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(authStateProvider, (context, index) {
-      // Invalidate user-scoped providers on auth change to avoid stale
-      // or cross-account data shown after sign-out/sign-in.
+    ref.listen<AsyncValue<AuthState>>(authStateProvider, (previous, next) {
+      final authState = next.asData?.value;
+      if (authState == null) return;
+
+      final prevUserId = previous?.asData?.value.session?.user.id;
+      final nextUserId = authState.session?.user.id;
+
+      if (!shouldInvalidateOnAuthChange(
+        event: authState.event,
+        previousUserId: prevUserId,
+        nextUserId: nextUserId,
+      )) {
+        return;
+      }
+
+      clearRouterRoleCache();
+
+      // Core buyer & seller providers
       ref.invalidate(cartProvider);
       ref.invalidate(ordersProvider);
       ref.invalidate(orderDetailProvider);
@@ -107,6 +146,16 @@ class MyApp extends ConsumerWidget {
       ref.invalidate(cartFlashSalesProvider);
       ref.invalidate(productFlashSaleProvider);
       ref.invalidate(sellerSaleEventsProvider);
+
+      // Assistant, managed store, donation, feedback, and refund providers
+      ref.invalidate(assistantProfileProvider);
+      ref.invalidate(assignedStoresProvider);
+      ref.invalidate(selectedStoreProvider);
+      ref.invalidate(handledStoreProvider);
+      ref.invalidate(managedStoreProvider);
+      ref.invalidate(myDonationsProvider);
+      ref.invalidate(userFeedbacksProvider);
+      ref.invalidate(refundRequestsProvider);
     });
 
     return MaterialApp.router(

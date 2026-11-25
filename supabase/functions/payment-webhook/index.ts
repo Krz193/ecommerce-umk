@@ -470,7 +470,7 @@ serve(async (req) => {
                 "cancelled";
         }
 
-        // Release any reserved Flash Sale quota idempotently when payment expires or cancels
+        // Release any reserved Flash Sale & Voucher quota idempotently when payment expires or cancels
         if (
             body.transaction_status === "expire" ||
             body.transaction_status === "cancel"
@@ -481,6 +481,14 @@ serve(async (req) => {
             );
             if (rollbackErr) {
                 console.error("Flash sale quota rollback error:", rollbackErr);
+            }
+
+            const { error: voucherRollbackErr } = await supabase.rpc(
+                "rollback_voucher_quota",
+                { p_order_id: payment.order.id },
+            );
+            if (voucherRollbackErr) {
+                console.error("Voucher quota rollback error:", voucherRollbackErr);
             }
         }
 

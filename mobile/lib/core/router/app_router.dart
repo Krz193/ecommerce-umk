@@ -37,6 +37,7 @@ import 'package:mobile/features/product/seller_products_page.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/seller_buyer_carts_page.dart';
 import 'package:mobile/features/store/seller_edit_store_page.dart';
+import 'package:mobile/features/store/seller_local_shipping_page.dart';
 import 'package:mobile/features/store/seller_onboarding_page.dart';
 import 'package:mobile/features/store/seller_recommendations_page.dart';
 import 'package:mobile/features/store/seller_reviews_page.dart';
@@ -45,21 +46,75 @@ import 'package:mobile/features/store/store_public_page.dart';
 import 'package:mobile/features/training/screens/training_list_page.dart';
 import 'package:mobile/features/voucher/screens/seller_voucher_list_page.dart';
 
+String? _cachedRouterUserId;
+String? _cachedRouterRole;
+
+void clearRouterRoleCache() {
+  _cachedRouterUserId = null;
+  _cachedRouterRole = null;
+}
+
+bool _isRoleAllowedForLocation(String location, String? role) {
+  if (role == 'admin') return true;
+
+  if (location == '/logistics/ekspedisi') {
+    return role == 'ekspedisi';
+  }
+  if (location == '/logistics/ojek') {
+    return role == 'ojek';
+  }
+  if (location.startsWith('/assistant')) {
+    return role == 'assistant';
+  }
+  if (location == '/seller/onboarding') {
+    return role == 'buyer' || role == 'seller';
+  }
+  if (location.startsWith('/seller')) {
+    return role == 'seller' || role == 'assistant';
+  }
+
+  return true;
+}
+
+Future<String?> _resolveUserRole(String userId, {bool forceRefresh = false}) async {
+  if (!forceRefresh && _cachedRouterUserId == userId && _cachedRouterRole != null) {
+    return _cachedRouterRole;
+  }
+
+  try {
+    final row = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+    final role = row?['role']?.toString();
+    _cachedRouterUserId = userId;
+    _cachedRouterRole = role;
+    return role;
+  } catch (_) {
+    return _cachedRouterUserId == userId ? _cachedRouterRole : null;
+  }
+}
+
 final appRouter = GoRouter(
   initialLocation: '/login',
 
   refreshListenable: RouterRefreshStream(supabase.auth.onAuthStateChange),
 
-  redirect: (context, state) {
+  redirect: (context, state) async {
     final session = supabase.auth.currentSession;
 
     final isLoggedIn = session != null;
 
-    final isAuthRoute =
-        state.matchedLocation == '/login' ||
-        state.matchedLocation == '/register';
+    if (!isLoggedIn) {
+      clearRouterRoleCache();
+    }
 
-    if (state.matchedLocation == '/') {
+    final loc = state.matchedLocation;
+
+    final isAuthRoute = loc == '/login' || loc == '/register';
+
+    if (loc == '/') {
       return isLoggedIn ? '/home' : '/login';
     }
 
@@ -69,6 +124,22 @@ final appRouter = GoRouter(
 
     if (isLoggedIn && isAuthRoute) {
       return '/home';
+    }
+
+    final requiresRoleCheck =
+        loc.startsWith('/logistics') ||
+        loc.startsWith('/assistant') ||
+        loc.startsWith('/seller');
+
+    if (isLoggedIn && requiresRoleCheck) {
+      var role = await _resolveUserRole(session.user.id);
+      if (!_isRoleAllowedForLocation(loc, role)) {
+        // Re-fetch once in case user just completed legitimate role onboarding
+        role = await _resolveUserRole(session.user.id, forceRefresh: true);
+        if (!_isRoleAllowedForLocation(loc, role)) {
+          return '/home';
+        }
+      }
     }
 
     return null;
@@ -254,6 +325,14 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final storeId = state.uri.queryParameters['storeId'];
         return SellerFlashSalePage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/seller/local-shipping',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return SellerLocalShippingPage(storeId: storeId);
       },
     ),
 

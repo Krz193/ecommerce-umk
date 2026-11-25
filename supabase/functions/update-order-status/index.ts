@@ -518,9 +518,35 @@ serve(async (req) => {
 
             const useLive = Deno.env.get("BITESHIP_USE_LIVE") === "true";
             const apiKey = Deno.env.get("BITESHIP_API_KEY");
+            const normalizedOrderCourier = String(order.courier_code || "").trim().toLowerCase();
+            const isLocalStoreCourier = [
+                "ojek_lokal",
+                "ojek",
+                "instant_lokal",
+                "ekspedisi_lokal",
+                "ekspedisi",
+                "kurir_toko",
+                "manual",
+            ].includes(normalizedOrderCourier);
 
-            // Live Biteship Booking for automated couriers
-            if (useLive && apiKey && !order.biteship_order_id && !order.waybill_id && !trackingNumber) {
+            if (isLocalStoreCourier && !trackingNumber) {
+                // Local UMKM courier: mark order ready_to_ship in queue so assigned store courier can claim it
+                updates.status = "processing";
+                updates.shipping_provider = shippingProvider;
+                updates.tracking_status = "ready_to_ship";
+                const existingHistory = Array.isArray(order.tracking_history) ? order.tracking_history : [];
+                updates.tracking_history = [
+                    ...existingHistory,
+                    {
+                        status: "ready_to_ship",
+                        checkpoint_name: order.origin_contact_name || order.store?.name || "Toko UMK",
+                        note: `Pesanan siap dijemput oleh kurir lokal toko (${shippingProvider})`,
+                        latitude: order.origin_latitude ?? order.store?.latitude ?? null,
+                        longitude: order.origin_longitude ?? order.store?.longitude ?? null,
+                        timestamp: new Date().toISOString(),
+                    },
+                ];
+            } else if (useLive && apiKey && !isLocalStoreCourier && !order.biteship_order_id && !order.waybill_id && !trackingNumber) {
                 // LAPIS 1: Pre-Dispatch Sync (Check if already booked in Biteship)
                 // Cek apakah di database logs sudah pernah ada booking sukses untuk order_number ini
                 const { data: existingLogs } = await dbClient
@@ -804,8 +830,10 @@ serve(async (req) => {
                 ];
             }
 
-            shippedAt = new Date().toISOString();
-            updates.shipped_at = shippedAt;
+            if (updates.status === "shipped") {
+                shippedAt = new Date().toISOString();
+                updates.shipped_at = shippedAt;
+            }
             updates.shipping_provider = shippingProvider;
             if (body.driver_name && updates.driver_name === undefined) {
                 // Only set driver if not already populated from real courier

@@ -1,30 +1,70 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/features/auth/models/saved_account_model.dart';
 
 class SavedAccountService {
-  static const String _storageKey = 'saved_login_accounts_v1';
+  static const String _legacyPlaintextStorageKey = 'saved_login_accounts_v1';
+  static const String _secureStorageKey = 'secure_saved_login_accounts_v2';
   static const int _maxAccounts = 10;
+
+  final FlutterSecureStorage _secureStorage;
+
+  SavedAccountService({FlutterSecureStorage? secureStorage})
+    : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+
+  /// One-way migration that moves any legacy SharedPreferences entries into
+  /// encrypted platform storage and immediately purges plaintext entries.
+  Future<void> _migrateAndPurgeLegacyPlaintext() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!prefs.containsKey(_legacyPlaintextStorageKey)) {
+        return;
+      }
+
+      final legacyList = prefs.getStringList(_legacyPlaintextStorageKey);
+      await prefs.remove(_legacyPlaintextStorageKey);
+
+      if (legacyList != null && legacyList.isNotEmpty) {
+        final existingEncrypted = await _secureStorage.read(
+          key: _secureStorageKey,
+        );
+        if (existingEncrypted == null || existingEncrypted.isEmpty) {
+          await _secureStorage.write(
+            key: _secureStorageKey,
+            value: jsonEncode(legacyList),
+          );
+        }
+      }
+    } catch (_) {
+      // Best-effort purge of legacy plaintext storage
+    }
+  }
 
   Future<List<SavedAccountModel>> getSavedAccounts() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final rawList = prefs.getStringList(_storageKey);
-      if (rawList == null || rawList.isEmpty) {
+      await _migrateAndPurgeLegacyPlaintext();
+
+      final rawJson = await _secureStorage.read(key: _secureStorageKey);
+      if (rawJson == null || rawJson.isEmpty) {
         return [];
       }
 
+      final decoded = jsonDecode(rawJson);
+      if (decoded is! List) return [];
+
       final accounts = <SavedAccountModel>[];
-      for (final item in rawList) {
+      for (final item in decoded) {
         try {
-          final map = jsonDecode(item) as Map<String, dynamic>;
+          final map = item is String
+              ? jsonDecode(item) as Map<String, dynamic>
+              : Map<String, dynamic>.from(item as Map);
           accounts.add(SavedAccountModel.fromJson(map));
         } catch (_) {
           // Skip corrupted item
         }
       }
 
-      // Sort by latest login date
       accounts.sort((a, b) => b.lastLoggedInAt.compareTo(a.lastLoggedInAt));
       return accounts;
     } catch (_) {
@@ -39,7 +79,6 @@ class SavedAccountService {
     String? role,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final currentAccounts = await getSavedAccounts();
 
       final normalizedEmail = email.trim().toLowerCase();
@@ -57,12 +96,10 @@ class SavedAccountService {
 
       currentAccounts.insert(0, newAccount);
 
-      // Keep at most _maxAccounts
       final limited = currentAccounts.take(_maxAccounts).toList();
+      final serialized = jsonEncode(limited.map((acc) => acc.toJson()).toList());
 
-      final stringList =
-          limited.map((acc) => jsonEncode(acc.toJson())).toList();
-      await prefs.setStringList(_storageKey, stringList);
+      await _secureStorage.write(key: _secureStorageKey, value: serialized);
     } catch (_) {
       // Fail gracefully without crashing
     }
@@ -70,7 +107,6 @@ class SavedAccountService {
 
   Future<void> removeAccount(String email) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final currentAccounts = await getSavedAccounts();
 
       final normalizedEmail = email.trim().toLowerCase();
@@ -78,9 +114,10 @@ class SavedAccountService {
         (acc) => acc.email.trim().toLowerCase() == normalizedEmail,
       );
 
-      final stringList =
-          currentAccounts.map((acc) => jsonEncode(acc.toJson())).toList();
-      await prefs.setStringList(_storageKey, stringList);
+      final serialized = jsonEncode(
+        currentAccounts.map((acc) => acc.toJson()).toList(),
+      );
+      await _secureStorage.write(key: _secureStorageKey, value: serialized);
     } catch (_) {
       // Fail gracefully
     }
@@ -88,8 +125,8 @@ class SavedAccountService {
 
   Future<void> clearAll() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_storageKey);
+      await _migrateAndPurgeLegacyPlaintext();
+      await _secureStorage.delete(key: _secureStorageKey);
     } catch (_) {
       // Fail gracefully
     }

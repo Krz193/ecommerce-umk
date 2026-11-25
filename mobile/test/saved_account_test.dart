@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/features/auth/models/saved_account_model.dart';
@@ -47,21 +49,21 @@ void main() {
     });
   });
 
-  group('SavedAccountService', () {
+  group('SavedAccountService (Encrypted Storage)', () {
     late SavedAccountService service;
 
     setUp(() {
       SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
       service = SavedAccountService();
     });
 
-    test('saves account and retrieves sorted by latest login', () async {
+    test('saves account in encrypted storage without writing to SharedPreferences', () async {
       await service.saveOrUpdateAccount(
         email: 'first@example.com',
         fullName: 'First User',
       );
 
-      // Wait 10ms to ensure different timestamp
       await Future.delayed(const Duration(milliseconds: 15));
 
       await service.saveOrUpdateAccount(
@@ -73,10 +75,33 @@ void main() {
       expect(accounts.length, equals(2));
       expect(accounts.first.email, equals('second@example.com'));
       expect(accounts.last.email, equals('first@example.com'));
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('saved_login_accounts_v1'), isFalse);
     });
 
-    test('re-saving existing account moves it to the top without duplicates',
-        () async {
+    test('migrates legacy SharedPreferences plaintext entries and purges plaintext', () async {
+      final legacyAccount = SavedAccountModel(
+        email: 'legacy@example.com',
+        fullName: 'Legacy User',
+        lastLoggedInAt: DateTime.now(),
+      );
+
+      SharedPreferences.setMockInitialValues({
+        'saved_login_accounts_v1': [jsonEncode(legacyAccount.toJson())],
+      });
+      FlutterSecureStorage.setMockInitialValues({});
+      final migrationService = SavedAccountService();
+
+      final accounts = await migrationService.getSavedAccounts();
+      expect(accounts.length, equals(1));
+      expect(accounts.first.email, equals('legacy@example.com'));
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('saved_login_accounts_v1'), isFalse);
+    });
+
+    test('re-saving existing account moves it to the top without duplicates', () async {
       await service.saveOrUpdateAccount(
         email: 'user1@example.com',
         fullName: 'User 1',
@@ -91,7 +116,6 @@ void main() {
 
       await Future.delayed(const Duration(milliseconds: 15));
 
-      // Re-save user1 with uppercase
       await service.saveOrUpdateAccount(
         email: 'USER1@example.com',
         fullName: 'User 1 Updated',
