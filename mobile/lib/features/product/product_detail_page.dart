@@ -30,6 +30,7 @@ class ProductDetailPage extends ConsumerStatefulWidget {
 
 class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   String? selectedImageUrl;
+  bool _isAddingToCart = false;
 
   @override
   Widget build(BuildContext context) {
@@ -59,9 +60,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: product.stock <= 0
+                      onPressed: (product.stock <= 0 || _isAddingToCart)
                           ? null
                           : () async {
+                              setState(() {
+                                _isAddingToCart = true;
+                              });
                               try {
                                 await ProductDetailPage.cartService.addToCart(
                                   productId: product.id,
@@ -85,13 +89,34 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 }
 
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(error.toString())),
+                                  SnackBar(
+                                    content: Text(
+                                      error.toString().replaceFirst(
+                                        'Exception: ',
+                                        '',
+                                      ),
+                                    ),
+                                  ),
                                 );
+                              } finally {
+                                if (mounted) {
+                                  setState(() {
+                                    _isAddingToCart = false;
+                                  });
+                                }
                               }
                             },
-                      child: Text(
-                        product.stock <= 0 ? 'Out of Stock' : 'Add To Cart',
-                      ),
+                      child: _isAddingToCart
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              product.stock <= 0
+                                  ? 'Out of Stock'
+                                  : 'Add To Cart',
+                            ),
                     ),
                   ),
                 ),

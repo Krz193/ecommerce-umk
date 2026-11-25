@@ -144,7 +144,7 @@ class _SellerCreateProductPageState
         ),
       );
 
-      context.go('/seller/products/${product.id}/edit');
+      context.push('/seller/products/${product.id}/edit');
     } catch (error) {
       if (!mounted) {
         return;

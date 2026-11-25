@@ -102,16 +102,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
 
       final authService = ref.read(authServiceProvider);
+      final savedAccountsNotifier = ref.read(savedAccountsProvider.notifier);
 
       await authService.signIn(
         email: email,
         password: password,
       );
 
-      // Successfully authenticated: Save or update account in local device cache
+      // Save or update account using pre-captured notifier (survives router redirect dispose)
       try {
         final profile = await authService.getAppUser();
-        await ref.read(savedAccountsProvider.notifier).saveAccount(
+        await savedAccountsNotifier.saveAccount(
               email: email,
               fullName: (profile?.fullName.isNotEmpty ?? false)
                   ? profile!.fullName
@@ -121,7 +122,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             );
       } catch (_) {
         // Fallback: save email if profile retrieval has any hiccups
-        await ref.read(savedAccountsProvider.notifier).saveAccount(
+        await savedAccountsNotifier.saveAccount(
               email: email,
               fullName: email,
             );

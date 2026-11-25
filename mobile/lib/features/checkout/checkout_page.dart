@@ -16,7 +16,9 @@ import 'package:mobile/features/voucher/services/voucher_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
-  const CheckoutPage({super.key});
+  final String? cartId;
+
+  const CheckoutPage({super.key, this.cartId});
 
   @override
   ConsumerState<CheckoutPage> createState() => _CheckoutPageState();
@@ -195,7 +197,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     );
   }
 
+  CartModel? _resolveTargetCart(List<CartModel> carts) {
+    if (carts.isEmpty) return null;
+    if (widget.cartId != null) {
+      for (final c in carts) {
+        if (c.id == widget.cartId) return c;
+      }
+      return null;
+    }
+    return carts.first;
+  }
+
   Future<void> handleCheckout() async {
+    if (isLoading) return;
     try {
       setState(() {
         isLoading = true;
@@ -206,13 +220,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final cartState = ref.read(cartProvider);
       final carts = cartState.asData?.value;
 
-      if (carts == null || carts.isEmpty) {
-        throw Exception('Keranjang belanja kosong');
-      }
+      final cart = carts != null ? _resolveTargetCart(carts) : null;
 
-      final cart = carts.first;
-
-      if (cart.items.isEmpty) {
+      if (cart == null || cart.items.isEmpty) {
         throw Exception('Keranjang belanja kosong');
       }
 
@@ -283,7 +293,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
       debugPrint(result.toString());
 
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => PaymentPage(
@@ -461,11 +471,10 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       appBar: AppBar(title: const Text('Checkout & Pengiriman')),
       body: cartState.when(
         data: (carts) {
-          if (carts.isEmpty) {
+          final cart = _resolveTargetCart(carts);
+          if (cart == null || cart.items.isEmpty) {
             return const Center(child: Text('Keranjang belanja kosong'));
           }
-
-          final cart = carts.first;
           final flashSummary = _computeCartFlashSummary(cart, flashSales);
           final subtotal = flashSummary.effectiveSubtotal;
           final flashSavings = flashSummary.flashSavings;

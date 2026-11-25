@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/router/customer_shell.dart';
@@ -270,7 +271,25 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/seller/edit-store',
       builder: (context, state) {
-        final store = state.extra as StoreModel;
+        final store = state.extra is StoreModel ? state.extra as StoreModel : null;
+        if (store == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Edit Toko')),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Data toko tidak ditemukan.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => context.go('/seller/store'),
+                    child: const Text('Kembali ke Toko'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return SellerEditStorePage(store: store);
       },
     ),
@@ -417,11 +436,32 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/payment',
       builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>;
+        final extra = state.extra;
+        if (extra is! Map<String, dynamic> ||
+            extra['order'] is! Map<String, dynamic> ||
+            extra['payment'] is! Map<String, dynamic> ||
+            extra['midtrans'] is! Map<String, dynamic>) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Pembayaran')),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Sesi pembayaran tidak ditemukan.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => context.go('/orders'),
+                    child: const Text('Lihat Pesanan'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return PaymentPage(
-          order: extra['order'],
-          payment: extra['payment'],
-          midtrans: extra['midtrans'],
+          order: extra['order'] as Map<String, dynamic>,
+          payment: extra['payment'] as Map<String, dynamic>,
+          midtrans: extra['midtrans'] as Map<String, dynamic>,
         );
       },
     ),
@@ -467,7 +507,9 @@ final appRouter = GoRouter(
       path: '/assistant/contents/edit/:id',
       builder: (context, state) {
         final storeId = state.uri.queryParameters['storeId'] ?? '';
-        final existingContent = state.extra as StoreContentModel?;
+        final existingContent = state.extra is StoreContentModel
+            ? state.extra as StoreContentModel
+            : null;
         return StoreContentFormPage(
           storeId: storeId,
           existingContent: existingContent,

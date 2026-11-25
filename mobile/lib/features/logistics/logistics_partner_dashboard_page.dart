@@ -391,7 +391,9 @@ class _LogisticsPartnerDashboardPageState
           ],
         );
       },
-    );
+    ).whenComplete(() {
+      controller.dispose();
+    });
   }
 
   // 3. Update Delivery Status (Ekspedisi / Ojek) with Per-Point Hub & GPS
@@ -406,6 +408,7 @@ class _LogisticsPartnerDashboardPageState
 
     final statusOptions = isOjek
         ? [
+            {'value': 'allocated', 'label': 'Dialokasikan ke Driver Ojek'},
             {'value': 'picking_up', 'label': 'Menuju Toko / Lokasi Pickup'},
             {'value': 'picked', 'label': 'Pesanan Diambil (Menuju Pembeli)'},
             {'value': 'on_delivery', 'label': 'Dalam Perjalanan Pengantaran'},
@@ -419,6 +422,10 @@ class _LogisticsPartnerDashboardPageState
             {'value': 'on_delivery', 'label': 'Kurir Mengantar ke Alamat'},
             {'value': 'delivered', 'label': 'Paket Diterima Pembeli (Selesai)'},
           ];
+
+    if (!statusOptions.any((o) => o['value'] == selectedStatus)) {
+      selectedStatus = statusOptions.first['value']!;
+    }
 
     showDialog(
       context: context,
@@ -532,7 +539,10 @@ class _LogisticsPartnerDashboardPageState
           },
         );
       },
-    );
+    ).whenComplete(() {
+      checkpointController.dispose();
+      noteController.dispose();
+    });
   }
 
   // 4. Update Live GPS (Ojek #14 & Ekspedisi) with Interactive Map Picker
@@ -669,7 +679,10 @@ class _LogisticsPartnerDashboardPageState
           },
         );
       },
-    );
+    ).whenComplete(() {
+      latController.dispose();
+      lngController.dispose();
+    });
   }
 
   // 5. CRUD Pembatalan Pengiriman Sisi Ekspedisi / Ojek (#13 req 4)
@@ -740,7 +753,9 @@ class _LogisticsPartnerDashboardPageState
           ],
         );
       },
-    );
+    ).whenComplete(() {
+      reasonController.dispose();
+    });
   }
 
   bool _isOrderClosed(Map<String, dynamic> order) {
@@ -1039,7 +1054,11 @@ class _LogisticsPartnerDashboardPageState
         );
       },
     ).whenComplete(() {
-      chatChannel?.unsubscribe();
+      textController.dispose();
+      final channel = chatChannel;
+      if (channel != null) {
+        supabase.removeChannel(channel);
+      }
     });
   }
 
@@ -1177,7 +1196,11 @@ class _LogisticsPartnerDashboardPageState
           ),
         ],
       ),
-    );
+    ).whenComplete(() {
+      nameCtrl.dispose();
+      phoneCtrl.dispose();
+      vehicleCtrl.dispose();
+    });
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order, int tabIndex) {

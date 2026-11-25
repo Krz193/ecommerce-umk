@@ -495,7 +495,12 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      codeCtrl.dispose();
+      titleCtrl.dispose();
+      valueCtrl.dispose();
+      minPurchaseCtrl.dispose();
+    });
   }
 
   Future<void> _toggleVoucher(StoreVoucherModel voucher) async {

@@ -114,7 +114,16 @@ class _SellerOnboardingPageState extends ConsumerState<SellerOnboardingPage> {
   }
 
   Future<void> submit() async {
+    if (isLoading) return;
     if (!formKey.currentState!.validate()) {
+      return;
+    }
+
+    final slug = makeSlug(nameController.text);
+    if (slug.isEmpty) {
+      setState(() {
+        errorMessage = 'Store name must contain letters or numbers';
+      });
       return;
     }
 
@@ -131,16 +140,7 @@ class _SellerOnboardingPageState extends ConsumerState<SellerOnboardingPage> {
         throw Exception('User profile not found');
       }
 
-      if (appUser.isBuyer) {
-        await authService.becomeSeller();
-      }
-
       final storeService = ref.read(storeServiceProvider);
-      final slug = makeSlug(nameController.text);
-
-      if (slug.isEmpty) {
-        throw Exception('Store name must contain letters or numbers');
-      }
 
       await storeService.createStore(
         name: nameController.text.trim(),
@@ -173,6 +173,10 @@ class _SellerOnboardingPageState extends ConsumerState<SellerOnboardingPage> {
         latitude: selectedLatitude,
         longitude: selectedLongitude,
       );
+
+      if (appUser.isBuyer) {
+        await authService.becomeSeller();
+      }
 
       ref.invalidate(appUserProvider);
       ref.invalidate(myStoreProvider);

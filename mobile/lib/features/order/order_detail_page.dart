@@ -703,8 +703,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   Widget buildRefundRequestSection(OrderDetailModel order) {
     final requestsAsync = ref.watch(refundRequestsProvider(order.id));
     final canRequest =
-        order.status != 'cancelled' &&
-        ['paid', 'pending'].contains(order.paymentStatus);
+        const [
+          'pending',
+          'processing',
+          'shipped',
+          'delivered',
+        ].contains(order.status) &&
+        const ['paid', 'pending'].contains(order.paymentStatus);
 
     return Container(
       width: double.infinity,

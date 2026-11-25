@@ -43,6 +43,10 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
   final String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
   String _verifiedCallerRole = '';
   String _verifiedCallerName = '';
+  bool _makingOffer = false;
+  bool _remoteDescriptionSet = false;
+  bool _isCleanedUp = false;
+  final List<RTCIceCandidate> _pendingCandidates = [];
 
   static const Map<String, dynamic> _rtcConfiguration = {
     'iceServers': [
@@ -71,6 +75,11 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
         'authorize_order_webrtc_call',
         params: {'p_order_id': widget.orderId},
       );
+
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
 
       if (authResponse is! Map || authResponse['authorized'] != true) {
         throw Exception('Akses panggilan tidak diizinkan untuk akun ini.');
@@ -141,12 +150,40 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
         _localStream = null;
       }
 
-      // 4. Create PeerConnection
-      _peerConnection = await createPeerConnection(_rtcConfiguration);
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
+
+      // 4. Create PeerConnection (include server-provided TURN/ICE servers if any)
+      final serverIceServers = authResponse['ice_servers'];
+      final rtcConfig = serverIceServers is List && serverIceServers.isNotEmpty
+          ? <String, dynamic>{
+              'iceServers': serverIceServers,
+              'sdpSemantics': 'unified-plan',
+            }
+          : _rtcConfiguration;
+
+      _peerConnection = await createPeerConnection(rtcConfig);
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
+
+      _peerConnection!.onTrack = (RTCTrackEvent event) {
+        if (event.track.kind == 'audio') {
+          event.track.enabled = true;
+          Helper.setSpeakerphoneOn(_isSpeakerOn).catchError((_) {});
+        }
+      };
 
       if (_localStream != null) {
         for (final track in _localStream!.getAudioTracks()) {
           await _peerConnection!.addTrack(track, _localStream!);
+          if (!mounted || _isCleanedUp) {
+            await _cleanupCall(sendHangup: false);
+            return;
+          }
         }
       }
 
@@ -179,22 +216,35 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
       };
 
       // 5. Create & broadcast SDP Offer using server-verified role
-      final offer = await _peerConnection!.createOffer({
-        'offerToReceiveAudio': 1,
-        'offerToReceiveVideo': 0,
-      });
-      await _peerConnection!.setLocalDescription(offer);
+      _makingOffer = true;
+      try {
+        final offer = await _peerConnection!.createOffer({
+          'offerToReceiveAudio': 1,
+          'offerToReceiveVideo': 0,
+        });
+        if (!mounted || _isCleanedUp) {
+          await _cleanupCall(sendHangup: false);
+          return;
+        }
+        await _peerConnection!.setLocalDescription(offer);
+        if (!mounted || _isCleanedUp) {
+          await _cleanupCall(sendHangup: false);
+          return;
+        }
 
-      await _signalingChannel!.sendBroadcastMessage(
-        event: 'call-offer',
-        payload: {
-          'sender_session': _sessionId,
-          'caller_role': _verifiedCallerRole,
-          'caller_name': _verifiedCallerName,
-          'sdp': offer.sdp,
-          'type': offer.type,
-        },
-      );
+        await _signalingChannel!.sendBroadcastMessage(
+          event: 'call-offer',
+          payload: {
+            'sender_session': _sessionId,
+            'caller_role': _verifiedCallerRole,
+            'caller_name': _verifiedCallerName,
+            'sdp': offer.sdp,
+            'type': offer.type,
+          },
+        );
+      } finally {
+        _makingOffer = false;
+      }
 
       if (!mounted) return;
       setState(() {
@@ -215,14 +265,47 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
     }
   }
 
+  Future<void> _flushPendingCandidates(RTCPeerConnection pc) async {
+    if (_pendingCandidates.isEmpty) return;
+    final candidates = List<RTCIceCandidate>.from(_pendingCandidates);
+    _pendingCandidates.clear();
+    for (final candidate in candidates) {
+      try {
+        await pc.addCandidate(candidate);
+      } catch (_) {}
+    }
+  }
+
   Future<void> _handleRemoteOffer(Map<String, dynamic> payload) async {
     final pc = _peerConnection;
-    if (pc == null) return;
+    if (pc == null || _isCleanedUp) return;
     final sdp = payload['sdp']?.toString();
     final type = payload['type']?.toString() ?? 'offer';
     if (sdp == null) return;
 
+    final remoteSession = payload['sender_session']?.toString() ?? '';
+    final isPolite = _sessionId.compareTo(remoteSession) < 0;
+    final signalingState = await pc.getSignalingState();
+    final offerCollision =
+        _makingOffer ||
+        (signalingState != null &&
+            signalingState != RTCSignalingState.RTCSignalingStateStable);
+
+    if (offerCollision && !isPolite) {
+      return;
+    }
+
+    if (offerCollision && isPolite) {
+      try {
+        await pc.setLocalDescription(RTCSessionDescription('', 'rollback'));
+      } catch (_) {}
+    }
+
     await pc.setRemoteDescription(RTCSessionDescription(sdp, type));
+    _remoteDescriptionSet = true;
+    await _flushPendingCandidates(pc);
+
+    if (_isCleanedUp || !mounted) return;
     final answer = await pc.createAnswer({'offerToReceiveAudio': 1});
     await pc.setLocalDescription(answer);
 
@@ -241,18 +324,25 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
 
   Future<void> _handleRemoteAnswer(Map<String, dynamic> payload) async {
     final pc = _peerConnection;
-    if (pc == null) return;
+    if (pc == null || _isCleanedUp) return;
     final sdp = payload['sdp']?.toString();
     final type = payload['type']?.toString() ?? 'answer';
     if (sdp == null) return;
 
+    final signalingState = await pc.getSignalingState();
+    if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+      return;
+    }
+
     await pc.setRemoteDescription(RTCSessionDescription(sdp, type));
+    _remoteDescriptionSet = true;
+    await _flushPendingCandidates(pc);
     _onCallConnected();
   }
 
   Future<void> _handleRemoteCandidate(Map<String, dynamic> payload) async {
     final pc = _peerConnection;
-    if (pc == null) return;
+    if (pc == null || _isCleanedUp) return;
     final candidateStr = payload['candidate']?.toString();
     if (candidateStr == null) return;
 
@@ -263,6 +353,11 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
           ? payload['sdpMLineIndex'] as int
           : int.tryParse(payload['sdpMLineIndex']?.toString() ?? '0'),
     );
+
+    if (!_remoteDescriptionSet) {
+      _pendingCandidates.add(candidate);
+      return;
+    }
     await pc.addCandidate(candidate);
   }
 
@@ -323,30 +418,43 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
   }
 
   Future<void> _cleanupCall({bool sendHangup = true}) async {
+    if (_isCleanedUp) return;
+    _isCleanedUp = true;
     _callTimer?.cancel();
-    if (sendHangup) {
+    _pendingCandidates.clear();
+
+    final channel = _signalingChannel;
+    _signalingChannel = null;
+    if (sendHangup && channel != null) {
       try {
-        await _signalingChannel?.sendBroadcastMessage(
+        await channel.sendBroadcastMessage(
           event: 'call-end',
           payload: {'sender_session': _sessionId},
         );
       } catch (_) {}
     }
+
+    final stream = _localStream;
+    _localStream = null;
     try {
-      if (_localStream != null) {
-        for (final track in _localStream!.getTracks()) {
+      if (stream != null) {
+        for (final track in stream.getTracks()) {
           await track.stop();
         }
-        await _localStream!.dispose();
+        await stream.dispose();
       }
     } catch (_) {}
+
+    final pc = _peerConnection;
+    _peerConnection = null;
     try {
-      await _peerConnection?.close();
-      await _peerConnection?.dispose();
+      await pc?.close();
+      await pc?.dispose();
     } catch (_) {}
+
     try {
-      if (_signalingChannel != null) {
-        await supabase.removeChannel(_signalingChannel!);
+      if (channel != null) {
+        await supabase.removeChannel(channel);
       }
     } catch (_) {}
   }

@@ -60,8 +60,11 @@ class AssistantDashboardPage extends ConsumerWidget {
           }
 
           final stores = profile.assignedStores;
-          final activeStore =
-              selectedStore ?? (stores.isNotEmpty ? stores.first : null);
+          final activeStore = stores.isEmpty
+              ? null
+              : (selectedStore != null && stores.contains(selectedStore)
+                    ? selectedStore
+                    : stores.first);
 
           return RefreshIndicator(
             onRefresh: () async {
