@@ -22,10 +22,8 @@ Route::redirect('/', '/login')->name('home');
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
 
-    // UMK Content & Promotions CRUD
+    // UMK Content & Engagement Monitoring (Read-Only + Delete Moderation)
     Route::get('store-contents', [StoreContentController::class, 'index'])->name('admin.store-contents.index');
-    Route::post('store-contents', [StoreContentController::class, 'store'])->name('admin.store-contents.store');
-    Route::patch('store-contents/{storeContent}', [StoreContentController::class, 'update'])->name('admin.store-contents.update');
     Route::delete('store-contents/{storeContent}', [StoreContentController::class, 'destroy'])->name('admin.store-contents.destroy');
 
     // Product Recommendations

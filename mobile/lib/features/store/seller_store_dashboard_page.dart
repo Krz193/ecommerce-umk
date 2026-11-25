@@ -156,10 +156,13 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                 _buildActionTile(
                   icon: Icons.campaign_outlined,
-                  title: 'Konten Promosi & Media Sosial',
-                  subtitle: 'Kelola promosi, kisah produk, video, gambar, dan link medsos',
+                  title: 'Monitoring Konten & Engagement',
+                  subtitle:
+                      'Pantau bukti link konten eksternal & performa engagement dari Asisten UMK',
                   onTap: () {
-                    context.push('/assistant/contents?storeId=${store.id}&storeName=${Uri.encodeComponent(store.name)}');
+                    context.push(
+                      '/seller/content-monitoring?storeId=${store.id}&storeName=${Uri.encodeComponent(store.name)}',
+                    );
                   },
                 ),
 
