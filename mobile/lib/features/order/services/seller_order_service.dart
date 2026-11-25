@@ -36,6 +36,21 @@ class SellerOrderService {
         .from('orders')
         .select('''
         *,
+        store:stores (
+          id,
+          name,
+          slug,
+          phone,
+          address,
+          province,
+          city,
+          district,
+          postal_code,
+          notes,
+          latitude,
+          longitude,
+          biteship_area_id
+        ),
         payment:payments (
           id,
           status,
@@ -45,6 +60,7 @@ class SellerOrderService {
         ),
         order_items (
           id,
+          product_id,
           product_name,
           product_price,
           quantity,

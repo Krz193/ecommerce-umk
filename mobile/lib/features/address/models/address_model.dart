@@ -10,6 +10,8 @@ class AddressModel {
   final String fullAddress;
   final String? notes;
   final String? biteshipAreaId;
+  final double? latitude;
+  final double? longitude;
   final bool isDefault;
 
   AddressModel({
@@ -24,6 +26,8 @@ class AddressModel {
     required this.fullAddress,
     this.notes,
     this.biteshipAreaId,
+    this.latitude,
+    this.longitude,
     required this.isDefault,
   });
 
@@ -40,6 +44,8 @@ class AddressModel {
       fullAddress: map['full_address'],
       notes: map['notes'],
       biteshipAreaId: map['biteship_area_id'],
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
       isDefault: map['is_default'] ?? false,
     );
   }

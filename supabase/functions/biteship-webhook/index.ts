@@ -188,12 +188,25 @@ async function processQueuedWebhookJob(supabase: SupabaseClient, jobId: string, 
 
       if (order) {
         console.log(`[WHK-002] Successfully matched order ${order.id} for event: ${event || status}`);
+        const resolvedDriverName = courier_driver_name || payload.courier?.driver_name || payload.courier?.name || null;
+        const resolvedDriverPhone = courier_driver_phone || payload.courier?.driver_phone || payload.courier?.phone || null;
+        const resolvedPlate = payload.courier_driver_plate_number || payload.courier?.driver_plate_number || null;
+        const resolvedTrackingUrl = courier_link || payload.courier?.link || payload.link || null;
+        const resolvedLat = payload.courier_coordinate?.latitude ?? payload.courier?.coordinate?.latitude ?? payload.latitude ?? null;
+        const resolvedLng = payload.courier_coordinate?.longitude ?? payload.courier?.coordinate?.longitude ?? payload.longitude ?? null;
+        const resolvedNote = payload.note || payload.courier_note || `Pembaruan status Biteship: ${status || event}`;
+        const resolvedCheckpointName = payload.location || payload.courier?.location || null;
+
         const history = Array.isArray(order.tracking_history) ? order.tracking_history : [];
         history.push({
           status: status || event,
-          driver_name: courier_driver_name,
+          checkpoint_name: resolvedCheckpointName,
+          note: resolvedNote,
+          driver_name: resolvedDriverName,
+          tracking_url: resolvedTrackingUrl,
+          latitude: typeof resolvedLat === "number" ? resolvedLat : null,
+          longitude: typeof resolvedLng === "number" ? resolvedLng : null,
           timestamp: new Date().toISOString(),
-          tracking_url: courier_link,
         });
 
         const updateFields: Record<string, any> = {
@@ -210,8 +223,15 @@ async function processQueuedWebhookJob(supabase: SupabaseClient, jobId: string, 
           updateFields.waybill_id = waybillId;
           updateFields.tracking_number = waybillId;
         }
-        if (courier_driver_name) updateFields.driver_name = courier_driver_name;
-        if (courier_driver_phone) updateFields.driver_phone = courier_driver_phone;
+        if (resolvedDriverName) updateFields.driver_name = resolvedDriverName;
+        if (resolvedDriverPhone) updateFields.driver_phone = resolvedDriverPhone;
+        if (resolvedPlate) updateFields.driver_vehicle_plate = resolvedPlate;
+        if (resolvedTrackingUrl) updateFields.tracking_url = resolvedTrackingUrl;
+        if (typeof resolvedLat === "number" && typeof resolvedLng === "number" && Number.isFinite(resolvedLat) && Number.isFinite(resolvedLng)) {
+          updateFields.driver_latitude = resolvedLat;
+          updateFields.driver_longitude = resolvedLng;
+          updateFields.driver_last_updated = new Date().toISOString();
+        }
 
         if (status === "picking_up" || status === "allocated" || status === "dropping_off" || status === "picked") {
           if (order.status === "processing") {

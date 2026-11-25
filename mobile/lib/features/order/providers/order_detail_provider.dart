@@ -19,9 +19,17 @@ final orderDetailProvider = FutureProvider.autoDispose
           store:stores (
             id,
             name,
+            slug,
+            phone,
             address,
+            province,
+            city,
+            district,
+            postal_code,
+            notes,
             latitude,
-            longitude
+            longitude,
+            biteship_area_id
           ),
           payment:payments (
             id,
@@ -41,7 +49,6 @@ final orderDetailProvider = FutureProvider.autoDispose
           )
           ''')
           .eq('id', orderId)
-          .eq('user_id', user.id)
           .single();
 
       return OrderDetailModel.fromJson(response);

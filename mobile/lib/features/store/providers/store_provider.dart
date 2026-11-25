@@ -45,7 +45,7 @@ final publicStoreProvider = FutureProvider.family<StoreModel, String>((
 ) async {
   final response = await supabase
       .from('stores')
-      .select('id, owner_id, name, slug, description, phone, address, status')
+      .select(StoreService.storeSelectColumns)
       .eq('id', storeId)
       .single();
 

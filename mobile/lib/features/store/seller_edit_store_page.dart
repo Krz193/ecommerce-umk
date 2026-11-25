@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/widgets/map_point_picker_field.dart';
+import 'package:mobile/features/address/providers/address_provider.dart';
+import 'package:mobile/features/address/widgets/biteship_area_picker_sheet.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -21,7 +24,15 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
   late final TextEditingController descriptionController;
   late final TextEditingController phoneController;
   late final TextEditingController addressController;
+  late final TextEditingController provinceController;
+  late final TextEditingController cityController;
+  late final TextEditingController districtController;
+  late final TextEditingController postalCodeController;
+  late final TextEditingController notesController;
 
+  String? selectedBiteshipAreaId;
+  double? selectedLatitude;
+  double? selectedLongitude;
   bool isSaving = false;
 
   @override
@@ -33,6 +44,20 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
     );
     phoneController = TextEditingController(text: widget.store.phone ?? '');
     addressController = TextEditingController(text: widget.store.address ?? '');
+    provinceController = TextEditingController(
+      text: widget.store.province ?? '',
+    );
+    cityController = TextEditingController(text: widget.store.city ?? '');
+    districtController = TextEditingController(
+      text: widget.store.district ?? '',
+    );
+    postalCodeController = TextEditingController(
+      text: widget.store.postalCode ?? '',
+    );
+    notesController = TextEditingController(text: widget.store.notes ?? '');
+    selectedBiteshipAreaId = widget.store.biteshipAreaId;
+    selectedLatitude = widget.store.latitude;
+    selectedLongitude = widget.store.longitude;
   }
 
   @override
@@ -41,7 +66,44 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
     descriptionController.dispose();
     phoneController.dispose();
     addressController.dispose();
+    provinceController.dispose();
+    cityController.dispose();
+    districtController.dispose();
+    postalCodeController.dispose();
+    notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> pickBiteshipArea() async {
+    final addressService = ref.read(addressServiceProvider);
+    final initialQuery = districtController.text.isNotEmpty
+        ? districtController.text
+        : (cityController.text.isNotEmpty ? cityController.text : null);
+
+    final selected = await BiteshipAreaPickerSheet.show(
+      context,
+      addressService: addressService,
+      initialQuery: initialQuery,
+    );
+
+    if (selected != null) {
+      setState(() {
+        selectedBiteshipAreaId = selected.id;
+        provinceController.text = selected.province;
+        cityController.text = selected.city;
+        districtController.text = selected.district;
+        postalCodeController.text = selected.postalCode;
+      });
+      final geocoded = await MapPointPickerField.geocodeQuery(
+        '${selected.district}, ${selected.city}, ${selected.province}',
+      );
+      if (geocoded != null && mounted) {
+        setState(() {
+          selectedLatitude = geocoded.latitude;
+          selectedLongitude = geocoded.longitude;
+        });
+      }
+    }
   }
 
   Future<void> saveStoreProfile() async {
@@ -63,9 +125,29 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
         address: addressController.text.trim().isEmpty
             ? null
             : addressController.text.trim(),
+        province: provinceController.text.trim().isEmpty
+            ? null
+            : provinceController.text.trim(),
+        city: cityController.text.trim().isEmpty
+            ? null
+            : cityController.text.trim(),
+        district: districtController.text.trim().isEmpty
+            ? null
+            : districtController.text.trim(),
+        postalCode: postalCodeController.text.trim().isEmpty
+            ? null
+            : postalCodeController.text.trim(),
+        notes: notesController.text.trim().isEmpty
+            ? null
+            : notesController.text.trim(),
+        biteshipAreaId: selectedBiteshipAreaId,
+        latitude: selectedLatitude,
+        longitude: selectedLongitude,
       );
 
       ref.invalidate(myStoreProvider);
+      ref.invalidate(managedStoreProvider);
+      ref.invalidate(publicStoreProvider(widget.store.id));
 
       if (!mounted) return;
 
@@ -86,8 +168,11 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
 
   @override
   Widget build(BuildContext context) {
+    final hasAreaSelected =
+        cityController.text.isNotEmpty || provinceController.text.isNotEmpty;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Profil Toko UMK')),
+      appBar: AppBar(title: const Text('Edit Profil & Lokasi Toko UMK')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -117,6 +202,79 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
                 ),
               ),
               const SizedBox(height: 16),
+              InkWell(
+                onTap: pickBiteshipArea,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: hasAreaSelected
+                          ? AppColors.primary.withValues(alpha: 0.5)
+                          : Colors.grey.shade400,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.location_city_rounded,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Area Pengiriman Biteship (Kota/Kecamatan)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              hasAreaSelected
+                                  ? '${districtController.text.isNotEmpty ? '${districtController.text}, ' : ''}${cityController.text}, ${provinceController.text} ${postalCodeController.text}'
+                                  : 'Pilih Kota / Kecamatan Asal Toko',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: hasAreaSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: hasAreaSelected
+                                    ? AppColors.textPrimary
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: postalCodeController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Kode Pos Toko',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.markunread_mailbox_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: addressController,
                 maxLines: 2,
@@ -125,6 +283,36 @@ class _SellerEditStorePageState extends ConsumerState<SellerEditStorePage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.location_on),
                 ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Patokan Lokasi Toko untuk Kurir (Opsional)',
+                  hintText: 'Cth: Ruko No. 4 sebelah apotek, gerbang hijau',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.signpost_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
+              MapPointPickerField(
+                latitude: selectedLatitude,
+                longitude: selectedLongitude,
+                initialQuery: [
+                  addressController.text.trim(),
+                  districtController.text.trim(),
+                  cityController.text.trim(),
+                ].where((e) => e.isNotEmpty).join(', '),
+                label: 'Titik GPS Pickup Toko (Pinpoint Peta)',
+                helperText:
+                    'Menentukan lokasi penjemputan kurir Instant (Gojek/Grab/Ojek) & akurasi jarak ongkir.',
+                onPointSelected: (point) {
+                  setState(() {
+                    selectedLatitude = point.latitude;
+                    selectedLongitude = point.longitude;
+                  });
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(
