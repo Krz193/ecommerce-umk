@@ -145,7 +145,7 @@ serve(async (req) => {
         targetStoreId = cart.store_id;
         const { data: cartItems } = await supabase
           .from("cart_items")
-          .select("id, quantity, product:products(id, name, price, weight, length, width, height)")
+          .select("id, quantity, product:products(id, name, price, weight)")
           .eq("cart_id", cart_id);
 
         if (cartItems && cartItems.length > 0) {

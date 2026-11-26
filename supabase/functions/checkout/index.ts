@@ -196,9 +196,6 @@ serve(async (req) => {
                     status,
                     store_id,
                     weight,
-                    length,
-                    width,
-                    height,
                     thumbnail_url,
                     product_images (
                         image_url,
