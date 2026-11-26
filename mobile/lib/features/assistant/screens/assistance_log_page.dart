@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/assistance_log_model.dart';
@@ -102,14 +103,14 @@ class AssistanceLogPage extends ConsumerWidget {
 
   Widget _buildLogCard(AssistanceLogModel log) {
     final (Color badgeColor, IconData icon) = switch (log.actionType) {
-      'engagement' => (Colors.pink.shade700, Icons.insights),
+      'engagement' => (AppColors.primaryHover, Icons.insights),
       'create_product' ||
-      'update_product' => (Colors.teal.shade700, Icons.inventory),
-      'update_stock' => (Colors.blue.shade700, Icons.edit_note),
-      'ship_order' => (Colors.indigo.shade700, Icons.local_shipping),
+      'update_product' => (AppColors.primary, Icons.inventory),
+      'update_stock' => (Colors.orange.shade800, Icons.edit_note),
+      'ship_order' => (const Color(0xFFC2410C), Icons.local_shipping),
       'create_content' ||
       'update_content' => (Colors.orange.shade700, Icons.article),
-      _ => (Colors.purple.shade700, Icons.touch_app),
+      _ => (AppColors.primaryHover, Icons.touch_app),
     };
 
     return Card(
@@ -169,13 +170,13 @@ class AssistanceLogPage extends ConsumerWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
+                                color: AppColors.primaryLight,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 log.channel!.toUpperCase(),
-                                style: TextStyle(
-                                  color: Colors.blue.shade800,
+                                style: const TextStyle(
+                                  color: AppColors.primaryHover,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -278,7 +279,7 @@ class AssistanceLogPage extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.indigo.shade700),
+        Icon(icon, size: 14, color: AppColors.primaryHover),
         const SizedBox(width: 4),
         Text(
           text,

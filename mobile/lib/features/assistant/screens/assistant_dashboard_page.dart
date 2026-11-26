@@ -20,7 +20,11 @@ class AssistantDashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard Asisten UMK'),
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text('Dashboard Asisten UMK'),
+        ),
         actions: [
           const NotificationBellButton(),
           IconButton(
@@ -88,7 +92,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                        colors: [AppColors.primaryHover, AppColors.primary],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -206,21 +210,32 @@ class AssistantDashboardPage extends ConsumerWidget {
                                     Icon(Icons.store, color: AppColors.primary),
                                     const SizedBox(width: 10),
                                     Expanded(
-                                      child: Text(
-                                        store.storeName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            store.storeName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          if (store.storeCity != null)
+                                            Text(
+                                              store.storeCity!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                    if (store.storeCity != null)
-                                      Text(
-                                        store.storeCity!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
                                   ],
                                 ),
                               );
@@ -260,7 +275,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 1.25,
+                    childAspectRatio: 1.08,
                     children: [
                       _buildMenuCard(
                         context,
@@ -279,7 +294,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Monitoring Donasi',
                         subtitle: 'Pantau Donasi & Penyaluran',
                         icon: Icons.volunteer_activism_outlined,
-                        color: Colors.pink.shade700,
+                        color: AppColors.primaryHover,
                         onTap: activeStore == null
                             ? null
                             : () => context.push(
@@ -291,7 +306,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'CRUD Engagement',
                         subtitle: 'Reach, Likes & Aktivitas',
                         icon: Icons.insights_outlined,
-                        color: Colors.purple.shade700,
+                        color: AppColors.primary,
                         onTap: () => context.push(
                           '/assistant/logs${activeStore != null ? '?storeId=${activeStore.storeId}' : ''}',
                         ),
@@ -301,7 +316,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Rekomendasi Produk',
                         subtitle: 'Pilihan Produk Unggulan',
                         icon: Icons.auto_awesome_outlined,
-                        color: Colors.amber.shade800,
+                        color: Colors.orange.shade800,
                         onTap: activeStore == null
                             ? null
                             : () => context.push(
@@ -313,7 +328,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Keranjang Pembeli',
                         subtitle: 'Pantau Keranjang Aktif',
                         icon: Icons.shopping_cart_checkout,
-                        color: Colors.blue.shade800,
+                        color: const Color(0xFFC2410C),
                         onTap: activeStore == null
                             ? null
                             : () => context.push(
@@ -325,7 +340,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Laporan UKM Binaan',
                         subtitle: 'Penjualan & Ekspor CSV',
                         icon: Icons.analytics_outlined,
-                        color: Colors.green.shade700,
+                        color: AppColors.primaryHover,
                         onTap: activeStore == null
                             ? null
                             : () => context.push('/seller/reports'),
@@ -335,7 +350,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Profil Toko UMK',
                         subtitle: 'Kelola Informasi Toko',
                         icon: Icons.storefront_outlined,
-                        color: Colors.deepOrange.shade700,
+                        color: AppColors.primary,
                         onTap: () async {
                           final targetStoreId = activeStore?.storeId;
                           if (targetStoreId == null) {
@@ -365,7 +380,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Produk UMK',
                         subtitle: 'Kelola Produk & Stok',
                         icon: Icons.inventory_2_outlined,
-                        color: Colors.teal.shade700,
+                        color: Colors.orange.shade800,
                         onTap: activeStore == null
                             ? null
                             : () => context.push('/seller/products'),
@@ -375,7 +390,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Flash Sale Toko',
                         subtitle: 'Promo & Event Diskon',
                         icon: Icons.bolt_outlined,
-                        color: Colors.deepOrange.shade600,
+                        color: AppColors.primaryHover,
                         onTap: activeStore == null
                             ? null
                             : () => context.push(
@@ -387,7 +402,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Pesanan UMK',
                         subtitle: 'Kelola Pengiriman',
                         icon: Icons.local_shipping_outlined,
-                        color: Colors.indigo.shade700,
+                        color: const Color(0xFFC2410C),
                         onTap: () => context.push('/seller/orders'),
                       ),
                       _buildMenuCard(
@@ -395,7 +410,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Ongkir Lokal',
                         subtitle: 'Tarif Ojek & Kurir Toko',
                         icon: Icons.two_wheeler_outlined,
-                        color: Colors.green.shade800,
+                        color: AppColors.primary,
                         onTap: activeStore == null
                             ? null
                             : () => context.push(
@@ -407,7 +422,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Ulasan Produk',
                         subtitle: 'Respon Ulasan Pembeli',
                         icon: Icons.rate_review_outlined,
-                        color: Colors.teal.shade700,
+                        color: Colors.orange.shade800,
                         onTap: () => context.push('/seller/reviews'),
                       ),
                       _buildMenuCard(
@@ -415,7 +430,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Profil Asisten',
                         subtitle: 'Lihat Akun Asisten',
                         icon: Icons.badge_outlined,
-                        color: Colors.blueGrey.shade700,
+                        color: AppColors.primaryHover,
                         onTap: () => context.push('/assistant/profile'),
                       ),
                     ],
@@ -467,7 +482,7 @@ class AssistantDashboardPage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.teal.shade100),
+        border: Border.all(color: Colors.orange.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(10),
@@ -485,9 +500,9 @@ class AssistantDashboardPage extends ConsumerWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.volunteer_activism_outlined,
-                      color: Colors.teal.shade700,
+                      color: AppColors.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -529,7 +544,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                   label: 'Donasi Terkumpul',
                   value: CurrencyFormatter.format(totalDonationsCollected),
                   sub: '$donorCount donatur',
-                  color: Colors.pink.shade700,
+                  color: AppColors.primaryHover,
                   onTap: () => context.push(
                     '/assistant/donations?storeId=${activeStore.storeId}',
                   ),
@@ -545,7 +560,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                   label: 'Donasi Disalurkan',
                   value: CurrencyFormatter.format(totalDonationsDistributed),
                   sub: 'Diterima UKM Binaan',
-                  color: Colors.indigo.shade700,
+                  color: AppColors.primary,
                   onTap: () => context.push(
                     '/assistant/donations?storeId=${activeStore.storeId}',
                   ),
@@ -557,7 +572,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                   label: 'Total Pesanan',
                   value: '${orders.length} Pesanan',
                   sub: 'Semua status order',
-                  color: Colors.blue.shade700,
+                  color: Colors.orange.shade800,
                   onTap: () => context.push('/seller/orders'),
                 ),
               ),

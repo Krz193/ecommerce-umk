@@ -93,7 +93,7 @@ class AssistantProfilePage extends ConsumerWidget {
                           color: Colors.white,
                         ),
                         label: const Text('Asisten Pendamping UMK'),
-                        backgroundColor: Colors.teal.shade700,
+                        backgroundColor: AppColors.primaryHover,
                         labelStyle: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -172,14 +172,14 @@ class AssistantProfilePage extends ConsumerWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.shade200),
+                        border: Border.all(color: Colors.orange.shade200),
                       ),
                       child: Text(
                         '${profile.assignedStores.length} Toko',
-                        style: TextStyle(
-                          color: Colors.blue.shade800,
+                        style: const TextStyle(
+                          color: AppColors.primaryHover,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -194,9 +194,9 @@ class AssistantProfilePage extends ConsumerWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.shade200),
+                      border: Border.all(color: Colors.orange.shade200),
                     ),
                     child: const Text(
                       'Belum ada Toko UMK yang ditugaskan ke akun asisten ini.',

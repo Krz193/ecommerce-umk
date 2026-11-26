@@ -308,7 +308,7 @@ class _AssistantDonationsPageState
                 label: 'Donasi Terkumpul',
                 value: CurrencyFormatter.format(totalCollected),
                 sub: '$donorCount transaksi lunas',
-                color: Colors.pink.shade700,
+                color: AppColors.primaryHover,
                 icon: Icons.volunteer_activism,
               ),
             ),
@@ -318,7 +318,7 @@ class _AssistantDonationsPageState
                 label: 'Sudah Disalurkan',
                 value: CurrencyFormatter.format(totalDistributed),
                 sub: 'Diterima UKM Binaan',
-                color: Colors.green.shade700,
+                color: AppColors.primary,
                 icon: Icons.check_circle_outline,
               ),
             ),
@@ -332,7 +332,7 @@ class _AssistantDonationsPageState
                 label: 'Siap Disalurkan',
                 value: CurrencyFormatter.format(pendingDistribution),
                 sub: 'Menunggu penyaluran Admin',
-                color: Colors.blue.shade700,
+                color: const Color(0xFFC2410C),
                 icon: Icons.account_balance_wallet_outlined,
               ),
             ),
@@ -343,7 +343,7 @@ class _AssistantDonationsPageState
                 value: '$contentCount Donasi',
                 sub:
                     '${CurrencyFormatter.format(contentAmount)} · $pendingPaymentCount pending',
-                color: Colors.teal.shade700,
+                color: Colors.orange.shade800,
                 icon: Icons.campaign_outlined,
               ),
             ),
@@ -413,18 +413,18 @@ class _AssistantDonationsPageState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.blueGrey.shade50,
+        color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blueGrey.shade100),
+        border: Border.all(color: Colors.orange.shade200),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          Icon(Icons.info_outline, size: 18, color: Colors.blueGrey.shade700),
-          const SizedBox(width: 8),
+          Icon(Icons.info_outline, size: 18, color: AppColors.primaryHover),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               'Tampilan pemantauan read-only. Penyaluran dana donasi dari status Paid ke Disalurkan dikelola oleh Admin.',
-              style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade800),
+              style: TextStyle(fontSize: 11, color: Color(0xFF9A3412)),
             ),
           ),
         ],
@@ -564,8 +564,8 @@ class _AssistantDonationsPageState
       badgeBg = Colors.green.shade50;
       badgeFg = Colors.green.shade800;
     } else if (isPaid) {
-      badgeBg = Colors.blue.shade50;
-      badgeFg = Colors.blue.shade800;
+      badgeBg = AppColors.primaryLight;
+      badgeFg = AppColors.primaryHover;
     } else if (isPending) {
       badgeBg = Colors.orange.shade50;
       badgeFg = Colors.orange.shade900;

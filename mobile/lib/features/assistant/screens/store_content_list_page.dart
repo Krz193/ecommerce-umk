@@ -144,7 +144,11 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(appBarTitle),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(appBarTitle),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -195,15 +199,15 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
                   margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.teal.shade50,
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.teal.shade200),
+                    border: Border.all(color: Colors.orange.shade200),
                   ),
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.visibility_outlined,
-                        color: Colors.teal.shade800,
+                        color: AppColors.primaryHover,
                         size: 20,
                       ),
                       const SizedBox(width: 10),
@@ -213,9 +217,9 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
                                   effectiveStoreName.isNotEmpty
                               ? 'Monitoring konten & engagement toko $effectiveStoreName yang diunggah Asisten UMK (Read-Only).'
                               : 'Monitoring konten & engagement yang diunggah Asisten UMK (Read-Only).',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.teal.shade900,
+                            color: Color(0xFF9A3412),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -392,8 +396,8 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade900, Colors.purple.shade800],
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryHover, AppColors.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -546,14 +550,14 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
+                            color: AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.purple.shade200),
+                            border: Border.all(color: Colors.orange.shade200),
                           ),
                           child: Text(
                             item.socialPlatformLabel,
-                            style: TextStyle(
-                              color: Colors.purple.shade900,
+                            style: const TextStyle(
+                              color: AppColors.primaryHover,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                             ),
@@ -583,13 +587,13 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
+                            color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             item.mediaFormatLabel,
                             style: TextStyle(
-                              color: Colors.blue.shade800,
+                              color: Colors.grey.shade800,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -681,16 +685,16 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
+                    color: AppColors.primarySurface,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.shade200),
+                    border: Border.all(color: Colors.orange.shade200),
                   ),
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.shopping_bag_outlined,
                         size: 16,
-                        color: Colors.amber.shade900,
+                        color: AppColors.primaryHover,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -744,10 +748,10 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
                         ),
                         Text(
                           '${item.totalInteractions} Total Interaksi',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Colors.indigo.shade700,
+                            color: AppColors.primaryHover,
                           ),
                         ),
                       ],
@@ -840,8 +844,8 @@ class _StoreContentListPageState extends ConsumerState<StoreContentListPage> {
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  foregroundColor: Colors.teal.shade800,
-                  side: BorderSide(color: Colors.teal.shade300),
+                  foregroundColor: AppColors.primaryHover,
+                  side: BorderSide(color: Colors.orange.shade300),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
