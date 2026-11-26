@@ -1137,7 +1137,10 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text(
                                     option.courierName,
@@ -1146,7 +1149,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                                       fontSize: 14,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
