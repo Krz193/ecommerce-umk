@@ -182,7 +182,7 @@ class StoreModerationController extends Controller
         $storeRow = $db->table('stores')->where('id', $store)->firstOrFail();
         $userRow = $db->table('users')->where('id', $validated['user_id'])->firstOrFail();
 
-        $db->transaction(function () use ($db, $store, $userRow): void {
+        $db->transaction(function () use ($db, $store, $storeRow, $userRow): void {
             if ($userRow->role === 'buyer') {
                 $db->table('users')->where('id', $userRow->id)->update([
                     'role' => 'assistant',
@@ -198,7 +198,7 @@ class StoreModerationController extends Controller
             $db->table('store_assistants')->insert([
                 'store_id' => $store,
                 'user_id' => $userRow->id,
-                'assigned_by' => null,
+                'assigned_by' => $storeRow->owner_id,
                 'assigned_at' => now(),
                 'created_at' => now(),
             ]);

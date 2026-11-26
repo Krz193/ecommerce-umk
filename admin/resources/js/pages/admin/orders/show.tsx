@@ -11,8 +11,8 @@ type TrackingHistoryEvent = {
     note?: string | null;
     role?: string | null;
     driver_name?: string | null;
-    latitude?: number | null;
-    longitude?: number | null;
+    latitude?: number | string | null;
+    longitude?: number | string | null;
     timestamp?: string | null;
 };
 
@@ -31,8 +31,8 @@ type OrderDetail = {
     shipping_city: string;
     shipping_postal_code: string | null;
     shipping_notes: string | null;
-    shipping_latitude: number | null;
-    shipping_longitude: number | null;
+    shipping_latitude: number | string | null;
+    shipping_longitude: number | string | null;
     shipping_provider: string | null;
     tracking_number: string | null;
     courier_name: string | null;
@@ -44,8 +44,8 @@ type OrderDetail = {
     driver_name: string | null;
     driver_phone: string | null;
     driver_vehicle_plate: string | null;
-    driver_latitude: number | null;
-    driver_longitude: number | null;
+    driver_latitude: number | string | null;
+    driver_longitude: number | string | null;
     driver_last_updated: string | null;
     tracking_status: string | null;
     tracking_url: string | null;
@@ -62,16 +62,16 @@ type OrderDetail = {
     store_province: string | null;
     store_postal_code: string | null;
     store_notes: string | null;
-    store_latitude: number | null;
-    store_longitude: number | null;
+    store_latitude: number | string | null;
+    store_longitude: number | string | null;
     origin_contact_name: string | null;
     origin_phone: string | null;
     origin_address: string | null;
     origin_city: string | null;
     origin_postal_code: string | null;
     origin_notes: string | null;
-    origin_latitude: number | null;
-    origin_longitude: number | null;
+    origin_latitude: number | string | null;
+    origin_longitude: number | string | null;
     seller_owner_name: string | null;
     seller_owner_phone: string | null;
     buyer_name: string | null;
@@ -115,12 +115,27 @@ function parseTrackingHistory(raw: OrderDetail['tracking_history']): TrackingHis
     return [];
 }
 
-function formatCoordinates(lat: number | null | undefined, lng: number | null | undefined): string {
-    if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) {
+function parseCoord(val: number | string | null | undefined): number | null {
+    if (val === null || val === undefined || val === '') {
+        return null;
+    }
+    const num = typeof val === 'number' ? val : Number(val);
+
+    return Number.isFinite(num) ? num : null;
+}
+
+function formatCoordinates(
+    lat: number | string | null | undefined,
+    lng: number | string | null | undefined,
+): string {
+    const parsedLat = parseCoord(lat);
+    const parsedLng = parseCoord(lng);
+
+    if (parsedLat === null || parsedLng === null) {
         return '-';
     }
 
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    return `${parsedLat.toFixed(6)}, ${parsedLng.toFixed(6)}`;
 }
 
 export default function OrderShow({ order, items }: OrderShowProps) {
@@ -287,7 +302,7 @@ export default function OrderShow({ order, items }: OrderShowProps) {
                                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                                         {ev.driver_name && <span>Driver: {ev.driver_name}</span>}
                                         {ev.role && <span>Role: {ev.role}</span>}
-                                        {typeof ev.latitude === 'number' && typeof ev.longitude === 'number' && (
+                                        {formatCoordinates(ev.latitude, ev.longitude) !== '-' && (
                                             <span>GPS: {formatCoordinates(ev.latitude, ev.longitude)}</span>
                                         )}
                                     </div>
