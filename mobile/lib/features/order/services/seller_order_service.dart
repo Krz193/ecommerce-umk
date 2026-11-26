@@ -1,4 +1,5 @@
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/order/models/order_detail_model.dart';
 import 'package:mobile/features/order/models/order_model.dart';
 import 'package:mobile/features/order/services/order_status_service.dart';
@@ -70,7 +71,13 @@ class SellerOrderService {
         ''')
         .eq('id', orderId)
         .eq('store_id', storeId)
-        .single();
+        .maybeSingle();
+
+    if (response == null) {
+      throw const ResourceNotFoundException(
+        'Pesanan tidak ditemukan atau sudah tidak tersedia untuk toko ini.',
+      );
+    }
 
     return OrderDetailModel.fromJson(response);
   }

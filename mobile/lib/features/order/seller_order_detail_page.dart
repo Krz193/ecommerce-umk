@@ -11,6 +11,7 @@ import 'package:mobile/features/order/models/order_detail_model.dart';
 import 'package:mobile/features/order/providers/order_status_provider.dart';
 import 'package:mobile/features/order/providers/refund_request_provider.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
+import 'package:mobile/features/order/widgets/order_error_view.dart';
 import 'package:mobile/features/order/widgets/refund_request_dialog.dart';
 import 'package:mobile/features/order/widgets/shipment_tracking_section.dart';
 import 'package:mobile/features/store/models/store_model.dart';
@@ -555,11 +556,38 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
                 ),
               );
             },
-            error: (error, stackTrace) => Center(child: Text(error.toString())),
+            error: (error, stackTrace) => OrderErrorView(
+              error: error,
+              onRetry: () => ref.invalidate(
+                sellerOrderDetailProvider(
+                  SellerOrderDetailParams(
+                    storeId: store.id,
+                    orderId: widget.orderId,
+                  ),
+                ),
+              ),
+              onBack: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/seller/store');
+                }
+              },
+            ),
             loading: () => const Center(child: CircularProgressIndicator()),
           );
         },
-        error: (error, stackTrace) => Center(child: Text(error.toString())),
+        error: (error, stackTrace) => OrderErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(managedStoreProvider),
+          onBack: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
@@ -803,13 +831,17 @@ class _SellerOrderDetailPageState extends ConsumerState<SellerOrderDetailPage> {
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              height: 48,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isInstant
                       ? Colors.green
                       : Colors.orange.shade800,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

@@ -7,11 +7,13 @@ import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
+import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/order/models/order_detail_model.dart';
 import 'package:mobile/features/order/providers/order_detail_provider.dart';
 import 'package:mobile/features/order/providers/order_status_provider.dart';
 import 'package:mobile/features/order/providers/orders_provider.dart';
 import 'package:mobile/features/order/providers/refund_request_provider.dart';
+import 'package:mobile/features/order/widgets/order_error_view.dart';
 import 'package:mobile/features/order/widgets/refund_request_dialog.dart';
 import 'package:mobile/features/order/widgets/shipment_tracking_section.dart';
 import 'package:mobile/features/product/providers/product_review_providers.dart';
@@ -719,7 +721,23 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           );
         },
         error: (error, stackTrace) {
-          return Center(child: Text(error.toString()));
+          if (isNotFoundError(error)) {
+            stopPolling();
+          }
+          return OrderErrorView(
+            error: error,
+            onRetry: () {
+              startPolling();
+              ref.invalidate(orderDetailProvider(widget.orderId));
+            },
+            onBack: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/orders');
+              }
+            },
+          );
         },
         loading: () {
           return const Center(child: CircularProgressIndicator());
@@ -1010,9 +1028,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label)),
-          const SizedBox(width: 16),
+          Expanded(flex: 2, child: Text(label)),
+          const SizedBox(width: 12),
           Expanded(
+            flex: 3,
             child: Text(
               value,
               textAlign: TextAlign.right,
