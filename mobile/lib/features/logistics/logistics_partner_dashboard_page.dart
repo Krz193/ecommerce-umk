@@ -1139,10 +1139,14 @@ class _LogisticsPartnerDashboardPageState
               Row(
                 children: [
                   Expanded(
+                    flex: 2,
                     child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
                       icon: const Icon(Icons.close, size: 16),
-                      label: const Text('Tolak'),
+                      label: const Text('Tolak', softWrap: false),
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Penugasan ditolak')),
@@ -1150,9 +1154,9 @@ class _LogisticsPartnerDashboardPageState
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isOjek ? Colors.deepOrange : AppColors.primary,
@@ -1517,6 +1521,7 @@ class _UpdateLogisticsStatusDialogState
             children: [
               DropdownButtonFormField<String>(
                 initialValue: _selectedStatus,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Pilih Status Pengiriman',
                   border: OutlineInputBorder(),
@@ -1524,7 +1529,11 @@ class _UpdateLogisticsStatusDialogState
                 items: widget.statusOptions.map((opt) {
                   return DropdownMenuItem<String>(
                     value: opt['value']!,
-                    child: Text(opt['label']!, style: const TextStyle(fontSize: 13)),
+                    child: Text(
+                      opt['label']!,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   );
                 }).toList(),
                 onChanged: (val) {
