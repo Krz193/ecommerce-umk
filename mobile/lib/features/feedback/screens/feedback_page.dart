@@ -515,27 +515,27 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade100),
+                border: Border.all(color: Colors.orange.shade200),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  const Row(
                     children: [
                       Icon(
                         Icons.support_agent_rounded,
                         size: 16,
-                        color: Colors.blue.shade800,
+                        color: AppColors.primaryHover,
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       Text(
                         'Tanggapan Admin Platform:',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
+                          color: Color(0xFF9A3412),
                         ),
                       ),
                     ],
@@ -543,9 +543,9 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage>
                   const SizedBox(height: 4),
                   Text(
                     item.adminNotes!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.blue.shade900,
+                      color: Color(0xFF9A3412),
                       height: 1.3,
                     ),
                   ),

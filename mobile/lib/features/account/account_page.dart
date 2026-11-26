@@ -189,7 +189,7 @@ class AccountPage extends ConsumerWidget {
               ),
               buildActionTile(
                 icon: Icons.volunteer_activism_outlined,
-                iconColor: Colors.teal.shade700,
+                iconColor: AppColors.primary,
                 title: 'Donasi UMK Saya',
                 subtitle: 'Kelola & lihat riwayat donasi dari konten UMK',
                 onTap: () => context.push('/donations'),
@@ -237,7 +237,7 @@ class AccountPage extends ConsumerWidget {
             children: [
               buildActionTile(
                 icon: Icons.handshake_outlined,
-                iconColor: Colors.purple.shade700,
+                iconColor: AppColors.primary,
                 title: 'Dashboard Asisten UMK',
                 subtitle: currentUser?.role == 'assistant'
                     ? 'Pendampingan toko UMK, riwayat, & konten promosi'
@@ -246,7 +246,7 @@ class AccountPage extends ConsumerWidget {
               ),
               buildActionTile(
                 icon: Icons.school_outlined,
-                iconColor: Colors.teal.shade700,
+                iconColor: AppColors.primaryHover,
                 title: 'Pelatihan & Pembinaan UMK',
                 subtitle: 'Jadwal webinar & program pengembangan bisnis UMK',
                 onTap: () => context.push('/trainings'),
@@ -267,7 +267,7 @@ class AccountPage extends ConsumerWidget {
                 if (currentUser.isEkspedisi || currentUser.isAdmin)
                   buildActionTile(
                     icon: Icons.local_shipping_outlined,
-                    iconColor: Colors.indigo.shade700,
+                    iconColor: AppColors.primaryHover,
                     title: 'Portal Kurir Ekspedisi',
                     subtitle:
                         'Kelola no resi, status tracking, & pembatalan logistik',

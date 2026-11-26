@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
@@ -158,7 +159,7 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                   ),
                   decoration: BoxDecoration(
                     color: training.status == 'upcoming'
-                        ? Colors.blue.shade50
+                        ? AppColors.primaryLight
                         : (training.status == 'completed'
                               ? Colors.grey.shade100
                               : Colors.orange.shade50),
@@ -170,7 +171,7 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: training.status == 'upcoming'
-                          ? Colors.blue.shade800
+                          ? AppColors.primaryHover
                           : (training.status == 'completed'
                                 ? Colors.grey.shade700
                                 : Colors.orange.shade800),
@@ -258,13 +259,13 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                 const Icon(
                   Icons.videocam_outlined,
                   size: 16,
-                  color: Colors.blue,
+                  color: AppColors.primaryHover,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     training.locationOrUrl,
-                    style: const TextStyle(fontSize: 12, color: Colors.blue),
+                    style: const TextStyle(fontSize: 12, color: AppColors.primaryHover),
                   ),
                 ),
               ],
@@ -288,18 +289,18 @@ class _TrainingListPageState extends ConsumerState<TrainingListPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.description_outlined,
                           size: 15,
-                          color: Colors.indigo.shade700,
+                          color: AppColors.primaryHover,
                         ),
                         const SizedBox(width: 6),
-                        Text(
+                        const Text(
                           'Pelaporan & Dokumentasi Pelatihan',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.indigo.shade800,
+                            color: Color(0xFF9A3412),
                           ),
                         ),
                       ],

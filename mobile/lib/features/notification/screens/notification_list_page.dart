@@ -71,7 +71,7 @@ class _NotificationListPageState extends ConsumerState<NotificationListPage> {
     return switch (category) {
       'transaction' => AppColors.info,
       'promo' => AppColors.primary,
-      _ => Colors.teal,
+      _ => AppColors.primaryHover,
     };
   }
 

@@ -510,12 +510,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Akun "${matchingAccount.fullName}" terpilih',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
+                Expanded(
+                  child: Text(
+                    'Akun "${matchingAccount.fullName}" terpilih',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
                 TextButton.icon(
