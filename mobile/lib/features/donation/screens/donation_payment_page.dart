@@ -453,24 +453,24 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.teal.shade50,
+        color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.teal.shade200),
+        border: Border.all(color: Colors.orange.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.share_outlined, color: Colors.teal.shade800, size: 20),
+          const Icon(Icons.share_outlined, color: AppColors.primaryHover, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Bagikan Link Halaman Donasi',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Colors.teal.shade900,
+                    color: Color(0xFF9A3412),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -478,7 +478,7 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
                   link,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: Colors.teal.shade700),
+                  style: const TextStyle(fontSize: 11, color: AppColors.primaryHover),
                 ),
               ],
             ),
@@ -487,8 +487,8 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
           OutlinedButton.icon(
             onPressed: _copyShareLink,
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.teal.shade800,
-              side: BorderSide(color: Colors.teal.shade400),
+              foregroundColor: AppColors.primaryHover,
+              side: BorderSide(color: Colors.orange.shade300),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -506,8 +506,8 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade700, Colors.teal.shade500],
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryHover, AppColors.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -599,7 +599,7 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
                     return ChoiceChip(
                       label: Text(CurrencyFormatter.format(preset)),
                       selected: selected,
-                      selectedColor: Colors.teal.shade100,
+                      selectedColor: AppColors.primaryLight,
                       onSelected: (_) {
                         setState(() {
                           _amountCtrl.text = preset.toString();
@@ -738,7 +738,7 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
           child: ElevatedButton.icon(
             onPressed: _isGenerating ? null : _generatePayment,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal.shade700,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -787,10 +787,10 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.teal.shade50 : Colors.grey.shade50,
+            color: isSelected ? AppColors.primaryLight : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isSelected ? Colors.teal.shade600 : Colors.grey.shade300,
+              color: isSelected ? AppColors.primary : Colors.grey.shade300,
               width: isSelected ? 1.6 : 1,
             ),
           ),
@@ -800,7 +800,7 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
                 isSelected
                     ? Icons.radio_button_checked
                     : Icons.radio_button_unchecked,
-                color: isSelected ? Colors.teal.shade700 : Colors.grey,
+                color: isSelected ? AppColors.primaryHover : Colors.grey,
                 size: 20,
               ),
               const SizedBox(width: 10),
@@ -814,7 +814,7 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         color: isSelected
-                            ? Colors.teal.shade900
+                            ? const Color(0xFF9A3412)
                             : AppColors.textPrimary,
                       ),
                     ),
@@ -881,10 +881,10 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
             const SizedBox(height: 6),
             Text(
               CurrencyFormatter.format(donation.amount),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.teal.shade700,
+                color: AppColors.primaryHover,
               ),
             ),
             const SizedBox(height: 14),
@@ -1007,10 +1007,10 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
                     Expanded(
                       child: Text(
                         CurrencyFormatter.format(donation.amount),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.teal.shade800,
+                          color: AppColors.primaryHover,
                         ),
                       ),
                     ),
@@ -1144,7 +1144,7 @@ class _DonationPaymentPageState extends ConsumerState<DonationPaymentPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo.shade600,
+                        backgroundColor: AppColors.primaryHover,
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () async {

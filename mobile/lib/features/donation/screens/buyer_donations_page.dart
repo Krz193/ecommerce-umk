@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/donation/services/buyer_donation_service.dart';
@@ -52,8 +53,8 @@ class BuyerDonationsPage extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.pink.shade700, Colors.orange.shade700],
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primaryHover, AppColors.primary],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -175,8 +176,8 @@ class BuyerDonationsPage extends ConsumerWidget {
       badgeBg = Colors.green.shade50;
       badgeFg = Colors.green.shade800;
     } else if (isPaid) {
-      badgeBg = Colors.blue.shade50;
-      badgeFg = Colors.blue.shade800;
+      badgeBg = AppColors.primaryLight;
+      badgeFg = AppColors.primaryHover;
     } else if (isPendingActive) {
       badgeBg = Colors.orange.shade50;
       badgeFg = Colors.orange.shade900;
