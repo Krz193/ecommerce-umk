@@ -76,16 +76,14 @@ class _FlashSaleHomeSectionState extends ConsumerState<FlashSaleHomeSection> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: showUpcomingTab
-                      ? [Colors.indigo.shade50, Colors.blue.shade50]
+                      ? [const Color(0xFFFFF8F5), const Color(0xFFFFEDE0)]
                       : [const Color(0xFFFFF1E6), const Color(0xFFFFE2CC)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: showUpcomingTab
-                      ? Colors.indigo.shade200
-                      : Colors.orange.shade200,
+                  color: Colors.orange.shade200,
                 ),
               ),
               child: Column(
@@ -96,7 +94,7 @@ class _FlashSaleHomeSectionState extends ConsumerState<FlashSaleHomeSection> {
                       Icon(
                         Icons.bolt_rounded,
                         color: showUpcomingTab
-                            ? Colors.indigo
+                            ? AppColors.primary
                             : AppColors.primaryHover,
                         size: 22,
                       ),

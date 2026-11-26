@@ -433,7 +433,7 @@ class _SellerFlashSalePageState extends ConsumerState<SellerFlashSalePage> {
                                     decoration: BoxDecoration(
                                       color: isOwnedByStore
                                           ? Colors.orange.shade50
-                                          : Colors.indigo.shade50,
+                                          : AppColors.primaryLight,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
@@ -445,7 +445,7 @@ class _SellerFlashSalePageState extends ConsumerState<SellerFlashSalePage> {
                                         fontWeight: FontWeight.bold,
                                         color: isOwnedByStore
                                             ? AppColors.primaryHover
-                                            : Colors.indigo.shade700,
+                                            : const Color(0xFF9A3412),
                                       ),
                                     ),
                                   ),

@@ -585,15 +585,15 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.teal.shade200),
+                      border: Border.all(color: Colors.orange.shade200),
                     ),
-                    child: Row(
+                    child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.lock_person_outlined, color: Colors.teal.shade800),
-                        const SizedBox(width: 10),
+                        Icon(Icons.lock_person_outlined, color: AppColors.primaryHover),
+                        SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,14 +602,14 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                                 'Voucher Toko & Promo Khusus',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.teal.shade900,
+                                  color: Color(0xFF9A3412),
                                   fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: 4),
                               Text(
                                 'Atur voucher per order (seluruh belanja) atau per produk spesifik (pilih satu/beberapa barang). Jika buyer belanja banyak barang, hanya produk target yang terpotong.',
-                                style: TextStyle(fontSize: 12, color: Colors.teal.shade800),
+                                style: TextStyle(fontSize: 12, color: AppColors.primaryHover),
                               ),
                             ],
                           ),
@@ -703,7 +703,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: voucher.isProductSpecific ? Colors.purple.shade50 : Colors.blue.shade50,
+                        color: voucher.isProductSpecific ? AppColors.primaryLight : Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -713,7 +713,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: voucher.isProductSpecific ? Colors.purple.shade800 : Colors.blue.shade800,
+                          color: voucher.isProductSpecific ? AppColors.primaryHover : Colors.orange.shade800,
                         ),
                       ),
                     ),
@@ -755,11 +755,11 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text('Belum Mulai',
-                        style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
+                        style: TextStyle(color: AppColors.primaryHover, fontSize: 10, fontWeight: FontWeight.bold)),
                   )
                 else if (isExpired)
                   Container(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
@@ -62,26 +63,26 @@ class SellerBuyerCartsPage extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.blue.shade100),
+                        border: Border.all(color: Colors.orange.shade200),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          const Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.shopping_cart_checkout,
-                                color: Colors.blue,
+                                color: AppColors.primaryHover,
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               Text(
                                 'Ringkasan Keranjang Pembeli Aktif',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade900,
+                                  color: Color(0xFF9A3412),
                                 ),
                               ),
                             ],
@@ -93,7 +94,7 @@ class SellerBuyerCartsPage extends ConsumerWidget {
                               _buildSummaryMetric(
                                 'Total Barang',
                                 '$totalItems pcs',
-                                Colors.blue.shade900,
+                                const Color(0xFF9A3412),
                               ),
                               _buildSummaryMetric(
                                 'Potensi Nilai',

@@ -372,7 +372,7 @@ class _SellerLocalShippingPageState
     );
 
     final email = emailCtrl.text.trim();
-    emailCtrl.dispose();
+    Future<void>.delayed(const Duration(milliseconds: 350), emailCtrl.dispose);
 
     if (confirmed != true || email.isEmpty) return;
 
@@ -471,7 +471,7 @@ class _SellerLocalShippingPageState
                   subtitle:
                       'Opsional. Aktifkan jika UMKM menyediakan pengiriman kurir/armada terjadwal milik toko.',
                   icon: Icons.local_shipping_outlined,
-                  accentColor: Colors.indigo.shade700,
+                  accentColor: AppColors.primaryHover,
                   enabled: _ekspedisiEnabled,
                   onToggle: (val) {
                     setState(() {
