@@ -41,6 +41,7 @@ class _BiteshipAreaPickerSheetState extends State<BiteshipAreaPickerSheet> {
   bool isLoading = false;
   String? errorMessage;
   bool hasSearched = false;
+  int _searchSeq = 0;
 
   @override
   void initState() {
@@ -61,6 +62,7 @@ class _BiteshipAreaPickerSheetState extends State<BiteshipAreaPickerSheet> {
   void onQueryChanged(String query) {
     debounceTimer?.cancel();
     if (query.trim().length < 3) {
+      ++_searchSeq;
       setState(() {
         results = [];
         isLoading = false;
@@ -76,6 +78,7 @@ class _BiteshipAreaPickerSheetState extends State<BiteshipAreaPickerSheet> {
   }
 
   Future<void> performSearch(String query) async {
+    final seq = ++_searchSeq;
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -84,19 +87,18 @@ class _BiteshipAreaPickerSheetState extends State<BiteshipAreaPickerSheet> {
 
     try {
       final areas = await widget.addressService.searchBiteshipAreas(query);
-      if (mounted) {
-        setState(() {
-          results = areas;
-          isLoading = false;
-        });
-      }
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        results = areas;
+        isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          errorMessage = 'Gagal memuat data area: ${e.toString()}';
-          isLoading = false;
-        });
-      }
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        results = [];
+        errorMessage = 'Gagal memuat data area: ${e.toString().replaceFirst('AddressException: ', '')}';
+        isLoading = false;
+      });
     }
   }
 

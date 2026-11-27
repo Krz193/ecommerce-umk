@@ -61,11 +61,22 @@ class OrderLookupController extends Controller
 
         $orderRow = $db->table('orders')
             ->join('stores', 'stores.id', '=', 'orders.store_id')
+            ->leftJoin('users as sellers', 'sellers.id', '=', 'stores.owner_id')
             ->leftJoin('users as buyers', 'buyers.id', '=', 'orders.user_id')
             ->leftJoin('payments', 'payments.order_id', '=', 'orders.id')
             ->select([
                 'orders.*',
                 'stores.name as store_name',
+                'stores.phone as store_phone',
+                'stores.address as store_address',
+                'stores.city as store_city',
+                'stores.province as store_province',
+                'stores.postal_code as store_postal_code',
+                'stores.notes as store_notes',
+                'stores.latitude as store_latitude',
+                'stores.longitude as store_longitude',
+                'sellers.full_name as seller_owner_name',
+                'sellers.phone as seller_owner_phone',
                 'buyers.full_name as buyer_name',
                 'buyers.phone as buyer_phone',
                 'payments.provider',
@@ -77,6 +88,11 @@ class OrderLookupController extends Controller
             ])
             ->where('orders.id', $order)
             ->firstOrFail();
+
+        if (is_string($orderRow->tracking_history ?? null)) {
+            $decodedHistory = json_decode($orderRow->tracking_history, true);
+            $orderRow->tracking_history = is_array($decodedHistory) ? $decodedHistory : [];
+        }
 
         return Inertia::render('admin/orders/show', [
             'order' => $orderRow,

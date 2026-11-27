@@ -41,6 +41,12 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
   bool _isSpeakerOn = false;
   int _elapsedSeconds = 0;
   final String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+  String _verifiedCallerRole = '';
+  String _verifiedCallerName = '';
+  bool _makingOffer = false;
+  bool _remoteDescriptionSet = false;
+  bool _isCleanedUp = false;
+  final List<RTCIceCandidate> _pendingCandidates = [];
 
   static const Map<String, dynamic> _rtcConfiguration = {
     'iceServers': [
@@ -64,9 +70,39 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
 
   Future<void> _initWebRtcCall() async {
     try {
-      // 1. Setup Supabase Realtime Signaling Channel scoped to orderId
-      final channelName = 'webrtc:order_${widget.orderId}';
-      _signalingChannel = supabase.channel(channelName);
+      // 1. Verify order participation & obtain HMAC-protected channel topic + authoritative role from server
+      final authResponse = await supabase.rpc(
+        'authorize_order_webrtc_call',
+        params: {'p_order_id': widget.orderId},
+      );
+
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
+
+      if (authResponse is! Map || authResponse['authorized'] != true) {
+        throw Exception('Akses panggilan tidak diizinkan untuk akun ini.');
+      }
+
+      final channelName = authResponse['channel_topic']?.toString() ?? '';
+      final serverRole = authResponse['caller_role']?.toString() ?? '';
+      final serverName = authResponse['caller_name']?.toString() ?? '';
+
+      if (channelName.isEmpty || serverRole.isEmpty) {
+        throw Exception('Token saluran panggilan tidak valid.');
+      }
+
+      _verifiedCallerRole = serverRole;
+      _verifiedCallerName = serverName;
+
+      // 2. Setup authorized Private Supabase Realtime Signaling Channel & await join
+      _signalingChannel = supabase.channel(
+        channelName,
+        opts: const RealtimeChannelConfig(private: true),
+      );
+
+      final subscribeCompleter = Completer<void>();
 
       _signalingChannel!
           .onBroadcast(
@@ -102,9 +138,29 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
               _callTimer?.cancel();
             },
           )
-          .subscribe();
+          .subscribe((status, [error]) {
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              if (!subscribeCompleter.isCompleted) {
+                subscribeCompleter.complete();
+              }
+            } else if (status == RealtimeSubscribeStatus.channelError ||
+                status == RealtimeSubscribeStatus.timedOut ||
+                status == RealtimeSubscribeStatus.closed) {
+              if (!subscribeCompleter.isCompleted) {
+                subscribeCompleter.completeError(
+                  error ?? Exception('Gagal terhubung ke saluran panggilan.'),
+                );
+              }
+            }
+          });
 
-      // 2. Request audio stream from microphone
+      await subscribeCompleter.future.timeout(const Duration(seconds: 8));
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
+
+      // 3. Request audio stream from microphone
       try {
         _localStream = await navigator.mediaDevices.getUserMedia({
           'audio': {
@@ -119,12 +175,40 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
         _localStream = null;
       }
 
-      // 3. Create PeerConnection
-      _peerConnection = await createPeerConnection(_rtcConfiguration);
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
+
+      // 4. Create PeerConnection (include server-provided TURN/ICE servers if any)
+      final serverIceServers = authResponse['ice_servers'];
+      final rtcConfig = serverIceServers is List && serverIceServers.isNotEmpty
+          ? <String, dynamic>{
+              'iceServers': serverIceServers,
+              'sdpSemantics': 'unified-plan',
+            }
+          : _rtcConfiguration;
+
+      _peerConnection = await createPeerConnection(rtcConfig);
+      if (!mounted || _isCleanedUp) {
+        await _cleanupCall(sendHangup: false);
+        return;
+      }
+
+      _peerConnection!.onTrack = (RTCTrackEvent event) {
+        if (event.track.kind == 'audio') {
+          event.track.enabled = true;
+          Helper.setSpeakerphoneOn(_isSpeakerOn).catchError((_) {});
+        }
+      };
 
       if (_localStream != null) {
         for (final track in _localStream!.getAudioTracks()) {
           await _peerConnection!.addTrack(track, _localStream!);
+          if (!mounted || _isCleanedUp) {
+            await _cleanupCall(sendHangup: false);
+            return;
+          }
         }
       }
 
@@ -134,6 +218,7 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
           event: 'ice-candidate',
           payload: {
             'sender_session': _sessionId,
+            'caller_role': _verifiedCallerRole,
             'candidate': candidate.candidate,
             'sdpMid': candidate.sdpMid,
             'sdpMLineIndex': candidate.sdpMLineIndex,
@@ -155,22 +240,36 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
         }
       };
 
-      // 4. Create & broadcast SDP Offer
-      final offer = await _peerConnection!.createOffer({
-        'offerToReceiveAudio': 1,
-        'offerToReceiveVideo': 0,
-      });
-      await _peerConnection!.setLocalDescription(offer);
+      // 5. Create & broadcast SDP Offer using server-verified role
+      _makingOffer = true;
+      try {
+        final offer = await _peerConnection!.createOffer({
+          'offerToReceiveAudio': 1,
+          'offerToReceiveVideo': 0,
+        });
+        if (!mounted || _isCleanedUp) {
+          await _cleanupCall(sendHangup: false);
+          return;
+        }
+        await _peerConnection!.setLocalDescription(offer);
+        if (!mounted || _isCleanedUp) {
+          await _cleanupCall(sendHangup: false);
+          return;
+        }
 
-      await _signalingChannel!.sendBroadcastMessage(
-        event: 'call-offer',
-        payload: {
-          'sender_session': _sessionId,
-          'caller_role': widget.callerRole,
-          'sdp': offer.sdp,
-          'type': offer.type,
-        },
-      );
+        await _signalingChannel!.sendBroadcastMessage(
+          event: 'call-offer',
+          payload: {
+            'sender_session': _sessionId,
+            'caller_role': _verifiedCallerRole,
+            'caller_name': _verifiedCallerName,
+            'sdp': offer.sdp,
+            'type': offer.type,
+          },
+        );
+      } finally {
+        _makingOffer = false;
+      }
 
       if (!mounted) return;
       setState(() {
@@ -179,23 +278,59 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
             'Memanggil ${widget.remotePartyName} via In-App VoIP...';
       });
     } catch (e) {
+      await _cleanupCall(sendHangup: false);
       if (!mounted) return;
+      final cleanMsg = e.toString().replaceFirst('Exception: ', '').trim();
       setState(() {
-        _callState = 'ringing';
-        _statusMessage =
-            'Saluran In-App siap. Menunggu ${widget.remotePartyName}...';
+        _callState = 'ended';
+        _statusMessage = cleanMsg.isNotEmpty
+            ? cleanMsg
+            : 'Gagal mengotorisasi saluran panggilan pesanan ini.';
       });
+    }
+  }
+
+  Future<void> _flushPendingCandidates(RTCPeerConnection pc) async {
+    if (_pendingCandidates.isEmpty) return;
+    final candidates = List<RTCIceCandidate>.from(_pendingCandidates);
+    _pendingCandidates.clear();
+    for (final candidate in candidates) {
+      try {
+        await pc.addCandidate(candidate);
+      } catch (_) {}
     }
   }
 
   Future<void> _handleRemoteOffer(Map<String, dynamic> payload) async {
     final pc = _peerConnection;
-    if (pc == null) return;
+    if (pc == null || _isCleanedUp) return;
     final sdp = payload['sdp']?.toString();
     final type = payload['type']?.toString() ?? 'offer';
     if (sdp == null) return;
 
+    final remoteSession = payload['sender_session']?.toString() ?? '';
+    final isPolite = _sessionId.compareTo(remoteSession) < 0;
+    final signalingState = await pc.getSignalingState();
+    final offerCollision =
+        _makingOffer ||
+        (signalingState != null &&
+            signalingState != RTCSignalingState.RTCSignalingStateStable);
+
+    if (offerCollision && !isPolite) {
+      return;
+    }
+
+    if (offerCollision && isPolite) {
+      try {
+        await pc.setLocalDescription(RTCSessionDescription('', 'rollback'));
+      } catch (_) {}
+    }
+
     await pc.setRemoteDescription(RTCSessionDescription(sdp, type));
+    _remoteDescriptionSet = true;
+    await _flushPendingCandidates(pc);
+
+    if (_isCleanedUp || !mounted) return;
     final answer = await pc.createAnswer({'offerToReceiveAudio': 1});
     await pc.setLocalDescription(answer);
 
@@ -203,6 +338,8 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
       event: 'call-answer',
       payload: {
         'sender_session': _sessionId,
+        'caller_role': _verifiedCallerRole,
+        'caller_name': _verifiedCallerName,
         'sdp': answer.sdp,
         'type': answer.type,
       },
@@ -212,18 +349,25 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
 
   Future<void> _handleRemoteAnswer(Map<String, dynamic> payload) async {
     final pc = _peerConnection;
-    if (pc == null) return;
+    if (pc == null || _isCleanedUp) return;
     final sdp = payload['sdp']?.toString();
     final type = payload['type']?.toString() ?? 'answer';
     if (sdp == null) return;
 
+    final signalingState = await pc.getSignalingState();
+    if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+      return;
+    }
+
     await pc.setRemoteDescription(RTCSessionDescription(sdp, type));
+    _remoteDescriptionSet = true;
+    await _flushPendingCandidates(pc);
     _onCallConnected();
   }
 
   Future<void> _handleRemoteCandidate(Map<String, dynamic> payload) async {
     final pc = _peerConnection;
-    if (pc == null) return;
+    if (pc == null || _isCleanedUp) return;
     final candidateStr = payload['candidate']?.toString();
     if (candidateStr == null) return;
 
@@ -234,6 +378,11 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
           ? payload['sdpMLineIndex'] as int
           : int.tryParse(payload['sdpMLineIndex']?.toString() ?? '0'),
     );
+
+    if (!_remoteDescriptionSet) {
+      _pendingCandidates.add(candidate);
+      return;
+    }
     await pc.addCandidate(candidate);
   }
 
@@ -270,9 +419,16 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
   }
 
   Future<void> _dialCellularFallback() async {
-    final phone = widget.remotePartyPhone.trim().isNotEmpty
-        ? widget.remotePartyPhone.trim()
-        : '081200001111';
+    final phone = widget.remotePartyPhone.trim();
+    if (phone.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nomor telepon seluler pihak terkait belum tersedia.'),
+        ),
+      );
+      return;
+    }
     final uri = Uri(scheme: 'tel', path: phone);
     try {
       final launched = await launchUrl(uri);
@@ -282,35 +438,48 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
     await Clipboard.setData(ClipboardData(text: phone));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Nomor driver ($phone) disalin ke clipboard.')),
+      SnackBar(content: Text('Nomor telepon ($phone) disalin ke clipboard.')),
     );
   }
 
   Future<void> _cleanupCall({bool sendHangup = true}) async {
+    if (_isCleanedUp) return;
+    _isCleanedUp = true;
     _callTimer?.cancel();
-    if (sendHangup) {
+    _pendingCandidates.clear();
+
+    final channel = _signalingChannel;
+    _signalingChannel = null;
+    if (sendHangup && channel != null) {
       try {
-        await _signalingChannel?.sendBroadcastMessage(
+        await channel.sendBroadcastMessage(
           event: 'call-end',
           payload: {'sender_session': _sessionId},
         );
       } catch (_) {}
     }
+
+    final stream = _localStream;
+    _localStream = null;
     try {
-      if (_localStream != null) {
-        for (final track in _localStream!.getTracks()) {
+      if (stream != null) {
+        for (final track in stream.getTracks()) {
           await track.stop();
         }
-        await _localStream!.dispose();
+        await stream.dispose();
       }
     } catch (_) {}
+
+    final pc = _peerConnection;
+    _peerConnection = null;
     try {
-      await _peerConnection?.close();
-      await _peerConnection?.dispose();
+      await pc?.close();
+      await pc?.dispose();
     } catch (_) {}
+
     try {
-      if (_signalingChannel != null) {
-        await supabase.removeChannel(_signalingChannel!);
+      if (channel != null) {
+        await supabase.removeChannel(channel);
       }
     } catch (_) {}
   }
@@ -323,9 +492,8 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final phone = widget.remotePartyPhone.trim().isNotEmpty
-        ? widget.remotePartyPhone.trim()
-        : '081200001111';
+    final phone = widget.remotePartyPhone.trim();
+    final hasPhone = phone.isNotEmpty;
 
     return Dialog(
       backgroundColor: const Color(0xFF0F172A),
@@ -384,7 +552,9 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Order ${widget.orderNumber} • $phone',
+              hasPhone
+                  ? 'Order ${widget.orderNumber} • $phone'
+                  : 'Order ${widget.orderNumber}',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 10),
@@ -435,32 +605,34 @@ class _InAppCallDialogState extends State<InAppCallDialog> {
               ],
             ),
 
-            const SizedBox(height: 20),
-            const Divider(color: Colors.white24),
-            const SizedBox(height: 10),
+            if (hasPhone) ...[
+              const SizedBox(height: 20),
+              const Divider(color: Colors.white24),
+              const SizedBox(height: 10),
 
-            // Fallback Cellular Call for External Biteship Gojek Drivers
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _dialCellularFallback,
-                icon: const Icon(
-                  Icons.phone_forwarded_rounded,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                label: Text(
-                  'Panggil Seluler Reguler ($phone)',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.white38),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Fallback Cellular Call when real phone number is available
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _dialCellularFallback,
+                  icon: const Icon(
+                    Icons.phone_forwarded_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    'Panggil Seluler Reguler ($phone)',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white38),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

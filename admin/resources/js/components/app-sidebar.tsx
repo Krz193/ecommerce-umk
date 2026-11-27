@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
+    Bell,
     ClipboardList,
     FolderTree,
     GraduationCap,
@@ -14,6 +15,7 @@ import {
     Star,
     Store,
     Users,
+    Zap,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
@@ -79,11 +81,21 @@ const navGroups: NavGroup[] = [
                 href: '/recommendations',
                 icon: Star,
             },
+            {
+                title: 'Flash Sale & Event',
+                href: '/sale-events',
+                icon: Zap,
+            },
         ],
     },
     {
         title: 'Bantuan & Dispute',
         items: [
+            {
+                title: 'Broadcast Notifikasi',
+                href: '/notifications',
+                icon: Bell,
+            },
             {
                 title: 'Refund & Cases',
                 href: '/refund-cases',

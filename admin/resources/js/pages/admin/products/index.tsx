@@ -1,6 +1,7 @@
-import { FormEvent, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { PackageSearch, Plus, Search, Trash2 } from 'lucide-react';
+import { PackageSearch, Plus, Search } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { Pagination } from '@/components/admin/pagination';
 import { ReasonActionDialog } from '@/components/admin/reason-action-dialog';

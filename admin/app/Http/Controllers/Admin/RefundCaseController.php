@@ -10,6 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -72,7 +73,7 @@ class RefundCaseController extends Controller
             ->when($status !== '', fn ($query) => $query->where('refunds.status', $status))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
-                    $query->where('refunds.order_id', 'ilike', "%{$search}%")
+                    $query->whereRaw('refunds.order_id::text ilike ?', ["%{$search}%"])
                         ->orWhere('orders.order_number', 'ilike', "%{$search}%");
                 });
             })
@@ -209,6 +210,10 @@ class RefundCaseController extends Controller
         $resolved = in_array($validated['status'], ['resolved', 'rejected'], true);
 
         if ($source === 'marketplace') {
+            if (! Str::isUuid($id)) {
+                abort(404);
+            }
+
             $case = DB::connection('marketplace')->table('refunds')->where('id', $id)->firstOrFail();
             $previousStatus = $case->status;
 
@@ -247,6 +252,10 @@ class RefundCaseController extends Controller
         [$source, $id] = $this->parseCaseKey($caseKey);
 
         if ($source === 'marketplace') {
+            if (! Str::isUuid($id)) {
+                abort(404);
+            }
+
             $case = DB::connection('marketplace')
                 ->table('refunds')
                 ->leftJoin('users as requesters', 'requesters.id', '=', 'refunds.requested_by')

@@ -35,6 +35,12 @@ class StoreVoucherModel {
 
   bool get isSingleUse => usageLimit == 1;
   bool get isProductSpecific => scope == 'product' && applicableProductIds.isNotEmpty;
+  bool get hasInvalidProductScope => scope == 'product' && applicableProductIds.isEmpty;
+
+  bool get isNotStarted {
+    if (startDate == null) return false;
+    return DateTime.now().isBefore(startDate!);
+  }
 
   bool get isExpired {
     if (endDate == null) return false;
@@ -46,7 +52,19 @@ class StoreVoucherModel {
     return usedCount >= usageLimit!;
   }
 
-  bool get canBeUsed => isActive && !isExpired && !isQuotaExhausted;
+  bool get hasInvalidDiscountConfig {
+    if (minPurchase < 0 || discountValue <= 0) return true;
+    if (discountType == 'percentage' && discountValue > 100) return true;
+    return false;
+  }
+
+  bool get canBeUsed =>
+      isActive &&
+      !isNotStarted &&
+      !isExpired &&
+      !isQuotaExhausted &&
+      !hasInvalidProductScope &&
+      !hasInvalidDiscountConfig;
 
   String get discountTypeLabel {
     switch (discountType) {
@@ -63,24 +81,33 @@ class StoreVoucherModel {
 
   /// Menghitung diskon baik per order maupun per produk spesifik (jika ada multiple item di keranjang)
   int calculateDiscountForItems(List<Map<String, dynamic>> items, int subtotal) {
+    if (subtotal <= 0 || minPurchase < 0 || discountValue <= 0) return 0;
+    if (isNotStarted || isExpired || isQuotaExhausted || !isActive) return 0;
+    if (hasInvalidProductScope) return 0;
+    if (discountType == 'percentage' && discountValue > 100) return 0;
     if (subtotal < minPurchase) return 0;
 
     double totalDiscount = 0;
 
-    if (isProductSpecific) {
+    if (scope == 'product') {
       int matchedCount = 0;
+      double eligibleSubtotal = 0;
+
       for (final item in items) {
         final prodId = (item['product_id'] ?? item['id'])?.toString();
-        final price = (item['price'] as num?)?.toDouble() ?? 0;
+        final price = ((item['price'] as num?)?.toDouble() ?? 0).clamp(0.0, double.infinity);
         final qty = (item['quantity'] as num?)?.toInt() ?? 1;
 
-        if (prodId != null && applicableProductIds.contains(prodId)) {
+        if (qty > 0 && prodId != null && applicableProductIds.contains(prodId)) {
           matchedCount++;
+          eligibleSubtotal += price * qty;
+
           if (discountType == 'nominal') {
             final itemDiscount = (discountValue > price ? price : discountValue) * qty;
             totalDiscount += itemDiscount;
           } else if (discountType == 'percentage') {
-            final itemDiscount = ((price * discountValue) / 100.0) * qty;
+            final boundedPct = discountValue.clamp(0.0, 100.0);
+            final itemDiscount = ((price * boundedPct) / 100.0) * qty;
             totalDiscount += itemDiscount;
           } else if (discountType == 'fixed_price') {
             if (price > discountValue) {
@@ -95,27 +122,30 @@ class StoreVoucherModel {
       if (discountType == 'percentage' && maxDiscount != null && maxDiscount! > 0) {
         if (totalDiscount > maxDiscount!) totalDiscount = maxDiscount!;
       }
+
+      if (totalDiscount > eligibleSubtotal) {
+        totalDiscount = eligibleSubtotal;
+      }
     } else {
       // Per order subtotal
       if (discountType == 'nominal') {
         totalDiscount = discountValue;
-        if (totalDiscount > subtotal) totalDiscount = subtotal.toDouble();
       } else if (discountType == 'percentage') {
-        totalDiscount = (subtotal * discountValue) / 100.0;
+        final boundedPct = discountValue.clamp(0.0, 100.0);
+        totalDiscount = (subtotal * boundedPct) / 100.0;
         if (maxDiscount != null && maxDiscount! > 0 && totalDiscount > maxDiscount!) {
           totalDiscount = maxDiscount!;
         }
-        if (totalDiscount > subtotal) totalDiscount = subtotal.toDouble();
       } else if (discountType == 'fixed_price') {
         if (subtotal > discountValue) {
-          totalDiscount = (subtotal - discountValue);
+          totalDiscount = subtotal - discountValue;
         } else {
           totalDiscount = 0;
         }
       }
     }
 
-    return totalDiscount.round();
+    return totalDiscount.clamp(0.0, subtotal.toDouble()).round();
   }
 
   factory StoreVoucherModel.fromMap(Map<String, dynamic> map) {
@@ -149,6 +179,16 @@ class StoreVoucherModel {
   }
 
   Map<String, dynamic> toMap() {
+    if (scope == 'product' && applicableProductIds.isEmpty) {
+      throw ArgumentError('Voucher per produk wajib memilih minimal 1 produk.');
+    }
+    if (minPurchase < 0) {
+      throw ArgumentError('Minimal belanja tidak boleh negatif.');
+    }
+    if (discountType == 'percentage' && (discountValue <= 0 || discountValue > 100)) {
+      throw ArgumentError('Persentase diskon harus berada di antara 1% hingga 100%.');
+    }
+
     return {
       'store_id': storeId,
       'code': code.toUpperCase().trim(),

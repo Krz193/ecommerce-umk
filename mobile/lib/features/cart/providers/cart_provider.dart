@@ -12,18 +12,12 @@ final cartProvider = FutureProvider.autoDispose<List<CartModel>>((ref) async {
     return [];
   }
 
-  final carts = await supabase.from('carts').select().eq('user_id', user.id);
-
-  if (carts.isEmpty) {
-    return [];
-  }
-
-  final List<CartModel> result = [];
-
-  for (final cart in carts) {
-    final cartItems = await supabase
-        .from('cart_items')
-        .select('''
+  final carts = await supabase
+      .from('carts')
+      .select('''
+        id,
+        store_id,
+        cart_items (
           *,
           product:products (
             id,
@@ -32,17 +26,21 @@ final cartProvider = FutureProvider.autoDispose<List<CartModel>>((ref) async {
             stock,
             thumbnail_url
           )
-        ''')
-        .eq('cart_id', cart['id']);
+        )
+      ''')
+      .eq('user_id', user.id);
 
-    final items = cartItems
-        .map<CartItemModel>((json) => CartItemModel.fromJson(json))
-        .toList();
-
-    result.add(
-      CartModel(id: cart['id'], storeId: cart['store_id'], items: items),
-    );
+  if (carts.isEmpty) {
+    return [];
   }
 
-  return result;
+  return carts.map<CartModel>((cart) {
+    final rawItems = cart['cart_items'] as List<dynamic>? ?? const [];
+    final items = rawItems
+        .whereType<Map<String, dynamic>>()
+        .map<CartItemModel>(CartItemModel.fromJson)
+        .toList();
+
+    return CartModel(id: cart['id'], storeId: cart['store_id'], items: items);
+  }).toList();
 });

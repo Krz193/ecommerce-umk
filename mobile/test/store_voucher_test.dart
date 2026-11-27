@@ -145,5 +145,72 @@ void main() {
       expect(usedSingleUseVoucher.isQuotaExhausted, isTrue);
       expect(usedSingleUseVoucher.canBeUsed, isFalse);
     });
+
+    test('Enforces startDate, non-empty product scope, percentage <= 100%, and minPurchase >= 0', () {
+      final futureStartVoucher = StoreVoucherModel(
+        id: 'v-future',
+        storeId: 'store-1',
+        code: 'BESOKMULAI',
+        title: 'Promo Besok',
+        discountType: 'nominal',
+        discountValue: 15000,
+        startDate: DateTime.now().add(const Duration(days: 1)),
+      );
+
+      expect(futureStartVoucher.isNotStarted, isTrue);
+      expect(futureStartVoucher.canBeUsed, isFalse);
+      expect(futureStartVoucher.calculateDiscountForItems([], 100000), 0);
+
+      final emptyProductScopeVoucher = StoreVoucherModel(
+        id: 'v-empty-prod',
+        storeId: 'store-1',
+        code: 'PRODUKKOSONG',
+        title: 'Salah Scope Produk',
+        scope: 'product',
+        applicableProductIds: const [],
+        discountType: 'nominal',
+        discountValue: 20000,
+      );
+
+      expect(emptyProductScopeVoucher.hasInvalidProductScope, isTrue);
+      expect(emptyProductScopeVoucher.canBeUsed, isFalse);
+      expect(
+        emptyProductScopeVoucher.calculateDiscountForItems(
+          [
+            {'product_id': 'prod-1', 'price': 100000, 'quantity': 1},
+          ],
+          100000,
+        ),
+        0,
+      );
+      expect(() => emptyProductScopeVoucher.toMap(), throwsArgumentError);
+
+      final overHundredPctVoucher = StoreVoucherModel(
+        id: 'v-over-pct',
+        storeId: 'store-1',
+        code: 'DISKON150',
+        title: 'Diskon 150%',
+        discountType: 'percentage',
+        discountValue: 150,
+      );
+
+      expect(overHundredPctVoucher.canBeUsed, isFalse);
+      expect(overHundredPctVoucher.calculateDiscountForItems([], 100000), 0);
+      expect(() => overHundredPctVoucher.toMap(), throwsArgumentError);
+
+      final negativeMinPurchaseVoucher = StoreVoucherModel(
+        id: 'v-neg-min',
+        storeId: 'store-1',
+        code: 'MINNEGATIF',
+        title: 'Min Belanja Negatif',
+        discountType: 'nominal',
+        discountValue: 10000,
+        minPurchase: -5000,
+      );
+
+      expect(negativeMinPurchaseVoucher.canBeUsed, isFalse);
+      expect(negativeMinPurchaseVoucher.calculateDiscountForItems([], 50000), 0);
+      expect(() => negativeMinPurchaseVoucher.toMap(), throwsArgumentError);
+    });
   });
 }

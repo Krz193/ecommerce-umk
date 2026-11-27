@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/features/flash_sale/models/sale_event_model.dart';
+import 'package:mobile/features/flash_sale/providers/flash_sale_provider.dart';
+import 'package:mobile/features/flash_sale/widgets/flash_sale_home_section.dart';
 import 'package:mobile/features/product/providers/product_detail_provider.dart';
 import 'package:mobile/features/cart/services/cart_service.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
@@ -24,6 +30,7 @@ class ProductDetailPage extends ConsumerStatefulWidget {
 
 class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   String? selectedImageUrl;
+  bool _isAddingToCart = false;
 
   @override
   Widget build(BuildContext context) {
@@ -53,9 +60,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: product.stock <= 0
+                      onPressed: (product.stock <= 0 || _isAddingToCart)
                           ? null
                           : () async {
+                              setState(() {
+                                _isAddingToCart = true;
+                              });
                               try {
                                 await ProductDetailPage.cartService.addToCart(
                                   productId: product.id,
@@ -79,13 +89,34 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 }
 
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(error.toString())),
+                                  SnackBar(
+                                    content: Text(
+                                      error.toString().replaceFirst(
+                                        'Exception: ',
+                                        '',
+                                      ),
+                                    ),
+                                  ),
                                 );
+                              } finally {
+                                if (mounted) {
+                                  setState(() {
+                                    _isAddingToCart = false;
+                                  });
+                                }
                               }
                             },
-                      child: Text(
-                        product.stock <= 0 ? 'Out of Stock' : 'Add To Cart',
-                      ),
+                      child: _isAddingToCart
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              product.stock <= 0
+                                  ? 'Out of Stock'
+                                  : 'Add To Cart',
+                            ),
                     ),
                   ),
                 ),
@@ -157,13 +188,164 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                   const SizedBox(height: 16),
 
-                  Text(
-                    CurrencyFormatter.format(product.price),
+                  Builder(
+                    builder: (context) {
+                      final flashInfo = ref
+                          .watch(productFlashSaleProvider(product.id))
+                          .asData
+                          ?.value;
 
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                      if (flashInfo != null &&
+                          flashInfo.salePrice < product.price) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ProductFlashSaleBanner(info: flashInfo),
+                            const SizedBox(height: 12),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  CurrencyFormatter.format(flashInfo.salePrice),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryHover,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 3),
+                                  child: Text(
+                                    CurrencyFormatter.format(product.price),
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.grey.shade500,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
+
+                      final upcomingEvents = ref
+                          .watch(publicSaleEventsProvider)
+                          .asData
+                          ?.value;
+                      SaleEventModel? upcomingEvent;
+                      SaleEventItemModel? upcomingItem;
+                      if (upcomingEvents != null) {
+                        for (final ev in upcomingEvents) {
+                          if (!ev.isUpcoming) continue;
+                          final found = ev.items
+                              .where((i) => i.productId == product.id)
+                              .firstOrNull;
+                          if (found != null) {
+                            upcomingEvent = ev;
+                            upcomingItem = found;
+                            break;
+                          }
+                        }
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (upcomingEvent != null && upcomingItem != null)
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.indigo.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.indigo.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.bolt_rounded,
+                                    color: Colors.indigo,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Akan Flash Sale (${upcomingEvent.title}): ${CurrencyFormatter.format(upcomingItem.salePrice)} dalam ${formatCountdownDuration(upcomingEvent.countdownRemaining)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.indigo.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (product.hasDiscount)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  CurrencyFormatter.format(product.price),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 3),
+                                  child: Text(
+                                    CurrencyFormatter.format(
+                                      product.effectiveOriginalPrice,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.grey.shade500,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade600,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    product.effectiveDiscountPercent > 0
+                                        ? '-${product.effectiveDiscountPercent}%'
+                                        : 'PROMO',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Text(
+                              CurrencyFormatter.format(product.price),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
 
                   if (product.images.isNotEmpty) ...[
@@ -417,6 +599,119 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         );
       },
       loading: () => const LinearProgressIndicator(),
+    );
+  }
+}
+
+class _ProductFlashSaleBanner extends StatefulWidget {
+  final ProductFlashSaleInfo info;
+
+  const _ProductFlashSaleBanner({required this.info});
+
+  @override
+  State<_ProductFlashSaleBanner> createState() =>
+      _ProductFlashSaleBannerState();
+}
+
+class _ProductFlashSaleBannerState extends State<_ProductFlashSaleBanner> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = widget.info.remainingDuration;
+    final pct = widget.info.effectiveDiscountPercent;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEA580C), Color(0xFFDC2626)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bolt_rounded, color: Colors.amber, size: 20),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'FLASH SALE • ${widget.info.eventTitle}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (pct > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '-$pct%',
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(
+                'Berakhir dalam ${formatCountdownDuration(remaining)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              if (widget.info.remainingSaleQuota != null)
+                Text(
+                  'Sisa kuota: ${widget.info.remainingSaleQuota}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+            ],
+          ),
+          if (widget.info.maxQtyPerUser != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Maks ${widget.info.maxQtyPerUser} pcs harga promo/pembeli (sudah beli ${widget.info.userPurchasedQty} pcs). Kelebihan otomatis harga normal.',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

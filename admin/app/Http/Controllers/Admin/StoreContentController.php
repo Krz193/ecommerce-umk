@@ -7,7 +7,6 @@ use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,6 +16,7 @@ class StoreContentController extends Controller
     {
         $search = $request->string('search')->toString();
         $contentType = $request->string('type')->toString();
+        $platform = $request->string('platform')->toString();
 
         $db = DB::connection('marketplace');
 
@@ -35,6 +35,11 @@ class StoreContentController extends Controller
                 'store_contents.external_url',
                 'store_contents.body',
                 'store_contents.is_active',
+                'store_contents.reach_count',
+                'store_contents.likes_count',
+                'store_contents.comments_count',
+                'store_contents.shares_count',
+                'store_contents.inquiries_count',
                 'store_contents.created_at',
                 'stores.name as store_name',
                 'products.name as product_name',
@@ -44,10 +49,12 @@ class StoreContentController extends Controller
                 $query->where(function ($query) use ($search): void {
                     $query->where('store_contents.title', 'ilike', "%{$search}%")
                         ->orWhere('stores.name', 'ilike', "%{$search}%")
-                        ->orWhere('products.name', 'ilike', "%{$search}%");
+                        ->orWhere('products.name', 'ilike', "%{$search}%")
+                        ->orWhere('creator.full_name', 'ilike', "%{$search}%");
                 });
             })
             ->when($contentType !== '', fn ($query) => $query->where('store_contents.content_type', $contentType))
+            ->when($platform !== '', fn ($query) => $query->where('store_contents.social_platform', $platform))
             ->orderByDesc('store_contents.created_at')
             ->paginate(20)
             ->withQueryString();
@@ -57,109 +64,9 @@ class StoreContentController extends Controller
             'filters' => [
                 'search' => $search,
                 'type' => $contentType,
+                'platform' => $platform,
             ],
-            'stores' => $db->table('stores')->orderBy('name')->get(['id', 'name']),
-            'products' => $db->table('products')->orderBy('name')->get(['id', 'name', 'store_id']),
         ]);
-    }
-
-    public function store(Request $request, AdminAuditLogger $auditLogger): RedirectResponse
-    {
-        $validated = $request->validate([
-            'store_id' => ['required', 'string', 'uuid'],
-            'product_id' => ['nullable', 'string', 'uuid'],
-            'title' => ['required', 'string', 'max:255'],
-            'content_type' => ['required', 'string', 'in:banner,promo,storytelling,social,educational'],
-            'social_platform' => ['nullable', 'string', 'in:instagram,tiktok,youtube,facebook,whatsapp,marketplace'],
-            'media_format' => ['required', 'string', 'in:image,video,short_video,carousel,article'],
-            'external_url' => ['nullable', 'url', 'max:1000'],
-            'body' => ['nullable', 'string'],
-            'is_active' => ['boolean'],
-        ]);
-
-        $db = DB::connection('marketplace');
-        $storeRow = $db->table('stores')->where('id', $validated['store_id'])->firstOrFail();
-
-        $id = (string) Str::uuid();
-
-        $db->table('store_contents')->insert([
-            'id' => $id,
-            'store_id' => $storeRow->id,
-            'product_id' => $validated['product_id'] ?? null,
-            'created_by' => $storeRow->owner_id,
-            'title' => $validated['title'],
-            'content_type' => $validated['content_type'],
-            'social_platform' => $validated['social_platform'] ?? null,
-            'media_format' => $validated['media_format'],
-            'external_url' => $validated['external_url'] ?? null,
-            'body' => $validated['body'] ?? null,
-            'is_active' => $validated['is_active'] ?? true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $auditLogger->log(
-            $request,
-            'store_content.create',
-            'store_content',
-            $id,
-            "Konten promosi UMK {$validated['title']} ({$validated['content_type']}) dibuat oleh admin untuk toko {$storeRow->name}.",
-            [
-                'title' => $validated['title'],
-                'content_type' => $validated['content_type'],
-                'media_format' => $validated['media_format'],
-                'social_platform' => $validated['social_platform'] ?? null,
-                'store_id' => $storeRow->id,
-            ],
-        );
-
-        return back()->with('success', 'Konten Promosi UMK berhasil dibuat.');
-    }
-
-    public function update(Request $request, AdminAuditLogger $auditLogger, string $storeContent): RedirectResponse
-    {
-        $validated = $request->validate([
-            'product_id' => ['nullable', 'string', 'uuid'],
-            'title' => ['required', 'string', 'max:255'],
-            'content_type' => ['required', 'string', 'in:banner,promo,storytelling,social,educational'],
-            'social_platform' => ['nullable', 'string', 'in:instagram,tiktok,youtube,facebook,whatsapp,marketplace'],
-            'media_format' => ['required', 'string', 'in:image,video,short_video,carousel,article'],
-            'external_url' => ['nullable', 'url', 'max:1000'],
-            'body' => ['nullable', 'string'],
-            'is_active' => ['boolean'],
-        ]);
-
-        $db = DB::connection('marketplace');
-        $existing = $db->table('store_contents')->where('id', $storeContent)->firstOrFail();
-
-        $db->table('store_contents')->where('id', $storeContent)->update([
-            'product_id' => $validated['product_id'] ?? null,
-            'title' => $validated['title'],
-            'content_type' => $validated['content_type'],
-            'social_platform' => $validated['social_platform'] ?? null,
-            'media_format' => $validated['media_format'],
-            'external_url' => $validated['external_url'] ?? null,
-            'body' => $validated['body'] ?? null,
-            'is_active' => $validated['is_active'] ?? true,
-            'updated_at' => now(),
-        ]);
-
-        $auditLogger->log(
-            $request,
-            'store_content.update',
-            'store_content',
-            $storeContent,
-            "Konten promosi {$validated['title']} diperbarui oleh admin.",
-            [
-                'previous_title' => $existing->title,
-                'title' => $validated['title'],
-                'content_type' => $validated['content_type'],
-                'media_format' => $validated['media_format'],
-                'social_platform' => $validated['social_platform'] ?? null,
-            ],
-        );
-
-        return back()->with('success', 'Konten Promosi UMK berhasil diperbarui.');
     }
 
     public function destroy(Request $request, AdminAuditLogger $auditLogger, string $storeContent): RedirectResponse
@@ -174,10 +81,10 @@ class StoreContentController extends Controller
             'store_content.delete',
             'store_content',
             $storeContent,
-            "Konten promosi {$existing->title} dihapus oleh admin.",
+            "Konten & engagement {$existing->title} dihapus oleh admin.",
             ['title' => $existing->title],
         );
 
-        return back()->with('success', 'Konten Promosi UMK berhasil dihapus.');
+        return back()->with('success', 'Konten UMK berhasil dihapus.');
     }
 }

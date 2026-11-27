@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/widgets/map_point_picker_field.dart';
 import 'package:mobile/features/auth/providers/auth_provider.dart';
+import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/order/widgets/in_app_call_dialog.dart';
+import 'package:mobile/features/order/widgets/shipment_tracking_section.dart';
 
 class LogisticsPartnerDashboardPage extends ConsumerStatefulWidget {
   final String partnerMode; // 'ekspedisi' (#13) or 'ojek' (#14)
@@ -35,50 +38,9 @@ class _LogisticsPartnerDashboardPageState
   String _driverPhone = '';
   String _vehiclePlate = '';
 
-  @override
-  void initState() {
-    super.initState();
-    // Ensure current user has proper logistics role in database
-    supabase.rpc('become_logistics_partner', params: {'p_role': widget.partnerMode}).then((_) {
-      if (mounted) ref.invalidate(appUserProvider);
-    }).catchError((_) {});
-    _tabController = TabController(length: 3, vsync: this);
-    _initializePartner();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  bool get isOjek => widget.partnerMode == 'ojek';
-  String get partnerTitle => isOjek ? 'Portal Driver Ojek' : 'Portal Mitra Ekspedisi';
-
-  Future<void> _initializePartner() async {
-    final user = ref.read(appUserProvider).asData?.value;
-    setState(() {
-      _driverName = (user != null && user.fullName.isNotEmpty)
-          ? user.fullName
-          : (isOjek ? 'Budi Santoso (Driver)' : 'Mitra Ekspedisi Express');
-      _driverPhone = user?.phone ?? '08123456789';
-      _vehiclePlate = isOjek ? 'B 4123 ABC (Honda Vario)' : 'B 9876 XYZ (Truk Box)';
-    });
-
-    await _fetchOrders();
-  }
-
-  Future<void> _fetchOrders() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final response = await supabase
-          .from('orders')
-          .select('''
+  static const String _orderSelectColumns = '''
             id,
+            store_id,
             order_number,
             status,
             tracking_status,
@@ -101,20 +63,154 @@ class _LogisticsPartnerDashboardPageState
             shipping_name,
             shipping_address,
             shipping_phone,
+            shipping_notes,
             shipping_latitude,
             shipping_longitude,
+            origin_contact_name,
+            origin_phone,
+            origin_address,
+            origin_city,
+            origin_postal_code,
+            origin_notes,
+            origin_latitude,
+            origin_longitude,
             created_at,
             stores:store_id (
+              id,
               name,
-              address
+              phone,
+              address,
+              city,
+              postal_code,
+              notes,
+              latitude,
+              longitude
             )
-          ''')
+          ''';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _initializePartner();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  bool get isOjek => widget.partnerMode == 'ojek';
+  String get partnerTitle => isOjek ? 'Portal Driver Ojek' : 'Portal Mitra Ekspedisi';
+
+  List<String> get _allowedCourierCodes => isOjek
+      ? const ['ojek', 'ojek_lokal', 'instant_lokal']
+      : const ['ekspedisi', 'ekspedisi_lokal', 'kurir_toko', 'manual'];
+
+  Future<void> _initializePartner() async {
+    final user = await ref.read(appUserProvider.future);
+    if (!mounted) return;
+
+    final authorized =
+        (isOjek && user?.isOjek == true) ||
+        (!isOjek && user?.isEkspedisi == true) ||
+        user?.isAdmin == true;
+
+    if (!authorized) {
+      context.go('/home');
+      return;
+    }
+
+    setState(() {
+      _driverName = (user != null && user.fullName.isNotEmpty)
+          ? user.fullName
+          : (isOjek ? 'Driver Ojek Mitra' : 'Mitra Ekspedisi Express');
+      _driverPhone = user?.phone ?? '';
+      _vehiclePlate = isOjek ? 'B 4123 ABC (Honda Vario)' : 'B 9876 XYZ (Truk Box)';
+    });
+
+    await _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final user = ref.read(appUserProvider).asData?.value;
+      final isAdmin = user?.isAdmin == true;
+
+      // 1. Fetch active UMKM store assignments for this courier on server
+      List<String> assignedStoreIds = [];
+      if (!isAdmin) {
+        final storeLinks = await supabase
+            .from('store_couriers')
+            .select('store_id')
+            .eq('user_id', currentUserId)
+            .eq('courier_type', isOjek ? 'ojek' : 'ekspedisi')
+            .eq('is_active', true);
+
+        assignedStoreIds = (storeLinks as List)
+            .map((row) => (row as Map)['store_id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet()
+            .toList();
+      }
+
+      // 2. Fetch orders owned by this driver (strict driver_id match)
+      final myOrdersRes = await supabase
+          .from('orders')
+          .select(_orderSelectColumns)
+          .eq('driver_id', currentUserId)
           .order('created_at', ascending: false)
           .limit(30);
 
+      // 3. Fetch claimable paid unassigned local orders scoped to assigned UMKM stores & role
+      List<dynamic> poolOrdersRes = const [];
+      if (isAdmin || assignedStoreIds.isNotEmpty) {
+        var poolQuery = supabase
+            .from('orders')
+            .select(_orderSelectColumns)
+            .isFilter('driver_id', null)
+            .isFilter('biteship_order_id', null)
+            .eq('payment_status', 'paid')
+            .inFilter('status', const ['processing', 'pending'])
+            .inFilter('courier_code', _allowedCourierCodes);
+
+        if (!isAdmin) {
+          poolQuery = poolQuery.inFilter('store_id', assignedStoreIds);
+        }
+
+        poolOrdersRes = await poolQuery
+            .order('created_at', ascending: false)
+            .limit(30);
+      }
+
+      final mergedById = <String, Map<String, dynamic>>{};
+      for (final raw in [...poolOrdersRes, ...(myOrdersRes as List)]) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final id = map['id']?.toString();
+        if (id != null && id.isNotEmpty) {
+          mergedById[id] = map;
+        }
+      }
+
+      final combined = mergedById.values.toList()
+        ..sort((a, b) {
+          final bCreated = b['created_at']?.toString() ?? '';
+          final aCreated = a['created_at']?.toString() ?? '';
+          return bCreated.compareTo(aCreated);
+        });
+
       if (mounted) {
         setState(() {
-          _orders = List<Map<String, dynamic>>.from(response as List);
+          _orders = combined;
           _isLoading = false;
         });
       }
@@ -132,39 +228,40 @@ class _LogisticsPartnerDashboardPageState
   List<Map<String, dynamic>> _getFilteredOrders(int tabIndex) {
     final currentUserId = supabase.auth.currentUser?.id;
 
-    // Helper: Is order intended for current partner mode (Ojek vs Ekspedisi)
     bool isMatchingCourier(Map<String, dynamic> o) {
       final code = (o['courier_code'] ?? '').toString().toLowerCase();
       final hasBiteship = o['biteship_order_id'] != null;
 
-      // Never show external Biteship-managed orders in local driver portal
-      if (hasBiteship || code == 'jne' || code == 'sicepat' || code == 'jnt' || code == 'anteraja') {
+      if (hasBiteship ||
+          code == 'gojek' ||
+          code == 'grab' ||
+          code == 'jne' ||
+          code == 'sicepat' ||
+          code == 'jnt' ||
+          code == 'anteraja') {
         return false;
       }
 
-      if (isOjek) {
-        // Ojek lokal: ojek, ojek_lokal, instant_lokal, or instant/same_day service
-        final sType = (o['courier_service_type'] ?? '').toString().toLowerCase();
-        return code == 'ojek' || code == 'ojek_lokal' || code == 'instant_lokal' || sType == 'instant' || sType == 'same_day';
-      } else {
-        // Ekspedisi / armada toko
-        return code == 'ekspedisi' || code == 'ekspedisi_lokal' || code == 'kurir_toko' || code == 'manual' || code.isEmpty;
-      }
+      return _allowedCourierCodes.contains(code);
     }
 
     if (tabIndex == 0) {
-      // Tab 0: Pending / Unassigned / Ready to pickup (Local orders without driver)
+      // Tab 0: Paid unassigned local orders ready for pickup
       return _orders.where((o) {
         if (!isMatchingCourier(o)) return false;
+        if (o['payment_status'] != 'paid') return false;
+        if (o['driver_id'] != null) return false;
         final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
-        final hasDriver = o['driver_id'] != null || (o['driver_name'] != null && o['driver_name'].toString().isNotEmpty);
-        return !hasDriver && (dStatus == 'ready_to_ship' || dStatus == 'pending' || dStatus == 'processing' || dStatus == 'allocated');
+        return dStatus == 'ready_to_ship' ||
+            dStatus == 'pending' ||
+            dStatus == 'processing' ||
+            dStatus == 'allocated';
       }).toList();
     } else if (tabIndex == 1) {
-      // Tab 1: Active / On Delivery (Claimed by current driver)
+      // Tab 1: Active / On Delivery (strictly owned via driver_id)
       return _orders.where((o) {
         final orderDriverId = o['driver_id']?.toString();
-        final isMine = currentUserId != null && (orderDriverId == currentUserId || (orderDriverId == null && o['driver_name'] == _driverName));
+        final isMine = currentUserId != null && orderDriverId == currentUserId;
         if (!isMine) return false;
 
         final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
@@ -174,10 +271,10 @@ class _LogisticsPartnerDashboardPageState
             dStatus == 'on_delivery';
       }).toList();
     } else {
-      // Tab 2: Completed / Cancelled (Finished by current driver)
+      // Tab 2: Completed / Cancelled (strictly owned via driver_id)
       return _orders.where((o) {
         final orderDriverId = o['driver_id']?.toString();
-        final isMine = currentUserId != null && (orderDriverId == currentUserId || (orderDriverId == null && o['driver_name'] == _driverName));
+        final isMine = currentUserId != null && orderDriverId == currentUserId;
         if (!isMine) return false;
 
         final dStatus = (o['tracking_status'] ?? o['status'] ?? '').toString();
@@ -190,18 +287,30 @@ class _LogisticsPartnerDashboardPageState
 
   // --- ACTIONS ---
 
-  // 1. Approval Pengiriman (Atomic Claim & Tugaskan Diri)
+  // 1. Approval Pengiriman (Atomic Claim & Tugaskan Diri - wajib paid)
   Future<void> _approveShipment(Map<String, dynamic> order) async {
+    if (order['payment_status'] != 'paid') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pesanan belum lunas (paid) dan tidak dapat diklaim.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final orderId = order['id'];
 
     try {
+      final originLat = (order['origin_latitude'] as num?)?.toDouble();
+      final originLng = (order['origin_longitude'] as num?)?.toDouble();
       await supabase.rpc('claim_logistics_order', params: {
         'p_order_id': orderId,
         'p_driver_name': _driverName,
         'p_driver_phone': _driverPhone,
         'p_vehicle_plate': _vehiclePlate,
-        'p_latitude': isOjek ? -6.2088 : null,
-        'p_longitude': isOjek ? 106.8456 : null,
+        'p_latitude': originLat,
+        'p_longitude': originLng,
       });
 
       if (!mounted) return;
@@ -222,84 +331,46 @@ class _LogisticsPartnerDashboardPageState
 
   // 2. Update Resi Manual (Ekspedisi #13)
   void _showWaybillInputDialog(Map<String, dynamic> order) {
-    final controller = TextEditingController(text: order['waybill_id'] ?? '');
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          title: const Text('Input No Resi Manual'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Masukkan nomor resi fisik ekspedisi untuk pelacakan pembeli:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'Nomor Resi / AWB',
-                  hintText: 'Misal: EXP-2026-889901',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.qr_code_2),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final newWaybill = controller.text.trim();
-                if (newWaybill.isEmpty) return;
+      builder: (_) => _WaybillInputDialog(
+        initialWaybill: (order['waybill_id'] ?? '').toString(),
+        onSubmit: (newWaybill) async {
+          try {
+            await supabase.rpc('update_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_status': order['tracking_status'] ?? 'allocated',
+              'p_waybill_id': newWaybill,
+              'p_note': 'No resi diperbarui menjadi: $newWaybill',
+            });
 
-                Navigator.pop(dialogCtx);
-                try {
-                  await supabase.rpc('update_logistics_shipment', params: {
-                    'p_order_id': order['id'],
-                    'p_status': order['tracking_status'] ?? 'allocated',
-                    'p_waybill_id': newWaybill,
-                    'p_note': 'No resi diperbarui menjadi: $newWaybill',
-                  });
-
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Nomor resi berhasil disimpan!')),
-                  );
-                  _fetchOrders();
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal menyimpan resi: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text('Simpan Resi'),
-            ),
-          ],
-        );
-      },
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Nomor resi berhasil disimpan!')),
+            );
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal menyimpan resi: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
     );
   }
 
-  // 3. Update Delivery Status (Ekspedisi / Ojek)
+  // 3. Update Delivery Status (Ekspedisi / Ojek) with Per-Point Hub & GPS
   void _showUpdateStatusDialog(Map<String, dynamic> order) {
-    String selectedStatus = (order['tracking_status'] ?? 'allocated').toString();
-    final noteController = TextEditingController();
-
     final statusOptions = isOjek
-        ? [
+        ? const [
+            {'value': 'allocated', 'label': 'Dialokasikan ke Driver Ojek'},
             {'value': 'picking_up', 'label': 'Menuju Toko / Lokasi Pickup'},
             {'value': 'picked', 'label': 'Pesanan Diambil (Menuju Pembeli)'},
             {'value': 'on_delivery', 'label': 'Dalam Perjalanan Pengantaran'},
             {'value': 'delivered', 'label': 'Tiba & Diserahkan (Selesai)'},
           ]
-        : [
+        : const [
             {'value': 'allocated', 'label': 'Dialokasikan ke Kurir Ekspedisi'},
             {'value': 'picking_up', 'label': 'Penjemputan ke Penjual / Hub'},
             {'value': 'picked', 'label': 'Paket Masuk Hub Ekspedisi'},
@@ -308,262 +379,132 @@ class _LogisticsPartnerDashboardPageState
             {'value': 'delivered', 'label': 'Paket Diterima Pembeli (Selesai)'},
           ];
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              title: Text('Update Status ${isOjek ? "Ojek" : "Ekspedisi"}'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedStatus,
-                      decoration: const InputDecoration(
-                        labelText: 'Pilih Status Pengiriman',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: statusOptions.map((opt) {
-                        return DropdownMenuItem<String>(
-                          value: opt['value']!,
-                          child: Text(opt['label']!, style: const TextStyle(fontSize: 13)),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() => selectedStatus = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: noteController,
-                      decoration: const InputDecoration(
-                        labelText: 'Catatan Rute / Keterangan',
-                        hintText: 'Misal: Paket telah disortir di Hub Jakarta Selatan',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Batal'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(dialogCtx);
-                    try {
-                      await supabase.rpc('update_logistics_shipment', params: {
-                        'p_order_id': order['id'],
-                        'p_status': selectedStatus,
-                        'p_note': noteController.text.trim().isNotEmpty
-                            ? noteController.text.trim()
-                            : 'Status diubah ke $selectedStatus',
-                      });
+      builder: (_) => _UpdateLogisticsStatusDialog(
+        isOjek: isOjek,
+        initialStatus: (order['tracking_status'] ?? 'allocated').toString(),
+        initialLat: (order['driver_latitude'] as num?)?.toDouble() ??
+            (order['origin_latitude'] as num?)?.toDouble(),
+        initialLng: (order['driver_longitude'] as num?)?.toDouble() ??
+            (order['origin_longitude'] as num?)?.toDouble(),
+        statusOptions: statusOptions,
+        onSubmit: (selectedStatus, checkpointName, note, lat, lng) async {
+          try {
+            await supabase.rpc('update_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_status': selectedStatus,
+              'p_checkpoint_name': checkpointName,
+              'p_latitude': lat,
+              'p_longitude': lng,
+              'p_note': note ?? 'Status diubah ke $selectedStatus',
+            });
 
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Status pengiriman berhasil diperbarui!')),
-                      );
-                      _fetchOrders();
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Gagal update status: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  },
-                  child: const Text('Perbarui'),
-                ),
-              ],
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Status & titik checkpoint berhasil diperbarui!')),
             );
-          },
-        );
-      },
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal update status: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
     );
   }
 
-  // 4. Update Live GPS Simulation (Ojek #14 & Ekspedisi)
+  // 4. Update Live GPS (Ojek #14 & Ekspedisi) with Interactive Map Picker
   void _showUpdateGpsDialog(Map<String, dynamic> order) {
-    double currentLat = (order['driver_latitude'] as num?)?.toDouble() ?? -6.2088;
-    double currentLng = (order['driver_longitude'] as num?)?.toDouble() ?? 106.8456;
+    final initialLat = (order['driver_latitude'] as num?)?.toDouble() ??
+        (order['origin_latitude'] as num?)?.toDouble() ??
+        -6.2088;
+    final initialLng = (order['driver_longitude'] as num?)?.toDouble() ??
+        (order['origin_longitude'] as num?)?.toDouble() ??
+        106.8456;
 
-    final latController = TextEditingController(text: currentLat.toStringAsFixed(6));
-    final lngController = TextEditingController(text: currentLng.toStringAsFixed(6));
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          title: const Text('Update Koordinat GPS Driver'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Perbarui posisi real-time pengemudi agar rute terlihat dinamis pada aplikasi Pembeli:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: latController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Latitude',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: lngController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Longitude',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 6,
-                children: [
-                  ActionChip(
-                    label: const Text('+0.005 Lat (Maju)', style: TextStyle(fontSize: 11)),
-                    onPressed: () {
-                      final val = (double.tryParse(latController.text) ?? -6.2088) + 0.005;
-                      latController.text = val.toStringAsFixed(6);
-                    },
-                  ),
-                  ActionChip(
-                    label: const Text('+0.005 Lng (Belok)', style: TextStyle(fontSize: 11)),
-                    onPressed: () {
-                      final val = (double.tryParse(lngController.text) ?? 106.8456) + 0.005;
-                      lngController.text = val.toStringAsFixed(6);
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final lat = double.tryParse(latController.text);
-                final lng = double.tryParse(lngController.text);
-                if (lat == null || lng == null) return;
+      builder: (_) => _UpdateGpsDialog(
+        initialLat: initialLat,
+        initialLng: initialLng,
+        onSubmit: (lat, lng) async {
+          try {
+            await supabase.rpc('update_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_status': order['tracking_status'] ?? 'on_delivery',
+              'p_checkpoint_name': 'Update Lokasi Driver',
+              'p_latitude': lat,
+              'p_longitude': lng,
+              'p_note': 'Posisi GPS diperbarui ($lat, $lng)',
+            });
 
-                Navigator.pop(dialogCtx);
-                try {
-                  await supabase.rpc('update_logistics_shipment', params: {
-                    'p_order_id': order['id'],
-                    'p_status': order['tracking_status'] ?? 'on_delivery',
-                    'p_latitude': lat,
-                    'p_longitude': lng,
-                    'p_note': 'Posisi GPS diperbarui ($lat, $lng)',
-                  });
-
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Lokasi GPS pengemudi berhasil dikirim ke Pembeli!')),
-                  );
-                  _fetchOrders();
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal update GPS: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text('Kirim GPS'),
-            ),
-          ],
-        );
-      },
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Lokasi GPS pengemudi berhasil dikirim!')),
+            );
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal update GPS: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
     );
   }
 
   // 5. CRUD Pembatalan Pengiriman Sisi Ekspedisi / Ojek (#13 req 4)
   void _showCancelShipmentDialog(Map<String, dynamic> order) {
-    final reasonController = TextEditingController();
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          title: const Text('Batalkan Pengiriman (Logistik)', style: TextStyle(color: Colors.red)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Pemberitahuan: Pembatalan dari sisi logistik akan mencatat riwayat kendala operasional dan mengembalikan status ke sistem.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Alasan Pembatalan Kendala *',
-                  hintText: 'Misal: Akses jalan banjir / Kendaraan mengalami kerusakan teknis',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Kembali'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                final reason = reasonController.text.trim();
-                if (reason.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Harap masukkan alasan kendala pembatalan')),
-                  );
-                  return;
-                }
+      builder: (_) => _CancelShipmentDialog(
+        onSubmit: (reason) async {
+          try {
+            await supabase.rpc('cancel_logistics_shipment', params: {
+              'p_order_id': order['id'],
+              'p_reason': reason,
+            });
 
-                Navigator.pop(dialogCtx);
-                try {
-                  await supabase.rpc('cancel_logistics_shipment', params: {
-                    'p_order_id': order['id'],
-                    'p_reason': reason,
-                  });
-
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Pengiriman berhasil dibatalkan oleh logistik')),
-                  );
-                  _fetchOrders();
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal membatalkan pengiriman: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text('Konfirmasi Batal', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Pengiriman berhasil dibatalkan oleh logistik')),
+            );
+            _fetchOrders();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal membatalkan pengiriman: $e'), backgroundColor: Colors.red),
+            );
+          }
+        },
+      ),
     );
+  }
+
+  bool _isOrderClosed(Map<String, dynamic> order) {
+    final status = (order['status'] ?? '').toString().toLowerCase();
+    final tStatus = (order['tracking_status'] ?? '').toString().toLowerCase();
+    return status == 'completed' ||
+        status == 'cancelled' ||
+        tStatus == 'delivered' ||
+        tStatus == 'completed' ||
+        tStatus == 'cancelled';
   }
 
   // 6. Hubungi Pembeli (In-App Call #10 & Realtime Chat #11)
   void _openInAppCall(Map<String, dynamic> order) {
+    if (_isOrderClosed(order)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Panggilan ditutup karena pengiriman sudah selesai/dibatalkan.')),
+      );
+      return;
+    }
     final buyerName = order['shipping_name'] ?? 'Pembeli';
-    final buyerPhone = order['shipping_phone'] ?? '08123456789';
+    final buyerPhone = (order['shipping_phone'] ?? '').toString();
 
     showDialog(
       context: context,
@@ -580,6 +521,8 @@ class _LogisticsPartnerDashboardPageState
 
   void _openInAppChat(Map<String, dynamic> order) {
     final buyerName = order['shipping_name'] ?? 'Pembeli';
+    final buyerPhone = (order['shipping_phone'] ?? '').toString().trim();
+    final isClosed = _isOrderClosed(order);
     var messages = List<Map<String, dynamic>>.from(
       order['driver_messages'] as List? ?? [],
     );
@@ -681,6 +624,30 @@ class _LogisticsPartnerDashboardPageState
                       ],
                     ),
                     const Divider(),
+                    if (buyerPhone.isNotEmpty && !isClosed) ...[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => launchWhatsAppChat(
+                              ctx,
+                              rawPhone: buyerPhone,
+                              message:
+                                  'Halo Kak $buyerName, saya kurir untuk pesanan #${order['order_number'] ?? order['id']}.',
+                            ),
+                            icon: const Icon(Icons.chat_outlined, size: 15),
+                            label: const Text('WhatsApp Pembeli', style: TextStyle(fontSize: 12)),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => launchPhoneDialer(ctx, buyerPhone),
+                            icon: const Icon(Icons.call_outlined, size: 15),
+                            label: const Text('Telepon Seluler', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     Expanded(
                       child: messages.isEmpty
                           ? Center(
@@ -733,64 +700,78 @@ class _LogisticsPartnerDashboardPageState
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: textController,
-                              decoration: const InputDecoration(
-                                hintText: 'Tulis pesan konfirmasi ke pembeli...',
-                                border: OutlineInputBorder(),
-                                isDense: true,
+                      child: isClosed
+                          ? Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
                               ),
+                              child: const Text(
+                                'Percakapan ditutup (read-only) karena pengiriman telah selesai atau dibatalkan.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, color: Colors.black54),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: textController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Tulis pesan konfirmasi ke pembeli...',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.send, color: AppColors.primary),
+                                  onPressed: () async {
+                                    final text = textController.text.trim();
+                                    if (text.isEmpty) return;
+
+                                    final newMsg = {
+                                      'sender_role': isOjek ? 'ojek' : 'ekspedisi',
+                                      'sender_name': _driverName,
+                                      'message': text,
+                                      'sent_at': DateTime.now().toIso8601String(),
+                                    };
+
+                                    setModalState(() {
+                                      messages.add(newMsg);
+                                    });
+                                    textController.clear();
+
+                                    try {
+                                      final res = await supabase.rpc('append_order_driver_message', params: {
+                                        'p_order_id': order['id'],
+                                        'p_sender_role': isOjek ? 'ojek' : 'ekspedisi',
+                                        'p_sender_name': _driverName,
+                                        'p_message': text,
+                                      });
+                                      if (res is List && ctx.mounted) {
+                                        setModalState(() {
+                                          messages = res
+                                              .whereType<Map>()
+                                              .map((e) => Map<String, dynamic>.from(e))
+                                              .toList();
+                                        });
+                                      }
+                                      _fetchOrders();
+                                    } catch (e) {
+                                      if (ctx.mounted) {
+                                        ScaffoldMessenger.of(ctx).showSnackBar(
+                                          SnackBar(content: Text('Gagal mengirim pesan: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.send, color: AppColors.primary),
-                            onPressed: () async {
-                              final text = textController.text.trim();
-                              if (text.isEmpty) return;
-
-                              final newMsg = {
-                                'sender_role': isOjek ? 'ojek' : 'ekspedisi',
-                                'sender_name': _driverName,
-                                'message': text,
-                                'sent_at': DateTime.now().toIso8601String(),
-                              };
-
-                              setModalState(() {
-                                messages.add(newMsg);
-                              });
-                              textController.clear();
-
-                              try {
-                                final res = await supabase.rpc('append_order_driver_message', params: {
-                                  'p_order_id': order['id'],
-                                  'p_sender_role': isOjek ? 'ojek' : 'ekspedisi',
-                                  'p_sender_name': _driverName,
-                                  'p_message': text,
-                                });
-                                if (res is List && ctx.mounted) {
-                                  setModalState(() {
-                                    messages = res
-                                        .whereType<Map>()
-                                        .map((e) => Map<String, dynamic>.from(e))
-                                        .toList();
-                                  });
-                                }
-                                _fetchOrders();
-                              } catch (e) {
-                                if (ctx.mounted) {
-                                  ScaffoldMessenger.of(ctx).showSnackBar(
-                                    SnackBar(content: Text('Gagal mengirim pesan: $e')),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),
@@ -800,7 +781,11 @@ class _LogisticsPartnerDashboardPageState
         );
       },
     ).whenComplete(() {
-      chatChannel?.unsubscribe();
+      textController.dispose();
+      final channel = chatChannel;
+      if (channel != null) {
+        supabase.removeChannel(channel);
+      }
     });
   }
 
@@ -938,19 +923,47 @@ class _LogisticsPartnerDashboardPageState
           ),
         ],
       ),
-    );
+    ).whenComplete(() {
+      nameCtrl.dispose();
+      phoneCtrl.dispose();
+      vehicleCtrl.dispose();
+    });
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order, int tabIndex) {
     final orderId = (order['order_number'] ?? order['id']).toString();
     final dStatus = (order['tracking_status'] ?? order['status'] ?? 'pending').toString();
-    final storeName = (order['stores'] != null && order['stores']['name'] != null)
-        ? order['stores']['name']
-        : 'Toko UMK Mitra';
+    final storeMap = order['stores'] is Map ? order['stores'] as Map : null;
+    final storeName = (order['origin_contact_name']?.toString().trim().isNotEmpty == true)
+        ? order['origin_contact_name'].toString()
+        : (storeMap?['name']?.toString() ?? 'Toko UMK Mitra');
+    final storePhone = (order['origin_phone']?.toString().trim().isNotEmpty == true)
+        ? order['origin_phone'].toString().trim()
+        : (storeMap?['phone']?.toString().trim() ?? '');
+    final storeAddress = (order['origin_address']?.toString().trim().isNotEmpty == true)
+        ? order['origin_address'].toString()
+        : (storeMap?['address']?.toString() ?? 'Alamat Toko UMK');
+    final storeCity = (order['origin_city']?.toString().trim().isNotEmpty == true)
+        ? order['origin_city'].toString()
+        : (storeMap?['city']?.toString() ?? '');
+    final storePostal = (order['origin_postal_code']?.toString().trim().isNotEmpty == true)
+        ? order['origin_postal_code'].toString()
+        : (storeMap?['postal_code']?.toString() ?? '');
+    final storeNotes = (order['origin_notes']?.toString().trim().isNotEmpty == true)
+        ? order['origin_notes'].toString()
+        : (storeMap?['notes']?.toString() ?? '');
+
     final recipient = order['shipping_name'] ?? 'Pembeli';
     final address = order['shipping_address'] ?? 'Alamat pengantaran';
+    final buyerNotes = order['shipping_notes']?.toString() ?? '';
     final courier = (order['courier_name'] ?? (isOjek ? 'Ojek Lokal' : 'Ekspedisi')).toString();
     final waybill = order['waybill_id'] as String?;
+
+    final originFullLine = [
+      storeAddress,
+      if (storeCity.isNotEmpty) storeCity,
+      if (storePostal.isNotEmpty) storePostal,
+    ].join(', ');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
@@ -990,14 +1003,14 @@ class _LogisticsPartnerDashboardPageState
             ),
             const Divider(height: 20),
 
-            // Row 2: Rute Pickup & Dropoff
+            // Row 2: Rute Pickup (Seller/Origin) & Dropoff (Pembeli)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Column(
                   children: [
                     const Icon(Icons.store, color: AppColors.primary, size: 20),
-                    Container(height: 24, width: 2, color: Colors.grey.shade300),
+                    Container(height: 44, width: 2, color: Colors.grey.shade300),
                     const Icon(Icons.location_on, color: Colors.redAccent, size: 20),
                   ],
                 ),
@@ -1007,16 +1020,60 @@ class _LogisticsPartnerDashboardPageState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        storeName,
+                        'Pengirim: $storeName',
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       Text(
-                        'Pickup: Toko UMK',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        originFullLine,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                       ),
+                      if (storeNotes.isNotEmpty)
+                        Text(
+                          'Patokan Toko: $storeNotes',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      if (storePhone.isNotEmpty && tabIndex != 2) ...[
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () => launchPhoneDialer(context, storePhone),
+                              icon: const Icon(Icons.call, size: 13),
+                              label: const Text('Telepon Toko', style: TextStyle(fontSize: 11)),
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () => launchWhatsAppChat(
+                                context,
+                                rawPhone: storePhone,
+                                message: 'Halo $storeName, saya kurir untuk penjemputan pesanan $orderId.',
+                              ),
+                              icon: const Icon(Icons.chat, size: 13, color: Colors.green),
+                              label: const Text('WA Toko', style: TextStyle(fontSize: 11)),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Text(
-                        recipient,
+                        'Penerima: $recipient',
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       Text(
@@ -1025,6 +1082,15 @@ class _LogisticsPartnerDashboardPageState
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                       ),
+                      if (buyerNotes.isNotEmpty)
+                        Text(
+                          'Patokan Pembeli: $buyerNotes',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1073,10 +1139,14 @@ class _LogisticsPartnerDashboardPageState
               Row(
                 children: [
                   Expanded(
+                    flex: 2,
                     child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
                       icon: const Icon(Icons.close, size: 16),
-                      label: const Text('Tolak'),
+                      label: const Text('Tolak', softWrap: false),
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Penugasan ditolak')),
@@ -1084,9 +1154,9 @@ class _LogisticsPartnerDashboardPageState
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isOjek ? Colors.deepOrange : AppColors.primary,
@@ -1114,23 +1184,22 @@ class _LogisticsPartnerDashboardPageState
                     label: const Text('Update Status'),
                     onPressed: () => _showUpdateStatusDialog(order),
                   ),
-                  if (isOjek) ...[
+                  if (isOjek)
                     OutlinedButton.icon(
                       icon: const Icon(Icons.gps_fixed, size: 16),
                       label: const Text('Update GPS'),
                       onPressed: () => _showUpdateGpsDialog(order),
                     ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.phone, size: 16, color: Colors.green),
-                      label: const Text('Call Pembeli'),
-                      onPressed: () => _openInAppCall(order),
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.chat, size: 16, color: Colors.blue),
-                      label: const Text('Chat Pembeli'),
-                      onPressed: () => _openInAppChat(order),
-                    ),
-                  ],
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.phone, size: 16, color: Colors.green),
+                    label: const Text('Call Pembeli'),
+                    onPressed: () => _openInAppCall(order),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.chat, size: 16, color: Colors.blue),
+                    label: const Text('Chat Pembeli'),
+                    onPressed: () => _openInAppChat(order),
+                  ),
                   TextButton.icon(
                     style: TextButton.styleFrom(foregroundColor: Colors.red),
                     icon: const Icon(Icons.cancel_outlined, size: 16),
@@ -1148,9 +1217,18 @@ class _LogisticsPartnerDashboardPageState
                     'Riwayat Selesai',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
-                  TextButton(
-                    onPressed: () => context.push('/orders/${order['id']}'),
-                    child: const Text('Lihat Detail', style: TextStyle(fontSize: 12)),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _openInAppChat(order),
+                        icon: const Icon(Icons.chat_outlined, size: 15),
+                        label: const Text('Riwayat Chat', style: TextStyle(fontSize: 12)),
+                      ),
+                      TextButton(
+                        onPressed: () => context.push('/orders/${order['id']}'),
+                        child: const Text('Lihat Detail', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1208,6 +1286,7 @@ class _LogisticsPartnerDashboardPageState
         title: Text(partnerTitle),
         elevation: 0,
         actions: [
+          const NotificationBellButton(),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Segarkan Data',
@@ -1300,6 +1379,430 @@ class _LogisticsPartnerDashboardPageState
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: list.length,
       itemBuilder: (ctx, idx) => _buildOrderCard(list[idx], tabIndex),
+    );
+  }
+}
+
+class _WaybillInputDialog extends StatefulWidget {
+  final String initialWaybill;
+  final Future<void> Function(String newWaybill) onSubmit;
+
+  const _WaybillInputDialog({
+    required this.initialWaybill,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_WaybillInputDialog> createState() => _WaybillInputDialogState();
+}
+
+class _WaybillInputDialogState extends State<_WaybillInputDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialWaybill);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Input No Resi Manual'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Masukkan nomor resi fisik ekspedisi untuk pelacakan pembeli:',
+            style: TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              labelText: 'Nomor Resi / AWB',
+              hintText: 'Misal: EXP-2026-889901',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.qr_code_2),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final newWaybill = _controller.text.trim();
+            if (newWaybill.isEmpty) return;
+            Navigator.pop(context);
+            widget.onSubmit(newWaybill);
+          },
+          child: const Text('Simpan Resi'),
+        ),
+      ],
+    );
+  }
+}
+
+class _UpdateLogisticsStatusDialog extends StatefulWidget {
+  final bool isOjek;
+  final String initialStatus;
+  final double? initialLat;
+  final double? initialLng;
+  final List<Map<String, String>> statusOptions;
+  final Future<void> Function(
+    String status,
+    String? checkpointName,
+    String? note,
+    double? lat,
+    double? lng,
+  ) onSubmit;
+
+  const _UpdateLogisticsStatusDialog({
+    required this.isOjek,
+    required this.initialStatus,
+    required this.initialLat,
+    required this.initialLng,
+    required this.statusOptions,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_UpdateLogisticsStatusDialog> createState() =>
+      _UpdateLogisticsStatusDialogState();
+}
+
+class _UpdateLogisticsStatusDialogState
+    extends State<_UpdateLogisticsStatusDialog> {
+  late String _selectedStatus;
+  late final TextEditingController _checkpointController;
+  late final TextEditingController _noteController;
+  double? _checkpointLat;
+  double? _checkpointLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedStatus =
+        widget.statusOptions.any((o) => o['value'] == widget.initialStatus)
+        ? widget.initialStatus
+        : widget.statusOptions.first['value']!;
+    _checkpointController = TextEditingController();
+    _noteController = TextEditingController();
+    _checkpointLat = widget.initialLat;
+    _checkpointLng = widget.initialLng;
+  }
+
+  @override
+  void dispose() {
+    _checkpointController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Update Status ${widget.isOjek ? "Ojek" : "Ekspedisi"}'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _selectedStatus,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Pilih Status Pengiriman',
+                  border: OutlineInputBorder(),
+                ),
+                items: widget.statusOptions.map((opt) {
+                  return DropdownMenuItem<String>(
+                    value: opt['value']!,
+                    child: Text(
+                      opt['label']!,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _selectedStatus = val);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _checkpointController,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Titik / Hub / Lokasi Checkpoint',
+                  hintText: 'Misal: Hub Sortir Jakarta Selatan / Gerai Denpasar',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Catatan Rute / Keterangan',
+                  hintText: 'Misal: Paket telah disortir & siap diteruskan',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              MapPointPickerField(
+                latitude: _checkpointLat,
+                longitude: _checkpointLng,
+                initialQuery: _checkpointController.text.trim(),
+                label: 'Titik GPS Checkpoint / Hub',
+                helperText:
+                    'Pinpoint lokasi checkpoint saat ini agar tampil akurat di peta pelacakan.',
+                previewHeight: 130,
+                onPointSelected: (point) {
+                  setState(() {
+                    _checkpointLat = point.latitude;
+                    _checkpointLng = point.longitude;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final checkpoint = _checkpointController.text.trim();
+            final note = _noteController.text.trim();
+            Navigator.pop(context);
+            widget.onSubmit(
+              _selectedStatus,
+              checkpoint.isNotEmpty ? checkpoint : null,
+              note.isNotEmpty ? note : null,
+              _checkpointLat,
+              _checkpointLng,
+            );
+          },
+          child: const Text('Perbarui'),
+        ),
+      ],
+    );
+  }
+}
+
+class _UpdateGpsDialog extends StatefulWidget {
+  final double initialLat;
+  final double initialLng;
+  final Future<void> Function(double lat, double lng) onSubmit;
+
+  const _UpdateGpsDialog({
+    required this.initialLat,
+    required this.initialLng,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_UpdateGpsDialog> createState() => _UpdateGpsDialogState();
+}
+
+class _UpdateGpsDialogState extends State<_UpdateGpsDialog> {
+  late double _currentLat;
+  late double _currentLng;
+  late final TextEditingController _latController;
+  late final TextEditingController _lngController;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentLat = widget.initialLat;
+    _currentLng = widget.initialLng;
+    _latController = TextEditingController(text: _currentLat.toStringAsFixed(6));
+    _lngController = TextEditingController(text: _currentLng.toStringAsFixed(6));
+  }
+
+  @override
+  void dispose() {
+    _latController.dispose();
+    _lngController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final parsedLat = double.tryParse(_latController.text) ?? _currentLat;
+    final parsedLng = double.tryParse(_lngController.text) ?? _currentLng;
+
+    return AlertDialog(
+      title: const Text('Update Koordinat GPS Driver'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Pilih titik di peta atau sesuaikan koordinat agar posisi driver real-time terlihat di aplikasi Pembeli & Penjual:',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              MapPointPickerField(
+                latitude: parsedLat,
+                longitude: parsedLng,
+                label: 'Pinpoint Posisi Driver Saat Ini',
+                helperText: 'Ketuk peta untuk menggeser lokasi driver secara presisi.',
+                previewHeight: 150,
+                onPointSelected: (point) {
+                  setState(() {
+                    _currentLat = point.latitude;
+                    _currentLng = point.longitude;
+                    _latController.text = point.latitude.toStringAsFixed(6);
+                    _lngController.text = point.longitude.toStringAsFixed(6);
+                  });
+                },
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _latController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                decoration: const InputDecoration(
+                  labelText: 'Latitude',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _lngController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                decoration: const InputDecoration(
+                  labelText: 'Longitude',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                children: [
+                  ActionChip(
+                    label: const Text('+0.005 Lat (Maju)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() {
+                        final val = (double.tryParse(_latController.text) ?? -6.2088) + 0.005;
+                        _latController.text = val.toStringAsFixed(6);
+                      });
+                    },
+                  ),
+                  ActionChip(
+                    label: const Text('+0.005 Lng (Belok)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() {
+                        final val = (double.tryParse(_lngController.text) ?? 106.8456) + 0.005;
+                        _lngController.text = val.toStringAsFixed(6);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final lat = double.tryParse(_latController.text);
+            final lng = double.tryParse(_lngController.text);
+            if (lat == null || lng == null) return;
+            Navigator.pop(context);
+            widget.onSubmit(lat, lng);
+          },
+          child: const Text('Kirim GPS'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CancelShipmentDialog extends StatefulWidget {
+  final Future<void> Function(String reason) onSubmit;
+
+  const _CancelShipmentDialog({required this.onSubmit});
+
+  @override
+  State<_CancelShipmentDialog> createState() => _CancelShipmentDialogState();
+}
+
+class _CancelShipmentDialogState extends State<_CancelShipmentDialog> {
+  final TextEditingController _reasonController = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Batalkan Pengiriman (Logistik)', style: TextStyle(color: Colors.red)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Pemberitahuan: Pembatalan dari sisi logistik akan mencatat riwayat kendala operasional dan mengembalikan status ke sistem.',
+            style: TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reasonController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Alasan Pembatalan Kendala *',
+              hintText: 'Misal: Akses jalan banjir / Kendaraan mengalami kerusakan teknis',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Kembali'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: () {
+            final reason = _reasonController.text.trim();
+            if (reason.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Harap masukkan alasan kendala pembatalan')),
+              );
+              return;
+            }
+            Navigator.pop(context);
+            widget.onSubmit(reason);
+          },
+          child: const Text('Konfirmasi Batal', style: TextStyle(color: Colors.white)),
+        ),
+      ],
     );
   }
 }

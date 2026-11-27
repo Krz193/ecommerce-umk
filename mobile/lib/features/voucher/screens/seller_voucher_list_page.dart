@@ -34,12 +34,21 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
     if (widget.storeId != null && widget.storeId!.isNotEmpty) {
       return widget.storeId;
     }
-    final store = ref.read(myStoreProvider).asData?.value;
+    final store = ref.read(managedStoreProvider).asData?.value;
+    return store?.id;
+  }
+
+  Future<String?> _resolveEffectiveStoreId() async {
+    if (widget.storeId != null && widget.storeId!.isNotEmpty) {
+      return widget.storeId;
+    }
+    final store = await ref.read(managedStoreProvider.future);
     return store?.id;
   }
 
   Future<void> _fetchVouchersAndProducts() async {
-    final storeId = _getEffectiveStoreId();
+    final storeId = await _resolveEffectiveStoreId();
+    if (!mounted) return;
     if (storeId == null) {
       setState(() {
         _isLoading = false;
@@ -423,11 +432,26 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                     final code = codeCtrl.text.trim().toUpperCase();
                     final title = titleCtrl.text.trim();
                     final val = double.tryParse(valueCtrl.text.trim());
-                    final minP = double.tryParse(minPurchaseCtrl.text.trim()) ?? 0;
+                    final rawMinP = minPurchaseCtrl.text.trim();
+                    final minP = rawMinP.isEmpty ? 0.0 : double.tryParse(rawMinP);
 
                     if (code.isEmpty || title.isEmpty || val == null || val <= 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Lengkapi kode, catatan, dan nilai diskon')),
+                        const SnackBar(content: Text('Lengkapi kode, catatan, dan nilai diskon lebih dari 0')),
+                      );
+                      return;
+                    }
+
+                    if (selectedType == 'percentage' && val > 100) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Persentase diskon tidak boleh melebihi 100%')),
+                      );
+                      return;
+                    }
+
+                    if (minP == null || minP < 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Minimal belanja tidak boleh bernilai negatif')),
                       );
                       return;
                     }
@@ -480,7 +504,12 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      codeCtrl.dispose();
+      titleCtrl.dispose();
+      valueCtrl.dispose();
+      minPurchaseCtrl.dispose();
+    });
   }
 
   Future<void> _toggleVoucher(StoreVoucherModel voucher) async {
@@ -556,15 +585,15 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.teal.shade200),
+                      border: Border.all(color: Colors.orange.shade200),
                     ),
-                    child: Row(
+                    child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.lock_person_outlined, color: Colors.teal.shade800),
-                        const SizedBox(width: 10),
+                        Icon(Icons.lock_person_outlined, color: AppColors.primaryHover),
+                        SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,14 +602,14 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                                 'Voucher Toko & Promo Khusus',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.teal.shade900,
+                                  color: Color(0xFF9A3412),
                                   fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: 4),
                               Text(
                                 'Atur voucher per order (seluruh belanja) atau per produk spesifik (pilih satu/beberapa barang). Jika buyer belanja banyak barang, hanya produk target yang terpotong.',
-                                style: TextStyle(fontSize: 12, color: Colors.teal.shade800),
+                                style: TextStyle(fontSize: 12, color: AppColors.primaryHover),
                               ),
                             ],
                           ),
@@ -635,6 +664,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
       valueDisplay = 'Harga Khusus ${CurrencyFormatter.format(voucher.discountValue.round())}';
     }
 
+    final isNotStarted = voucher.isNotStarted;
     final isExpired = voucher.isExpired;
     final isExhausted = voucher.isQuotaExhausted;
 
@@ -673,7 +703,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: voucher.isProductSpecific ? Colors.purple.shade50 : Colors.blue.shade50,
+                        color: voucher.isProductSpecific ? AppColors.primaryLight : Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -683,7 +713,7 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: voucher.isProductSpecific ? Colors.purple.shade800 : Colors.blue.shade800,
+                          color: voucher.isProductSpecific ? AppColors.primaryHover : Colors.orange.shade800,
                         ),
                       ),
                     ),
@@ -721,7 +751,17 @@ class _SellerVoucherListPageState extends ConsumerState<SellerVoucherListPage> {
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
                 const Spacer(),
-                if (isExpired)
+                if (isNotStarted)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('Belum Mulai',
+                        style: TextStyle(color: AppColors.primaryHover, fontSize: 10, fontWeight: FontWeight.bold)),
+                  )
+                else if (isExpired)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(

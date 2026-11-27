@@ -30,6 +30,7 @@ async function createMidtransTransaction(payload: unknown) {
                 "Authorization": `Basic ${authString}`,
             },
             body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(10000),
         },
     );
 

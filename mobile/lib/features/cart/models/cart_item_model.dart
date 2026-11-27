@@ -26,22 +26,22 @@ class CartItemModel {
   int get subtotal => productPrice * quantity;
 
   factory CartItemModel.fromJson(Map<String, dynamic> json) {
-    final product = json['product'];
+    final product = json['product'] as Map<String, dynamic>?;
 
     return CartItemModel(
-      id: json['id'],
+      id: json['id']?.toString() ?? '',
 
-      quantity: (json['quantity'] as num).toInt(),
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
 
-      productId: product['id'],
+      productId: product?['id']?.toString() ?? json['product_id']?.toString() ?? '',
 
-      productName: product['name'],
+      productName: product?['name']?.toString() ?? 'Produk tidak tersedia',
 
-      productPrice: (product['price'] as num).toInt(),
+      productPrice: (product?['price'] as num?)?.toInt() ?? 0,
 
-      productStock: (product['stock'] as num).toInt(),
+      productStock: (product?['stock'] as num?)?.toInt() ?? 0,
 
-      productThumbnail: product['thumbnail_url'],
+      productThumbnail: product?['thumbnail_url']?.toString(),
     );
   }
 }

@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  isValidLatLng,
+  resolveLocalStoreShippingOptions,
+} from "../_shared/local_shipping.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,11 +67,30 @@ serve(async (req) => {
       });
     }
 
-    const adminSupabase = createClient(
+    const userSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: {
+          headers: {
+            Authorization: req.headers.get("Authorization") ?? "",
+          },
+        },
+      },
+    );
+
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const supabase = adminSupabase;
 
     const body = await req.json();
     const { cart_id, address_id, store_id } = body;
@@ -79,17 +102,23 @@ serve(async (req) => {
       });
     }
 
-    // 1. Fetch Destination Address
+    // 1. Fetch Destination Address & enforce ownership
     const { data: address, error: addressError } = await supabase
       .from("addresses")
-      .select("id, recipient_name, recipient_phone, city, province, postal_code, latitude, longitude, full_address")
+      .select("id, user_id, recipient_name, recipient_phone, city, province, postal_code, latitude, longitude, full_address")
       .eq("id", address_id)
       .single();
 
     if (addressError || !address) {
-      console.error("Address fetch error:", addressError);
-      return new Response(JSON.stringify({ error: "Address not found", details: addressError }), {
+      return new Response(JSON.stringify({ error: "Address not found" }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (address.user_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Forbidden address access" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -101,15 +130,22 @@ serve(async (req) => {
     if (cart_id) {
       const { data: cart } = await supabase
         .from("carts")
-        .select("id, store_id")
+        .select("id, user_id, store_id")
         .eq("id", cart_id)
         .single();
 
       if (cart) {
+        if (cart.user_id !== user.id) {
+          return new Response(JSON.stringify({ error: "Forbidden cart access" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         targetStoreId = cart.store_id;
         const { data: cartItems } = await supabase
           .from("cart_items")
-          .select("id, quantity, product:products(id, name, price, weight, length, width, height)")
+          .select("id, quantity, product:products(id, name, price, weight)")
           .eq("cart_id", cart_id);
 
         if (cartItems && cartItems.length > 0) {
@@ -145,44 +181,53 @@ serve(async (req) => {
       ];
     }
 
-    // 3. Fetch Store Origin Address
-    let originPostalCode = "12430";
-    let originLat = -6.303112;
-    let originLng = 106.779493;
+    // 3. Fetch Store Origin & Optional Local Shipping Config
+    let originPostalCode = "";
+    let originLat: number | null = null;
+    let originLng: number | null = null;
+    let storeConfig: Record<string, unknown> | null = null;
 
     if (targetStoreId) {
       const { data: store } = await supabase
         .from("stores")
-        .select("id, name, address, postal_code, latitude, longitude")
+        .select("id, name, address, postal_code, latitude, longitude, local_ojek_enabled, local_ojek_rates, local_ekspedisi_enabled, local_ekspedisi_rates")
         .eq("id", targetStoreId)
-        .single();
+        .maybeSingle();
 
       if (store) {
-        if (store.postal_code) originPostalCode = store.postal_code;
-        if (store.latitude) originLat = store.latitude;
-        if (store.longitude) originLng = store.longitude;
+        storeConfig = store;
+        if (store.postal_code) originPostalCode = String(store.postal_code);
+        if (store.latitude != null) originLat = Number(store.latitude);
+        if (store.longitude != null) originLng = Number(store.longitude);
       }
     }
 
-    const destPostalCode = address.postal_code || "12950";
-    const destLat = address.latitude || -6.244179;
-    const destLng = address.longitude || 106.783529;
+    // Evaluate optional store-defined local delivery tiers (ojek_lokal / ekspedisi_lokal)
+    const localOptions = resolveLocalStoreShippingOptions(
+      storeConfig,
+      address.latitude,
+      address.longitude,
+    );
 
     const apiKey = Deno.env.get("BITESHIP_API_KEY");
     const useLive = Deno.env.get("BITESHIP_USE_LIVE") === "true";
 
-    // 4. Query Live Biteship API
+    // 4. Query Live Biteship API for external couriers
     if (useLive && apiKey) {
-      const biteshipPayload = {
-        origin_latitude: originLat,
-        origin_longitude: originLng,
+      const hasCoords = isValidLatLng(originLat, originLng) && isValidLatLng(address.latitude, address.longitude);
+      const biteshipPayload: Record<string, unknown> = {
         origin_postal_code: Number(originPostalCode) || 12430,
-        destination_latitude: destLat,
-        destination_longitude: destLng,
-        destination_postal_code: Number(destPostalCode) || 12950,
-        couriers: "gojek,grab,jne,sicepat,jnt,anteraja",
+        destination_postal_code: Number(address.postal_code) || 12950,
+        couriers: hasCoords ? "gojek,grab,jne,sicepat,jnt,anteraja" : "jne,sicepat,jnt,anteraja",
         items: itemsToShip,
       };
+
+      if (hasCoords) {
+        biteshipPayload.origin_latitude = originLat;
+        biteshipPayload.origin_longitude = originLng;
+        biteshipPayload.destination_latitude = Number(address.latitude);
+        biteshipPayload.destination_longitude = Number(address.longitude);
+      }
 
       const startTime = Date.now();
       const timeoutMs = 4000;
@@ -204,7 +249,6 @@ serve(async (req) => {
         const durationMs = Date.now() - startTime;
         const liveData = (await biteshipRes.json().catch(() => ({}))) as Record<string, unknown>;
 
-        // Log Request & Response
         try {
           await supabase.from("biteship_api_logs").insert({
             url: "https://api.biteship.com/v1/rates/couriers",
@@ -218,11 +262,23 @@ serve(async (req) => {
           console.warn("Log insert error:", logErr);
         }
 
-        if (biteshipRes.ok && liveData.success && Array.isArray(liveData.pricing) && liveData.pricing.length > 0) {
-          return new Response(JSON.stringify(liveData), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+        const externalPricing = (biteshipRes.ok && liveData.success && Array.isArray(liveData.pricing))
+          ? liveData.pricing
+          : [];
+
+        const combinedPricing = [...localOptions, ...externalPricing];
+        if (combinedPricing.length > 0) {
+          return new Response(
+            JSON.stringify({
+              ...liveData,
+              success: true,
+              pricing: combinedPricing,
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
 
         const friendlyMsg = toFriendlyRatesError(liveData, biteshipRes.status);
@@ -231,7 +287,7 @@ serve(async (req) => {
           {
             status: biteshipRes.status || 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          },
         );
       } catch (err: unknown) {
         clearTimeout(timeoutId);
@@ -255,6 +311,16 @@ serve(async (req) => {
           console.warn("Log insert error:", logErr);
         }
 
+        if (localOptions.length > 0) {
+          return new Response(
+            JSON.stringify({ success: true, pricing: localOptions }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+
         const userMsg = isTimeout
           ? "Koneksi ke server kurir Biteship melebihi batas waktu (timeout). Silakan coba beberapa saat lagi."
           : `Gagal memuat tarif pengiriman (${errObj.message || "Gangguan jaringan"}).`;
@@ -264,20 +330,29 @@ serve(async (req) => {
           {
             status: isTimeout ? 408 : 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          },
         );
       }
     }
 
-    // If live Biteship is not enabled or no API key, reject with human-readable error instead of fake data
+    if (localOptions.length > 0) {
+      return new Response(
+        JSON.stringify({ success: true, pricing: localOptions }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     return new Response(
       JSON.stringify({
-        error: "Layanan pengiriman Biteship belum dikonfigurasi pada server.",
+        error: "Layanan pengiriman belum tersedia untuk toko atau rute alamat ini.",
       }),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error) {
     console.error("Rates function error:", error);
@@ -286,7 +361,7 @@ serve(async (req) => {
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });

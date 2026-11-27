@@ -1,5 +1,6 @@
-import { FormEvent, useState } from 'react';
 import { router } from '@inertiajs/react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -21,6 +22,7 @@ export function RefundCaseUpdateDialog({ refundCase }: { refundCase: RefundCaseR
         event.preventDefault();
 
         const trimmedReason = reason.trim();
+
         if (!trimmedReason) {
             return;
         }

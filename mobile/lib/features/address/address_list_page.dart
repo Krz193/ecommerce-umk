@@ -194,6 +194,32 @@ class _AddressListPageState extends ConsumerState<AddressListPage> {
               if (address.isDefault) buildDefaultBadge(),
             ],
           ),
+          if (address.latitude != null && address.longitude != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.gps_fixed_rounded, size: 12, color: Colors.blue.shade800),
+                  const SizedBox(width: 4),
+                  Text(
+                    'GPS Terpasang (${address.latitude!.toStringAsFixed(4)}, ${address.longitude!.toStringAsFixed(4)})',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(address.recipientName),
           const SizedBox(height: 4),

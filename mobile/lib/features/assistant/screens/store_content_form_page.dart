@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
+import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StoreContentFormPage extends ConsumerStatefulWidget {
   final String storeId;
@@ -29,16 +29,18 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
   late TextEditingController _externalUrlController;
+  late TextEditingController _reachController;
+  late TextEditingController _likesController;
+  late TextEditingController _commentsController;
+  late TextEditingController _sharesController;
+  late TextEditingController _inquiriesController;
   late String _contentType;
   late String _mediaFormat;
-  String? _socialPlatform;
-  late bool _isActive;
-  late List<String> _mediaUrls;
+  late String _socialPlatform;
   String? _productId;
   bool _isLoading = false;
-  bool _isUploadingImage = false;
 
-  final List<Map<String, String>> _contentTypeOptions = const [
+  static const List<Map<String, String>> _contentTypeOptions = [
     {'value': 'promo', 'label': 'Promosi Diskon/Penawaran'},
     {'value': 'banner', 'label': 'Banner Spanduk/Situs'},
     {'value': 'storytelling', 'label': 'Kisah Produk/UMK'},
@@ -46,7 +48,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
     {'value': 'educational', 'label': 'Materi Edukasi UMK'},
   ];
 
-  final List<Map<String, String>> _mediaFormatOptions = const [
+  static const List<Map<String, String>> _mediaFormatOptions = [
     {'value': 'image', 'label': 'Gambar / Foto'},
     {'value': 'video', 'label': 'Video'},
     {'value': 'short_video', 'label': 'Reels / TikTok / Shorts'},
@@ -54,8 +56,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
     {'value': 'article', 'label': 'Artikel / Teks'},
   ];
 
-  final List<Map<String, String?>> _socialPlatformOptions = const [
-    {'value': null, 'label': 'Internal Aplikasi Saja'},
+  static const List<Map<String, String>> _socialPlatformOptions = [
     {'value': 'instagram', 'label': 'Instagram'},
     {'value': 'tiktok', 'label': 'TikTok'},
     {'value': 'youtube', 'label': 'YouTube'},
@@ -64,24 +65,58 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
     {'value': 'marketplace', 'label': 'Marketplace'},
   ];
 
+  String _resolveOption(
+    String? candidate,
+    List<Map<String, String>> options,
+    String fallback,
+  ) {
+    if (candidate != null && options.any((o) => o['value'] == candidate)) {
+      return candidate;
+    }
+    return fallback;
+  }
+
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(
-      text: widget.existingContent?.title ?? '',
-    );
-    _bodyController = TextEditingController(
-      text: widget.existingContent?.body ?? '',
-    );
+    final existing = widget.existingContent;
+    _titleController = TextEditingController(text: existing?.title ?? '');
+    _bodyController = TextEditingController(text: existing?.body ?? '');
     _externalUrlController = TextEditingController(
-      text: widget.existingContent?.externalUrl ?? '',
+      text: existing?.externalUrl ?? '',
     );
-    _contentType = widget.existingContent?.contentType ?? 'promo';
-    _mediaFormat = widget.existingContent?.mediaFormat ?? 'image';
-    _socialPlatform = widget.existingContent?.socialPlatform;
-    _isActive = widget.existingContent?.isActive ?? true;
-    _mediaUrls = List<String>.from(widget.existingContent?.mediaUrls ?? []);
-    _productId = widget.existingContent?.productId;
+    _reachController = TextEditingController(
+      text: (existing?.reachCount ?? 0).toString(),
+    );
+    _likesController = TextEditingController(
+      text: (existing?.likesCount ?? 0).toString(),
+    );
+    _commentsController = TextEditingController(
+      text: (existing?.commentsCount ?? 0).toString(),
+    );
+    _sharesController = TextEditingController(
+      text: (existing?.sharesCount ?? 0).toString(),
+    );
+    _inquiriesController = TextEditingController(
+      text: (existing?.inquiriesCount ?? 0).toString(),
+    );
+
+    _contentType = _resolveOption(
+      existing?.contentType,
+      _contentTypeOptions,
+      'promo',
+    );
+    _mediaFormat = _resolveOption(
+      existing?.mediaFormat,
+      _mediaFormatOptions,
+      'image',
+    );
+    _socialPlatform = _resolveOption(
+      existing?.socialPlatform,
+      _socialPlatformOptions,
+      'instagram',
+    );
+    _productId = existing?.productId;
   }
 
   @override
@@ -89,76 +124,17 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
     _titleController.dispose();
     _bodyController.dispose();
     _externalUrlController.dispose();
+    _reachController.dispose();
+    _likesController.dispose();
+    _commentsController.dispose();
+    _sharesController.dispose();
+    _inquiriesController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickAndUploadImage() async {
-    setState(() {
-      _isUploadingImage = true;
-    });
-
-    try {
-      final picker = ImagePicker();
-      final image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 82,
-        maxWidth: 1600,
-      );
-
-      if (image == null) {
-        setState(() {
-          _isUploadingImage = false;
-        });
-        return;
-      }
-
-      final bytes = await image.readAsBytes();
-      final ext = image.name.split('.').last.toLowerCase();
-      final cleanExt = (ext == 'png' || ext == 'webp') ? ext : 'jpeg';
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${image.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')}';
-      final storagePath = 'contents/${widget.storeId}/$fileName';
-
-      await supabase.storage
-          .from('store-contents')
-          .uploadBinary(
-            storagePath,
-            bytes,
-            fileOptions: FileOptions(contentType: 'image/$cleanExt'),
-          );
-
-      final publicUrl = supabase.storage
-          .from('store-contents')
-          .getPublicUrl(storagePath);
-
-      setState(() {
-        _mediaUrls.add(publicUrl);
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto konten berhasil diunggah!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memilih/mengunggah foto: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploadingImage = false;
-        });
-      }
-    }
-  }
-
-  void _removeImage(int index) {
-    setState(() {
-      _mediaUrls.removeAt(index);
-    });
+  int _parseMetric(TextEditingController controller) {
+    final parsed = int.tryParse(controller.text.trim()) ?? 0;
+    return parsed < 0 ? 0 : parsed;
   }
 
   Future<void> _submitForm() async {
@@ -170,9 +146,13 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
     try {
       final service = ref.read(assistantServiceProvider);
-      final externalUrl = _externalUrlController.text.trim().isEmpty
-          ? null
-          : _externalUrlController.text.trim();
+      final externalUrl = _externalUrlController.text.trim();
+      final bodyText = _bodyController.text.trim();
+      final reachCount = _parseMetric(_reachController);
+      final likesCount = _parseMetric(_likesController);
+      final commentsCount = _parseMetric(_commentsController);
+      final sharesCount = _parseMetric(_sharesController);
+      final inquiriesCount = _parseMetric(_inquiriesController);
 
       if (widget.existingContent == null) {
         await service.createStoreContent(
@@ -182,10 +162,13 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           socialPlatform: _socialPlatform,
           mediaFormat: _mediaFormat,
           externalUrl: externalUrl,
-          body: _bodyController.text.trim(),
-          mediaUrls: _mediaUrls,
+          body: bodyText.isEmpty ? null : bodyText,
           productId: _productId,
-          isActive: _isActive,
+          reachCount: reachCount,
+          likesCount: likesCount,
+          commentsCount: commentsCount,
+          sharesCount: sharesCount,
+          inquiriesCount: inquiriesCount,
         );
       } else {
         await service.updateStoreContent(
@@ -196,10 +179,13 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           socialPlatform: _socialPlatform,
           mediaFormat: _mediaFormat,
           externalUrl: externalUrl,
-          body: _bodyController.text.trim(),
-          mediaUrls: _mediaUrls,
+          body: bodyText.isEmpty ? null : bodyText,
           productId: _productId,
-          isActive: _isActive,
+          reachCount: reachCount,
+          likesCount: likesCount,
+          commentsCount: commentsCount,
+          sharesCount: sharesCount,
+          inquiriesCount: inquiriesCount,
         );
       }
 
@@ -208,8 +194,8 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           SnackBar(
             content: Text(
               widget.existingContent == null
-                  ? 'Konten berhasil dibuat dan dipublikasikan!'
-                  : 'Konten berhasil diperbarui!',
+                  ? 'Konten & engagement berhasil dicatat!'
+                  : 'Konten & engagement berhasil diperbarui!',
             ),
           ),
         );
@@ -217,9 +203,11 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal menyimpan konten: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan konten: ${formatUserFriendlyError(e)}'),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -228,6 +216,27 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
         });
       }
     }
+  }
+
+  Widget _buildMetricField(TextEditingController controller, String label) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+      validator: (val) {
+        final text = val?.trim() ?? '';
+        if (text.isEmpty) return null;
+        final number = int.tryParse(text);
+        if (number == null || number < 0) {
+          return 'Angka tidak valid';
+        }
+        return null;
+      },
+    );
   }
 
   @override
@@ -239,7 +248,9 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Konten UMK' : 'Buat Konten UMK Baru'),
+        title: Text(
+          isEditing ? 'Edit Konten & Engagement' : 'Catat Konten & Engagement',
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -248,16 +259,101 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.link_rounded,
+                      color: AppColors.primaryHover,
+                      size: 20,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Catat platform eksternal tempat konten UMK diupload, link bukti tayang, dan angka engagement untuk dipantau Pemilik UMK.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF9A3412),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: 'Judul Konten *',
-                  hintText: 'Contoh: Diskon Kemerdekaan Toko Kerajinan',
+                  hintText: 'Contoh: Reels Promo Kemerdekaan Toko Kerajinan',
                   border: OutlineInputBorder(),
                 ),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
                     return 'Judul konten wajib diisi';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _socialPlatform,
+                decoration: const InputDecoration(
+                  labelText: 'Platform Eksternal *',
+                  border: OutlineInputBorder(),
+                ),
+                items: _socialPlatformOptions.map((opt) {
+                  return DropdownMenuItem<String>(
+                    value: opt['value']!,
+                    child: Text(
+                      opt['label']!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _socialPlatform = val;
+                    });
+                  }
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _externalUrlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'Link Bukti Konten Eksternal *',
+                  hintText:
+                      'https://www.instagram.com/reel/... atau https://vt.tiktok.com/...',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) {
+                  final trimmed = val?.trim() ?? '';
+                  if (trimmed.isEmpty) {
+                    return 'Link bukti konten wajib diisi';
+                  }
+                  final uri = Uri.tryParse(trimmed);
+                  if (uri == null ||
+                      (uri.scheme != 'http' && uri.scheme != 'https') ||
+                      uri.host.isEmpty) {
+                    return 'Masukkan URL valid (diawali http:// atau https://)';
                   }
                   return null;
                 },
@@ -321,60 +417,25 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               const SizedBox(height: 16),
 
-              DropdownButtonFormField<String?>(
-                isExpanded: true,
-                initialValue: _socialPlatform,
-                decoration: const InputDecoration(
-                  labelText: 'Platform Media Sosial',
-                  border: OutlineInputBorder(),
-                ),
-                items: _socialPlatformOptions.map((opt) {
-                  return DropdownMenuItem<String?>(
-                    value: opt['value'],
-                    child: Text(
-                      opt['label']!,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  setState(() {
-                    _socialPlatform = val;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _externalUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'URL Konten Eksternal (Instagram/TikTok/YouTube)',
-                  hintText:
-                      'https://instagram.com/p/... atau https://vt.tiktok.com/...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
               productsAsync.when(
                 data: (products) {
+                  final validProductId =
+                      products.any((p) => p.id == _productId)
+                          ? _productId
+                          : null;
                   return DropdownButtonFormField<String?>(
                     isExpanded: true,
-                    initialValue: _productId,
+                    initialValue: validProductId,
                     decoration: const InputDecoration(
                       labelText: 'Produk yang Dipromosikan (Opsional)',
-                      hintText:
-                          'Pilih produk yang ingin ditautkan langsung ke pembeli',
+                      hintText: 'Pilih produk yang ditautkan pada konten ini',
                       border: OutlineInputBorder(),
                     ),
                     items: [
                       const DropdownMenuItem<String?>(
                         value: null,
                         child: Text(
-                          'Tanpa Produk Spesifik (Konten Non-Produk / Kisah UMK)',
+                          'Tanpa Produk Spesifik (Konten Non-Produk / Branding UMK)',
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -405,117 +466,107 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
 
               TextFormField(
                 controller: _bodyController,
-                maxLines: 5,
+                maxLines: 4,
                 decoration: const InputDecoration(
-                  labelText: 'Isi Narasi / Pesan Konten',
+                  labelText: 'Caption / Catatan Konten (Opsional)',
                   hintText:
-                      'Tuliskan deskripsi promosi, narasi kisah produk, atau petunjuk penggunaan...',
+                      'Tuliskan ringkasan caption, target audiens, atau catatan evaluasi konten...',
                   border: OutlineInputBorder(),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              const Text(
-                'Foto / Thumbnail Media Promosi',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Unggah gambar spanduk, thumbnail video/reels, atau foto produk promo (format JPG, PNG, atau WEBP).',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 10),
-
-              if (_mediaUrls.isNotEmpty)
-                SizedBox(
-                  height: 100,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _mediaUrls.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final url = _mediaUrls[index];
-                      return Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              url,
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    width: 100,
-                                    height: 100,
-                                    color: Colors.grey.shade200,
-                                    child: const Icon(Icons.broken_image),
-                                  ),
-                            ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      final donationLink = buildDonationPageLink(
+                        storeId: widget.storeId,
+                        contentId: widget.existingContent?.id,
+                      );
+                      final currentText = _bodyController.text.trimRight();
+                      _bodyController.text = currentText.isEmpty
+                          ? 'Dukung UMK via link donasi: $donationLink'
+                          : '$currentText\n\nDukung UMK via link donasi: $donationLink';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Link halaman donasi disisipkan ke caption konten.',
                           ),
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: GestureDetector(
-                              onTap: () => _removeImage(index),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       );
                     },
+                    icon: const Icon(Icons.add_link, size: 16),
+                    label: Text(
+                      widget.existingContent != null
+                          ? 'Sisipkan Link Donasi Konten'
+                          : 'Sisipkan Link Donasi Toko',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
-                ),
-
-              const SizedBox(height: 10),
-
-              OutlinedButton.icon(
-                onPressed: _isUploadingImage ? null : _pickAndUploadImage,
-                icon: _isUploadingImage
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add_a_photo_outlined),
-                label: Text(
-                  _isUploadingImage
-                      ? 'Mengunggah Foto...'
-                      : 'Tambah Foto / Thumbnail',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: BorderSide(color: AppColors.primary),
-                ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final donationLink = buildDonationPageLink(
+                        storeId: widget.storeId,
+                        contentId: widget.existingContent?.id,
+                      );
+                      await Clipboard.setData(ClipboardData(text: donationLink));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Link halaman donasi disalin!'),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy_outlined, size: 15),
+                    label: const Text(
+                      'Salin Link Donasi',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Status Aktif / Publikasi'),
-                subtitle: const Text(
-                  'Konten aktif dapat dilihat oleh pembeli dan pengunjung toko.',
-                ),
-                value: _isActive,
-                onChanged: (val) {
-                  setState(() {
-                    _isActive = val;
-                  });
-                },
+              const Text(
+                'Metrik Engagement Konten',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Isi angka performa konten dari insight platform eksternal.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricField(_reachController, 'Views / Reach'),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildMetricField(_likesController, 'Likes')),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricField(_commentsController, 'Komentar'),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildMetricField(_sharesController, 'Shares'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildMetricField(
+                _inquiriesController,
+                'Leads / Chat Masuk / Konversi',
               ),
 
               const SizedBox(height: 24),
@@ -524,9 +575,7 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: (_isLoading || _isUploadingImage)
-                      ? null
-                      : _submitForm,
+                  onPressed: _isLoading ? null : _submitForm,
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
@@ -537,7 +586,9 @@ class _StoreContentFormPageState extends ConsumerState<StoreContentFormPage> {
                           ),
                         )
                       : Text(
-                          isEditing ? 'Simpan Perubahan' : 'Terbitkan Konten',
+                          isEditing
+                              ? 'Simpan Perubahan'
+                              : 'Simpan Konten & Engagement',
                           style: const TextStyle(fontSize: 16),
                         ),
                 ),

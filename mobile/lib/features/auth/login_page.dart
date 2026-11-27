@@ -87,9 +87,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> login() async {
     final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+    final password = passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
+    if (email.isEmpty || password.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Harap masukkan email dan kata sandi')),
       );
@@ -102,16 +102,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
 
       final authService = ref.read(authServiceProvider);
+      final savedAccountsNotifier = ref.read(savedAccountsProvider.notifier);
 
       await authService.signIn(
         email: email,
         password: password,
       );
 
-      // Successfully authenticated: Save or update account in local device cache
+      // Save or update account using pre-captured notifier (survives router redirect dispose)
       try {
         final profile = await authService.getAppUser();
-        await ref.read(savedAccountsProvider.notifier).saveAccount(
+        await savedAccountsNotifier.saveAccount(
               email: email,
               fullName: (profile?.fullName.isNotEmpty ?? false)
                   ? profile!.fullName
@@ -121,7 +122,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             );
       } catch (_) {
         // Fallback: save email if profile retrieval has any hiccups
-        await ref.read(savedAccountsProvider.notifier).saveAccount(
+        await savedAccountsNotifier.saveAccount(
               email: email,
               fullName: email,
             );
@@ -509,12 +510,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Akun "${matchingAccount.fullName}" terpilih',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
+                Expanded(
+                  child: Text(
+                    'Akun "${matchingAccount.fullName}" terpilih',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
                 TextButton.icon(

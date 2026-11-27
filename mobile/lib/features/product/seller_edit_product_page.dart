@@ -188,7 +188,11 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Perubahan produk berhasil disimpan')));
 
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/seller/products');
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -246,7 +250,11 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
         ),
       );
 
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/seller/products');
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -682,7 +690,7 @@ class _SellerEditProductPageState extends ConsumerState<SellerEditProductPage> {
 
   @override
   Widget build(BuildContext context) {
-    final storeAsync = ref.watch(myStoreProvider);
+    final storeAsync = ref.watch(managedStoreProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ubah & Kelola Produk')),

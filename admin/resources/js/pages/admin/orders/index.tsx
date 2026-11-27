@@ -1,6 +1,7 @@
-import { FormEvent, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { Pagination } from '@/components/admin/pagination';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';

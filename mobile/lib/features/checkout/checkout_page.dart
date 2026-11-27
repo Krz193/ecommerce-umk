@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/features/cart/models/cart_model.dart';
 import 'package:mobile/features/checkout/providers/checkout_provider.dart';
 import 'package:mobile/features/cart/providers/cart_provider.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
@@ -9,12 +9,16 @@ import 'package:mobile/features/address/models/address_model.dart';
 import 'package:mobile/features/address/providers/address_provider.dart';
 import 'package:mobile/features/checkout/models/shipping_rate_model.dart';
 import 'package:mobile/features/checkout/providers/shipping_provider.dart';
+import 'package:mobile/features/flash_sale/models/sale_event_model.dart';
+import 'package:mobile/features/flash_sale/providers/flash_sale_provider.dart';
 import 'package:mobile/features/payment/payment_page.dart';
 import 'package:mobile/features/voucher/services/voucher_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
-  const CheckoutPage({super.key});
+  final String? cartId;
+
+  const CheckoutPage({super.key, this.cartId});
 
   @override
   ConsumerState<CheckoutPage> createState() => _CheckoutPageState();
@@ -23,8 +27,9 @@ class CheckoutPage extends ConsumerStatefulWidget {
 class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool isLoading = false;
   String? selectedAddressId;
+  String? _lastCourierAddressId;
+  String? _lastCourierStoreId;
   String selectedFilterCategory = 'all'; // 'all', 'instant', 'regular'
-  int selectedDonationAmount = 0; // Voluntary UMK donation (Excel A58)
 
   // Voucher state (Phase Additional)
   final TextEditingController voucherController = TextEditingController();
@@ -33,6 +38,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   String? appliedVoucherId;
   String? appliedVoucherTitle;
   int voucherDiscount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(selectedShippingRateProvider.notifier).reset();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -60,10 +75,68 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     return addresses.first;
   }
 
+  ({
+    int effectiveSubtotal,
+    int flashSavings,
+    List<Map<String, dynamic>> voucherItems,
+    List<String> splitNotes,
+  }) _computeCartFlashSummary(
+    CartModel cart,
+    Map<String, ProductFlashSaleInfo> flashSales,
+  ) {
+    var effectiveSubtotal = 0;
+    final voucherItems = <Map<String, dynamic>>[];
+    final splitNotes = <String>[];
+
+    for (final item in cart.items) {
+      final split = flashSales[item.productId]?.splitForQuantity(
+        item.quantity,
+        fallbackRegularPrice: item.productPrice,
+      );
+
+      if (split != null && split.hasFlashSale) {
+        effectiveSubtotal += split.totalSubtotal;
+        voucherItems.add({
+          'product_id': item.productId,
+          'product_name': '${item.productName} (Flash Sale)',
+          'price': split.salePrice,
+          'quantity': split.saleQty,
+        });
+        if (split.regularQty > 0) {
+          voucherItems.add({
+            'product_id': item.productId,
+            'product_name': item.productName,
+            'price': split.regularPrice,
+            'quantity': split.regularQty,
+          });
+          splitNotes.add(
+            '${item.productName}: ${split.saleQty}x ${CurrencyFormatter.format(split.salePrice)} (Flash Sale) + ${split.regularQty}x ${CurrencyFormatter.format(split.regularPrice)} (Normal)',
+          );
+        }
+      } else {
+        effectiveSubtotal += item.subtotal;
+        voucherItems.add({
+          'product_id': item.productId,
+          'product_name': item.productName,
+          'price': item.productPrice,
+          'quantity': item.quantity,
+        });
+      }
+    }
+
+    final flashSavings = (cart.subtotal - effectiveSubtotal).clamp(0, cart.subtotal);
+    return (
+      effectiveSubtotal: effectiveSubtotal,
+      flashSavings: flashSavings,
+      voucherItems: voucherItems,
+      splitNotes: splitNotes,
+    );
+  }
+
   Future<void> applyVoucher(
     String storeId,
     int currentSubtotal,
-    List<dynamic> items,
+    List<Map<String, dynamic>> itemsPayload,
   ) async {
     final code = voucherController.text.trim().toUpperCase();
     if (code.isEmpty) {
@@ -72,13 +145,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       );
       return;
     }
-
-    final itemsPayload = items.map((i) => {
-      'product_id': i.productId,
-      'product_name': i.productName,
-      'price': i.productPrice,
-      'quantity': i.quantity,
-    }).toList();
 
     setState(() => isValidatingVoucher = true);
     try {
@@ -143,7 +209,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     );
   }
 
+  CartModel? _resolveTargetCart(List<CartModel> carts) {
+    if (carts.isEmpty) return null;
+    if (widget.cartId != null) {
+      for (final c in carts) {
+        if (c.id == widget.cartId) return c;
+      }
+      return null;
+    }
+    return carts.first;
+  }
+
   Future<void> handleCheckout() async {
+    if (isLoading) return;
     try {
       setState(() {
         isLoading = true;
@@ -154,13 +232,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final cartState = ref.read(cartProvider);
       final carts = cartState.asData?.value;
 
-      if (carts == null || carts.isEmpty) {
-        throw Exception('Keranjang belanja kosong');
-      }
+      final cart = carts != null ? _resolveTargetCart(carts) : null;
 
-      final cart = carts.first;
-
-      if (cart.items.isEmpty) {
+      if (cart == null || cart.items.isEmpty) {
         throw Exception('Keranjang belanja kosong');
       }
 
@@ -192,13 +266,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         );
       }
 
+      final flashSales =
+          ref.read(cartFlashSalesProvider).asData?.value ?? const {};
+      final flashSummary = _computeCartFlashSummary(cart, flashSales);
+      final effectiveSubtotal = flashSummary.effectiveSubtotal;
       final shippingCost = selectedCourier.price;
-      final discountedSubtotal = (cart.subtotal - voucherDiscount).clamp(0, cart.subtotal);
-      final grandTotal = discountedSubtotal + shippingCost + selectedDonationAmount;
+      final discountedSubtotal =
+          (effectiveSubtotal - voucherDiscount).clamp(0, effectiveSubtotal);
+      final grandTotal = discountedSubtotal + shippingCost;
 
       final confirmed = await confirmCheckout(
         itemCount: cart.totalItems,
-        subtotal: cart.subtotal,
+        subtotal: effectiveSubtotal,
         discount: voucherDiscount,
         shippingFee: shippingCost,
         grandTotal: grandTotal,
@@ -214,68 +293,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       final result = await checkoutService.checkout(
         cartId: cart.id,
         addressId: selectedAddr.id,
-        selectedCourier: selectedCourier.toMap(),
-        voucherId: appliedVoucherId,
+        courierCode: selectedCourier.courierCode,
+        courierServiceCode: selectedCourier.courierServiceCode,
         voucherCode: appliedVoucherCode,
-        voucherDiscount: voucherDiscount,
-        donationAmount: selectedDonationAmount,
       );
 
-      final orderData = result['order'];
-      if (orderData != null && orderData['id'] != null) {
-        try {
-          await supabase.rpc(
-            'set_order_shipping_details',
-            params: {
-              'p_order_id': orderData['id'],
-              'p_courier_name': selectedCourier.displayName,
-              'p_courier_code': selectedCourier.courierCode,
-              'p_courier_service_code': selectedCourier.courierServiceCode,
-              'p_courier_service_type': selectedCourier.serviceType,
-              'p_shipping_cost': selectedCourier.price,
-            },
-          );
-
-          // Update voucher reference if applied
-          if (appliedVoucherCode != null) {
-            await supabase.from('orders').update({
-              'voucher_id': appliedVoucherId,
-              'voucher_code': appliedVoucherCode,
-              'voucher_discount': voucherDiscount,
-            }).eq('id', orderData['id']);
-
-            // Increment used_count on store_vouchers
-            if (appliedVoucherId != null) {
-              await supabase.rpc('increment_voucher_usage', params: {
-                'p_voucher_id': appliedVoucherId,
-              }).catchError((_) {});
-            }
-          }
-
-          // Record donation if donor opted in (Excel A58)
-          if (selectedDonationAmount > 0) {
-            final currentUser = supabase.auth.currentUser;
-            await supabase.from('donations').insert({
-              'user_id': currentUser?.id,
-              'store_id': cart.storeId,
-              'order_id': orderData['id'],
-              'amount': selectedDonationAmount,
-              'donor_name': selectedAddr.recipientName,
-              'donor_phone': selectedAddr.phoneNumber,
-              'note': 'Donasi sukarela saat checkout pesanan',
-              'status': 'paid',
-            });
-          }
-        } catch (e) {
-          debugPrint('Error saving shipping details/donation/voucher: $e');
-        }
-      }
+      ref.invalidate(cartFlashSalesProvider);
+      ref.invalidate(publicSaleEventsProvider);
 
       if (!mounted) return;
 
       debugPrint(result.toString());
 
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => PaymentPage(
@@ -320,6 +350,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         }
       }
 
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(readableCheckoutError(error))));
@@ -446,22 +477,41 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   Widget build(BuildContext context) {
     final addressState = ref.watch(addressProvider);
     final cartState = ref.watch(cartProvider);
+    final flashSales = ref.watch(cartFlashSalesProvider).asData?.value ?? const {};
     final selectedCourier = ref.watch(selectedShippingRateProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout & Pengiriman')),
       body: cartState.when(
         data: (carts) {
-          if (carts.isEmpty) {
+          final cart = _resolveTargetCart(carts);
+          if (cart == null || cart.items.isEmpty) {
             return const Center(child: Text('Keranjang belanja kosong'));
           }
-
-          final cart = carts.first;
-          final subtotal = cart.subtotal;
+          if (cart.storeId != _lastCourierStoreId) {
+            final previousStoreId = _lastCourierStoreId;
+            _lastCourierStoreId = cart.storeId;
+            if (previousStoreId != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                ref.read(selectedShippingRateProvider.notifier).reset();
+                setState(() {
+                  appliedVoucherCode = null;
+                  appliedVoucherId = null;
+                  appliedVoucherTitle = null;
+                  voucherDiscount = 0;
+                  voucherController.clear();
+                });
+              });
+            }
+          }
+          final flashSummary = _computeCartFlashSummary(cart, flashSales);
+          final subtotal = flashSummary.effectiveSubtotal;
+          final flashSavings = flashSummary.flashSavings;
           final totalItems = cart.totalItems;
           final shippingCost = selectedCourier?.price ?? 0;
           final discountedSubtotal = (subtotal - voucherDiscount).clamp(0, subtotal);
-          final totalAmount = discountedSubtotal + shippingCost + selectedDonationAmount;
+          final totalAmount = discountedSubtotal + shippingCost;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -495,9 +545,61 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Jumlah Barang ($totalItems item)'),
-                          Text(CurrencyFormatter.format(subtotal)),
+                          Text(CurrencyFormatter.format(cart.subtotal)),
                         ],
                       ),
+                      if (flashSavings > 0) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              '⚡ Hemat Flash Sale',
+                              style: TextStyle(
+                                color: Colors.deepOrange,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '- ${CurrencyFormatter.format(flashSavings)}',
+                              style: const TextStyle(
+                                color: Colors.deepOrange,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (flashSummary.splitNotes.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Rincian Split Kuota Flash Sale:',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepOrange,
+                                ),
+                              ),
+                              ...flashSummary.splitNotes.map(
+                                (note) => Text(
+                                  '• $note',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (voucherDiscount > 0) ...[
                         const SizedBox(height: 6),
                         Row(
@@ -537,22 +639,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           ),
                         ],
                       ),
-                      if (selectedDonationAmount > 0) ...[
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Donasi Sukarela Toko'),
-                            Text(
-                              '+ ${CurrencyFormatter.format(selectedDonationAmount)}',
-                              style: const TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                       const Divider(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -581,7 +667,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 const SizedBox(height: 20),
 
                 // 1.5 Voucher Input Section (Phase Additional)
-                buildVoucherSection(cart.storeId, subtotal, cart.items),
+                buildVoucherSection(cart.storeId, subtotal, flashSummary.voucherItems),
 
                 const SizedBox(height: 20),
 
@@ -597,7 +683,12 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => context.push('/addresses'),
+                      onPressed: () async {
+                        await context.push('/addresses');
+                        if (mounted) {
+                          ref.invalidate(addressProvider);
+                        }
+                      },
                       child: const Text('Kelola Alamat'),
                     ),
                   ],
@@ -630,6 +721,20 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
                     final activeAddr = selectedAddress(addresses);
 
+                    if (activeAddr?.id != _lastCourierAddressId) {
+                      final previousAddressId = _lastCourierAddressId;
+                      _lastCourierAddressId = activeAddr?.id;
+                      if (previousAddressId != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            ref
+                                .read(selectedShippingRateProvider.notifier)
+                                .reset();
+                          }
+                        });
+                      }
+                    }
+
                     return Column(
                       children: [
                         if (activeAddr != null)
@@ -641,10 +746,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           cartId: cart.id,
                           addressId: activeAddr?.id,
                         ),
-                        const SizedBox(height: 16),
-
-                        // 4. Voluntary UMK Donation Section (Excel A58)
-                        buildDonationSection(),
                       ],
                     );
                   },
@@ -698,7 +799,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   Widget buildVoucherSection(
     String storeId,
     int currentSubtotal,
-    List<dynamic> items,
+    List<Map<String, dynamic>> itemsPayload,
   ) {
     final hasVoucher = appliedVoucherCode != null;
 
@@ -821,7 +922,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   ),
                   onPressed: isValidatingVoucher
                       ? null
-                      : () => applyVoucher(storeId, currentSubtotal, items),
+                      : () => applyVoucher(storeId, currentSubtotal, itemsPayload),
                   child: isValidatingVoucher
                       ? const SizedBox(
                           width: 16,
@@ -1036,7 +1137,10 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text(
                                     option.courierName,
@@ -1045,7 +1149,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                                       fontSize: 14,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -1159,74 +1262,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget buildDonationSection() {
-    final donationOptions = [0, 1000, 2000, 5000, 10000];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: selectedDonationAmount > 0
-              ? Colors.green.shade300
-              : Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.favorite, color: Colors.red, size: 18),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Donasi Sukarela Toko UMK',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Dukung pengembangan produk dan usaha toko UMK lokal ini.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            children: donationOptions.map((amount) {
-              final isSelected = selectedDonationAmount == amount;
-              return ChoiceChip(
-                label: Text(
-                  amount == 0
-                      ? 'Tanpa Donasi'
-                      : '+ ${CurrencyFormatter.format(amount)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: isSelected ? Colors.green.shade900 : Colors.black87,
-                  ),
-                ),
-                selected: isSelected,
-                selectedColor: Colors.green.shade100,
-                onSelected: (selected) {
-                  setState(() {
-                    selectedDonationAmount = selected ? amount : 0;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
     );
   }
 }

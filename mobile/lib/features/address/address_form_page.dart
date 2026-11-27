@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/widgets/map_point_picker_field.dart';
 
 import 'package:mobile/features/address/models/address_model.dart';
 import 'package:mobile/features/address/providers/address_provider.dart';
@@ -31,6 +32,8 @@ class _AddressFormPageState extends ConsumerState<AddressFormPage> {
   final notesController = TextEditingController();
 
   String? selectedBiteshipAreaId;
+  double? selectedLatitude;
+  double? selectedLongitude;
   bool initialized = false;
   bool isSaving = false;
   bool isDefault = false;
@@ -68,6 +71,8 @@ class _AddressFormPageState extends ConsumerState<AddressFormPage> {
     fullAddressController.text = address.fullAddress;
     notesController.text = address.notes ?? '';
     selectedBiteshipAreaId = address.biteshipAreaId;
+    selectedLatitude = address.latitude;
+    selectedLongitude = address.longitude;
     isDefault = address.isDefault;
   }
 
@@ -101,6 +106,15 @@ class _AddressFormPageState extends ConsumerState<AddressFormPage> {
         districtController.text = selected.district;
         postalCodeController.text = selected.postalCode;
       });
+      final geocoded = await MapPointPickerField.geocodeQuery(
+        '${selected.district}, ${selected.city}, ${selected.province}',
+      );
+      if (geocoded != null && mounted) {
+        setState(() {
+          selectedLatitude = geocoded.latitude;
+          selectedLongitude = geocoded.longitude;
+        });
+      }
     }
   }
 
@@ -139,6 +153,8 @@ class _AddressFormPageState extends ConsumerState<AddressFormPage> {
           fullAddress: fullAddressController.text.trim(),
           notes: notesController.text.trim(),
           biteshipAreaId: selectedBiteshipAreaId,
+          latitude: selectedLatitude,
+          longitude: selectedLongitude,
           isDefault: isDefault,
         );
       } else {
@@ -153,6 +169,8 @@ class _AddressFormPageState extends ConsumerState<AddressFormPage> {
           fullAddress: fullAddressController.text.trim(),
           notes: notesController.text.trim(),
           biteshipAreaId: selectedBiteshipAreaId,
+          latitude: selectedLatitude,
+          longitude: selectedLongitude,
           isDefault: isDefault,
         );
       }
@@ -326,6 +344,25 @@ class _AddressFormPageState extends ConsumerState<AddressFormPage> {
                 ),
                 minLines: 1,
                 maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              MapPointPickerField(
+                latitude: selectedLatitude,
+                longitude: selectedLongitude,
+                initialQuery: [
+                  fullAddressController.text.trim(),
+                  districtController.text.trim(),
+                  cityController.text.trim(),
+                ].where((e) => e.isNotEmpty).join(', '),
+                label: 'Titik GPS Alamat (Pinpoint Peta)',
+                helperText:
+                    'Pastikan pin tepat di lokasi alamat penerima agar kurir Instant/Gojek dapat memproses pengantaran.',
+                onPointSelected: (point) {
+                  setState(() {
+                    selectedLatitude = point.latitude;
+                    selectedLongitude = point.longitude;
+                  });
+                },
               ),
               const SizedBox(height: 16),
               CheckboxListTile(

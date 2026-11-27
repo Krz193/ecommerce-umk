@@ -189,7 +189,7 @@ class AccountPage extends ConsumerWidget {
               ),
               buildActionTile(
                 icon: Icons.volunteer_activism_outlined,
-                iconColor: Colors.teal.shade700,
+                iconColor: AppColors.primary,
                 title: 'Donasi UMK Saya',
                 subtitle: 'Kelola & lihat riwayat donasi dari konten UMK',
                 onTap: () => context.push('/donations'),
@@ -237,7 +237,7 @@ class AccountPage extends ConsumerWidget {
             children: [
               buildActionTile(
                 icon: Icons.handshake_outlined,
-                iconColor: Colors.purple.shade700,
+                iconColor: AppColors.primary,
                 title: 'Dashboard Asisten UMK',
                 subtitle: currentUser?.role == 'assistant'
                     ? 'Pendampingan toko UMK, riwayat, & konten promosi'
@@ -246,7 +246,7 @@ class AccountPage extends ConsumerWidget {
               ),
               buildActionTile(
                 icon: Icons.school_outlined,
-                iconColor: Colors.teal.shade700,
+                iconColor: AppColors.primaryHover,
                 title: 'Pelatihan & Pembinaan UMK',
                 subtitle: 'Jadwal webinar & program pengembangan bisnis UMK',
                 onTap: () => context.push('/trainings'),
@@ -255,34 +255,44 @@ class AccountPage extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Section 3.6: Area Mitra Logistik & Pengiriman (#13 Ekspedisi & #14 Ojek)
-          buildSectionTitle('Mitra Logistik & Pengantaran'),
-          const SizedBox(height: 10),
-          buildActionCard(
-            children: [
-              buildActionTile(
-                icon: Icons.local_shipping_outlined,
-                iconColor: Colors.indigo.shade700,
-                title: 'Portal Kurir Ekspedisi',
-                subtitle: 'Kelola no resi, status tracking, & pembatalan logistik',
-                onTap: () => openLogisticsArea(context, ref, 'ekspedisi'),
-              ),
-              Divider(
-                height: 1,
-                indent: 66,
-                endIndent: 16,
-                color: Colors.grey.shade200,
-              ),
-              buildActionTile(
-                icon: Icons.two_wheeler_outlined,
-                iconColor: Colors.deepOrange.shade700,
-                title: 'Portal Driver Ojek',
-                subtitle: 'Penerimaan antar lokal, update GPS, & call/chat pembeli',
-                onTap: () => openLogisticsArea(context, ref, 'ojek'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+          // Section 3.6: Area Mitra Logistik & Pengiriman (Hanya tampil bagi role ekspedisi, ojek, atau admin)
+          if (currentUser != null &&
+              (currentUser.isEkspedisi ||
+                  currentUser.isOjek ||
+                  currentUser.isAdmin)) ...[
+            buildSectionTitle('Mitra Logistik & Pengantaran'),
+            const SizedBox(height: 10),
+            buildActionCard(
+              children: [
+                if (currentUser.isEkspedisi || currentUser.isAdmin)
+                  buildActionTile(
+                    icon: Icons.local_shipping_outlined,
+                    iconColor: AppColors.primaryHover,
+                    title: 'Portal Kurir Ekspedisi',
+                    subtitle:
+                        'Kelola no resi, status tracking, & pembatalan logistik',
+                    onTap: () => openLogisticsArea(context, ref, 'ekspedisi'),
+                  ),
+                if (currentUser.isAdmin)
+                  Divider(
+                    height: 1,
+                    indent: 66,
+                    endIndent: 16,
+                    color: Colors.grey.shade200,
+                  ),
+                if (currentUser.isOjek || currentUser.isAdmin)
+                  buildActionTile(
+                    icon: Icons.two_wheeler_outlined,
+                    iconColor: Colors.deepOrange.shade700,
+                    title: 'Portal Driver Ojek',
+                    subtitle:
+                        'Penerimaan antar lokal, update GPS, & call/chat pembeli',
+                    onTap: () => openLogisticsArea(context, ref, 'ojek'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // Section 4: Bantuan & Masukan Sistem
           buildSectionTitle('Bantuan & Masukan'),
@@ -402,8 +412,9 @@ class AccountPage extends ConsumerWidget {
     );
   }
 
-  void openSellerArea(BuildContext context, WidgetRef ref) {
-    final store = ref.read(myStoreProvider).asData?.value;
+  Future<void> openSellerArea(BuildContext context, WidgetRef ref) async {
+    final store = await ref.read(myStoreProvider.future);
+    if (!context.mounted) return;
 
     if (store == null) {
       context.push('/seller/onboarding');
@@ -421,39 +432,23 @@ class AccountPage extends ConsumerWidget {
     final user = await ref.read(appUserProvider.future);
     if (!context.mounted) return;
 
-    final isAlreadyTarget = (targetRole == 'ekspedisi' && user?.isEkspedisi == true) ||
+    final isAuthorized =
+        (targetRole == 'ekspedisi' && user?.isEkspedisi == true) ||
         (targetRole == 'ojek' && user?.isOjek == true) ||
         user?.isAdmin == true;
 
-    if (isAlreadyTarget) {
-      context.push('/logistics/$targetRole');
+    if (!isAuthorized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Akses ditolak: Akun Anda tidak memiliki role mitra logistik terkait.',
+          ),
+        ),
+      );
       return;
     }
 
-    final roleLabel = targetRole == 'ekspedisi' ? 'Mitra Ekspedisi' : 'Driver Ojek';
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text('Buka Portal $roleLabel'),
-        content: Text(
-          'Anda akan masuk ke portal operasional $roleLabel untuk memproses pengiriman, approval order, dan update rute logistik.\n\nLanjutkan?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogCtx, true),
-            child: const Text('Lanjutkan'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true && context.mounted) {
-      context.push('/logistics/$targetRole');
-    }
+    context.push('/logistics/$targetRole');
   }
 
   Future<void> openAssistantArea(BuildContext context, WidgetRef ref) async {

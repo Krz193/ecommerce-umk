@@ -1,4 +1,5 @@
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/order/models/order_detail_model.dart';
 import 'package:mobile/features/order/models/order_model.dart';
 import 'package:mobile/features/order/services/order_status_service.dart';
@@ -36,6 +37,21 @@ class SellerOrderService {
         .from('orders')
         .select('''
         *,
+        store:stores (
+          id,
+          name,
+          slug,
+          phone,
+          address,
+          province,
+          city,
+          district,
+          postal_code,
+          notes,
+          latitude,
+          longitude,
+          biteship_area_id
+        ),
         payment:payments (
           id,
           status,
@@ -45,6 +61,7 @@ class SellerOrderService {
         ),
         order_items (
           id,
+          product_id,
           product_name,
           product_price,
           quantity,
@@ -54,7 +71,13 @@ class SellerOrderService {
         ''')
         .eq('id', orderId)
         .eq('store_id', storeId)
-        .single();
+        .maybeSingle();
+
+    if (response == null) {
+      throw const ResourceNotFoundException(
+        'Pesanan tidak ditemukan atau sudah tidak tersedia untuk toko ini.',
+      );
+    }
 
     return OrderDetailModel.fromJson(response);
   }

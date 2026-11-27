@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
 import 'package:mobile/features/donation/services/buyer_donation_service.dart';
@@ -30,11 +32,16 @@ class BuyerDonationsPage extends ConsumerWidget {
           ),
         ),
         data: (donations) {
-          final totalDonated = donations.fold<int>(
+          final settledDonations =
+              donations.where((d) => d.isSettledOrDistributed).toList();
+          final totalDonated = settledDonations.fold<int>(
             0,
             (sum, d) => sum + d.amount,
           );
-          final uniqueStores = donations.map((d) => d.storeId).toSet().length;
+          final uniqueStores =
+              settledDonations.map((d) => d.storeId).toSet().length;
+          final pendingCount =
+              donations.where((d) => d.status == 'pending').length;
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -46,8 +53,8 @@ class BuyerDonationsPage extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.pink.shade700, Colors.orange.shade700],
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primaryHover, AppColors.primary],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -60,7 +67,7 @@ class BuyerDonationsPage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Total Donasi Anda ke UMK',
+                            'Total Donasi Lunas ke UMK',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -75,6 +82,16 @@ class BuyerDonationsPage extends ConsumerWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          if (pendingCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '$pendingCount tagihan VA/QRIS menunggu pembayaran',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       Container(
@@ -87,7 +104,7 @@ class BuyerDonationsPage extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${donations.length} Donasi · $uniqueStores UMK',
+                          '${settledDonations.length} Lunas · $uniqueStores UMK',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -119,7 +136,7 @@ class BuyerDonationsPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Anda dapat berdonasi langsung saat melihat konten kisah atau promosi UMK di halaman Jelajah maupun Profil Toko.',
+                          'Anda dapat berdonasi langsung untuk mendukung UMK melalui halaman Profil Toko UMK.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
@@ -150,6 +167,24 @@ class BuyerDonationsPage extends ConsumerWidget {
     BuyerDonationRecord donation,
   ) {
     final isDistributed = donation.status == 'distributed';
+    final isPaid = donation.status == 'paid';
+    final isPendingActive = donation.isPendingActive;
+
+    Color badgeBg;
+    Color badgeFg;
+    if (isDistributed) {
+      badgeBg = Colors.green.shade50;
+      badgeFg = Colors.green.shade800;
+    } else if (isPaid) {
+      badgeBg = AppColors.primaryLight;
+      badgeFg = AppColors.primaryHover;
+    } else if (isPendingActive) {
+      badgeBg = Colors.orange.shade50;
+      badgeFg = Colors.orange.shade900;
+    } else {
+      badgeBg = Colors.red.shade50;
+      badgeFg = Colors.red.shade800;
+    }
 
     return Card(
       elevation: 1,
@@ -180,19 +215,15 @@ class BuyerDonationsPage extends ConsumerWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: isDistributed
-                        ? Colors.green.shade50
-                        : Colors.blue.shade50,
+                    color: badgeBg,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    isDistributed ? 'Telah Disalurkan' : 'Tercatat (Paid)',
+                    donation.statusLabel,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: isDistributed
-                          ? Colors.green.shade800
-                          : Colors.blue.shade800,
+                      color: badgeFg,
                     ),
                   ),
                 ),
@@ -212,6 +243,66 @@ class BuyerDonationsPage extends ConsumerWidget {
               'Donatur: ${donation.donorName} · ${DateFormatter.format(donation.createdAt)}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
+            if (donation.donationNumber != null ||
+                donation.paymentChannel != null) ...[
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (donation.paymentChannel != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        donation.paymentChannelShortLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.teal.shade800,
+                        ),
+                      ),
+                    ),
+                  if (donation.donationNumber != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        donation.donationNumber!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            if (isPendingActive &&
+                donation.vaNumber != null &&
+                donation.vaNumber!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'VA: ${donation.vaNumber}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange.shade900,
+                ),
+              ),
+            ],
             if (donation.contentTitle != null &&
                 donation.contentTitle!.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -242,27 +333,56 @@ class BuyerDonationsPage extends ConsumerWidget {
                 ),
               ),
             ],
-            if (donation.canModify) ...[
-              const Divider(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      showBuyerDonationDialog(
-                        context,
-                        ref,
-                        storeId: donation.storeId,
-                        storeName: donation.storeName ?? 'Toko UMK',
-                        contentId: donation.contentId,
-                        contentTitle: donation.contentTitle,
-                        existingDonation: donation,
-                      );
-                    },
-                    icon: const Icon(Icons.edit_outlined, size: 15),
-                    label: const Text('Edit Donasi'),
+            if (isDistributed) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Disalurkan ke toko pada ${donation.distributedAt != null ? DateFormatter.format(donation.distributedAt!) : "-"} sebesar ${CurrencyFormatter.format(donation.distributedAmount ?? donation.amount)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade900,
                   ),
-                  const SizedBox(width: 8),
+                ),
+              ),
+            ],
+            const Divider(height: 18),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (isPendingActive) ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _openPaymentPage(
+                      context,
+                      ref,
+                      donation,
+                      editMode: false,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.qr_code_2, size: 16),
+                    label: const Text('Lihat VA / Bayar Sekarang'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _openPaymentPage(
+                      context,
+                      ref,
+                      donation,
+                      editMode: true,
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 15),
+                    label: const Text('Ubah / Ganti Bank'),
+                  ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
@@ -272,11 +392,154 @@ class BuyerDonationsPage extends ConsumerWidget {
                     icon: const Icon(Icons.delete_outline, size: 15),
                     label: const Text('Batalkan'),
                   ),
+                ] else if (donation.canChangePaymentOrCancel) ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _openPaymentPage(
+                      context,
+                      ref,
+                      donation,
+                      editMode: true,
+                    ),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Generate Ulang VA'),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.shade200),
+                    ),
+                    onPressed: () => _confirmDelete(context, ref, donation),
+                    icon: const Icon(Icons.delete_outline, size: 15),
+                    label: const Text('Hapus'),
+                  ),
+                ] else if (isPaid) ...[
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        _showEditDonorInfoDialog(context, ref, donation),
+                    icon: const Icon(Icons.edit_outlined, size: 15),
+                    label: const Text('Edit Nama / Pesan Doa'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _openPaymentPage(
+                      context,
+                      ref,
+                      donation,
+                      editMode: false,
+                    ),
+                    icon: const Icon(Icons.receipt_long_outlined, size: 15),
+                    label: const Text('Detail Pembayaran'),
+                  ),
+                ] else ...[
+                  OutlinedButton.icon(
+                    onPressed: () => _openPaymentPage(
+                      context,
+                      ref,
+                      donation,
+                      editMode: false,
+                    ),
+                    icon: const Icon(Icons.receipt_long_outlined, size: 15),
+                    label: const Text('Detail Pembayaran'),
+                  ),
                 ],
-              ),
-            ],
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _openPaymentPage(
+    BuildContext context,
+    WidgetRef ref,
+    BuyerDonationRecord donation, {
+    required bool editMode,
+  }) async {
+    final route = buildInternalDonationRoute(
+      storeId: donation.storeId,
+      storeName: donation.storeName,
+      contentId: donation.contentId,
+      contentTitle: donation.contentTitle,
+      donationId: donation.id,
+      editMode: editMode,
+    );
+    await context.push(route, extra: donation);
+    ref.invalidate(myDonationsProvider);
+  }
+
+  void _showEditDonorInfoDialog(
+    BuildContext context,
+    WidgetRef ref,
+    BuyerDonationRecord donation,
+  ) {
+    final nameCtrl = TextEditingController(text: donation.donorName);
+    final noteCtrl = TextEditingController(text: donation.note ?? '');
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Edit Nama & Pesan Doa'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Donasi sudah lunas sehingga nominal dan metode pembayaran terkunci.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nama Donatur',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Pesan / Doa untuk UMK',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              try {
+                await ref
+                    .read(buyerDonationServiceProvider)
+                    .updateDonorInfo(
+                      donationId: donation.id,
+                      donorName: nameCtrl.text,
+                      note: noteCtrl.text,
+                    );
+                ref.invalidate(myDonationsProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Info donatur & pesan berhasil diperbarui.'),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Gagal memperbarui: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
       ),
     );
   }
@@ -291,7 +554,7 @@ class BuyerDonationsPage extends ConsumerWidget {
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Batalkan / Hapus Donasi?'),
         content: Text(
-          'Hapus donasi sebesar ${CurrencyFormatter.format(donation.amount)} untuk ${donation.storeName ?? "Toko UMK"}?',
+          'Hapus tagihan donasi sebesar ${CurrencyFormatter.format(donation.amount)} untuk ${donation.storeName ?? "Toko UMK"}?',
         ),
         actions: [
           TextButton(

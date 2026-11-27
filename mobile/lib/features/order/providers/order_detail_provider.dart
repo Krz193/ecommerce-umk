@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/core/config/supabase_provider.dart';
+import 'package:mobile/core/utils/error_formatter.dart';
 
 import 'package:mobile/features/order/models/order_detail_model.dart';
 
@@ -19,9 +20,17 @@ final orderDetailProvider = FutureProvider.autoDispose
           store:stores (
             id,
             name,
+            slug,
+            phone,
             address,
+            province,
+            city,
+            district,
+            postal_code,
+            notes,
             latitude,
-            longitude
+            longitude,
+            biteship_area_id
           ),
           payment:payments (
             id,
@@ -41,8 +50,13 @@ final orderDetailProvider = FutureProvider.autoDispose
           )
           ''')
           .eq('id', orderId)
-          .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
+
+      if (response == null) {
+        throw const ResourceNotFoundException(
+          'Pesanan tidak ditemukan atau sudah tidak tersedia.',
+        );
+      }
 
       return OrderDetailModel.fromJson(response);
     });

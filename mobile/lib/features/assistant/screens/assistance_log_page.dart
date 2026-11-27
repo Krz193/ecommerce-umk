@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/utils/date_formatter.dart';
+import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/assistance_log_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
 
@@ -12,11 +14,10 @@ class AssistanceLogPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logsAsync = ref.watch(assistanceLogsProvider(storeId));
-    final assignedStoresAsync = ref.watch(assignedStoresProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CRUD Engagement & Pendampingan'),
+        title: const Text('Log Aktivitas Pendampingan'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -24,115 +25,75 @@ class AssistanceLogPage extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          final stores = assignedStoresAsync.asData?.value ?? [];
-          _showEngagementFormDialog(
-            context,
-            ref,
-            defaultStoreId: storeId ?? stores.firstOrNull?.storeId,
-            stores: stores
-                .map((s) => {'id': s.storeId, 'name': s.storeName})
-                .toList(),
-          );
-        },
-        icon: const Icon(Icons.add_chart),
-        label: const Text('Catat Engagement'),
-      ),
       body: logsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
-              const SizedBox(height: 12),
-              Text('Gagal memuat data engagement: $err'),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () =>
-                    ref.invalidate(assistanceLogsProvider(storeId)),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  'Gagal memuat log aktivitas: ${formatUserFriendlyError(err)}',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () =>
+                      ref.invalidate(assistanceLogsProvider(storeId)),
+                  child: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
           ),
         ),
         data: (logs) {
-          final totalReach = logs.fold<int>(0, (s, l) => s + l.reachCount);
-          final totalLikes = logs.fold<int>(0, (s, l) => s + l.likesCount);
-          final totalComments = logs.fold<int>(
-            0,
-            (s, l) => s + l.commentsCount,
-          );
-          final totalShares = logs.fold<int>(0, (s, l) => s + l.sharesCount);
-          final totalInquiries = logs.fold<int>(
-            0,
-            (s, l) => s + l.inquiriesCount,
-          );
+          if (logs.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.history_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Belum Ada Riwayat Aktivitas',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Aktivitas pendampingan toko (kelola produk, stok, pesanan, dan pencatatan konten) akan tercatat otomatis di sini.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
 
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(assistanceLogsProvider(storeId));
             },
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-              children: [
-                _buildEngagementSummaryCard(
-                  totalReach: totalReach,
-                  totalLikes: totalLikes,
-                  totalComments: totalComments,
-                  totalShares: totalShares,
-                  totalInquiries: totalInquiries,
-                ),
-                const SizedBox(height: 16),
-                if (logs.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 48),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.insights_outlined,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Belum Ada Catatan Engagement / Pendampingan',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Klik tombol "Catat Engagement" untuk menambahkan laporan jangkauan konten, interaksi medsos, atau aktivitas pendampingan UMK.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  ...logs.map(
-                    (log) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildLogCard(
-                        context,
-                        ref,
-                        log,
-                        assignedStoresAsync.asData?.value
-                                .map(
-                                  (s) => {'id': s.storeId, 'name': s.storeName},
-                                )
-                                .toList() ??
-                            [],
-                      ),
-                    ),
-                  ),
-              ],
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: logs.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) => _buildLogCard(logs[index]),
             ),
           );
         },
@@ -140,121 +101,17 @@ class AssistanceLogPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildEngagementSummaryCard({
-    required int totalReach,
-    required int totalLikes,
-    required int totalComments,
-    required int totalShares,
-    required int totalInquiries,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade900, Colors.purple.shade800],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.trending_up, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Ringkasan Performa Engagement UMK',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            children: [
-              _buildMetricPill('Views / Reach', totalReach.toString()),
-              _buildMetricPill('Likes', totalLikes.toString()),
-              _buildMetricPill('Komentar', totalComments.toString()),
-              _buildMetricPill('Share', totalShares.toString()),
-              _buildMetricPill('Leads / Chat', totalInquiries.toString()),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricPill(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(28),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLogCard(
-    BuildContext context,
-    WidgetRef ref,
-    AssistanceLogModel log,
-    List<Map<String, String>> stores,
-  ) {
-    Color badgeColor;
-    IconData icon;
-
-    switch (log.actionType) {
-      case 'engagement':
-        badgeColor = Colors.pink.shade700;
-        icon = Icons.insights;
-        break;
-      case 'create_product':
-      case 'update_product':
-        badgeColor = Colors.teal.shade700;
-        icon = Icons.inventory;
-        break;
-      case 'update_stock':
-        badgeColor = Colors.blue.shade700;
-        icon = Icons.edit_note;
-        break;
-      case 'ship_order':
-        badgeColor = Colors.indigo.shade700;
-        icon = Icons.local_shipping;
-        break;
-      case 'create_content':
-      case 'update_content':
-        badgeColor = Colors.orange.shade700;
-        icon = Icons.article;
-        break;
-      default:
-        badgeColor = Colors.purple.shade700;
-        icon = Icons.touch_app;
-        break;
-    }
+  Widget _buildLogCard(AssistanceLogModel log) {
+    final (Color badgeColor, IconData icon) = switch (log.actionType) {
+      'engagement' => (AppColors.primaryHover, Icons.insights),
+      'create_product' ||
+      'update_product' => (AppColors.primary, Icons.inventory),
+      'update_stock' => (Colors.orange.shade800, Icons.edit_note),
+      'ship_order' => (const Color(0xFFC2410C), Icons.local_shipping),
+      'create_content' ||
+      'update_content' => (Colors.orange.shade700, Icons.article),
+      _ => (AppColors.primaryHover, Icons.touch_app),
+    };
 
     return Card(
       elevation: 1,
@@ -313,13 +170,13 @@ class AssistanceLogPage extends ConsumerWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
+                                color: AppColors.primaryLight,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 log.channel!.toUpperCase(),
-                                style: TextStyle(
-                                  color: Colors.blue.shade800,
+                                style: const TextStyle(
+                                  color: AppColors.primaryHover,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -355,47 +212,6 @@ class AssistanceLogPage extends ConsumerWidget {
                       ],
                     ],
                   ),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      _showEngagementFormDialog(
-                        context,
-                        ref,
-                        existingLog: log,
-                        defaultStoreId: log.storeId,
-                        stores: stores,
-                      );
-                    } else if (value == 'delete') {
-                      _confirmDeleteLog(context, ref, log);
-                    }
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 18),
-                          SizedBox(width: 8),
-                          Text('Edit'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 8),
-                          Text('Hapus', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -463,7 +279,7 @@ class AssistanceLogPage extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.indigo.shade700),
+        Icon(icon, size: 14, color: AppColors.primaryHover),
         const SizedBox(width: 4),
         Text(
           text,
@@ -474,339 +290,6 @@ class AssistanceLogPage extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  void _showEngagementFormDialog(
-    BuildContext context,
-    WidgetRef ref, {
-    AssistanceLogModel? existingLog,
-    String? defaultStoreId,
-    required List<Map<String, String>> stores,
-  }) {
-    final titleCtrl = TextEditingController(text: existingLog?.title ?? '');
-    final descCtrl = TextEditingController(
-      text: existingLog?.description ?? '',
-    );
-    final reachCtrl = TextEditingController(
-      text: (existingLog?.reachCount ?? 0).toString(),
-    );
-    final likesCtrl = TextEditingController(
-      text: (existingLog?.likesCount ?? 0).toString(),
-    );
-    final commentsCtrl = TextEditingController(
-      text: (existingLog?.commentsCount ?? 0).toString(),
-    );
-    final sharesCtrl = TextEditingController(
-      text: (existingLog?.sharesCount ?? 0).toString(),
-    );
-    final inquiriesCtrl = TextEditingController(
-      text: (existingLog?.inquiriesCount ?? 0).toString(),
-    );
-
-    String selectedStore =
-        existingLog?.storeId ??
-        defaultStoreId ??
-        (stores.isNotEmpty ? stores.first['id']! : '');
-    String selectedChannel = existingLog?.channel ?? 'instagram';
-    String selectedActionType = existingLog?.actionType ?? 'engagement';
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setStateDialog) {
-            return AlertDialog(
-              title: Text(
-                existingLog == null
-                    ? 'Tambah Catatan Engagement'
-                    : 'Edit Catatan Engagement',
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (existingLog == null && stores.isNotEmpty) ...[
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedStore.isNotEmpty
-                            ? selectedStore
-                            : null,
-                        decoration: const InputDecoration(
-                          labelText: 'Toko UMK Dampingan *',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: stores.map((s) {
-                          return DropdownMenuItem(
-                            value: s['id'],
-                            child: Text(
-                              s['name'] ?? '',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setStateDialog(() => selectedStore = val);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      initialValue: selectedChannel,
-                      decoration: const InputDecoration(
-                        labelText: 'Channel / Platform *',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'instagram',
-                          child: Text('Instagram'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'tiktok',
-                          child: Text('TikTok'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'youtube',
-                          child: Text('YouTube'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'whatsapp',
-                          child: Text('WhatsApp Broadcast / Story'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'facebook',
-                          child: Text('Facebook'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'marketplace',
-                          child: Text('Feed Aplikasi UMK'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'offline',
-                          child: Text('Bazar / Offline Pendampingan'),
-                        ),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setStateDialog(() => selectedChannel = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: titleCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Judul Kampanye / Aktivitas *',
-                        hintText: 'Misal: Reels Promo Batik Pekalongan',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: reachCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Views / Reach',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: likesCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Likes',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: commentsCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Komentar',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: sharesCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Shares',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: inquiriesCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Leads / Chat Masuk / Konversi',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: descCtrl,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Catatan Evaluasi Engagement',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Batal'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (titleCtrl.text.trim().isEmpty ||
-                        selectedStore.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Judul dan Toko UMK wajib diisi.'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    Navigator.pop(dialogCtx);
-                    try {
-                      final service = ref.read(assistantServiceProvider);
-                      final reach = int.tryParse(reachCtrl.text.trim()) ?? 0;
-                      final likes = int.tryParse(likesCtrl.text.trim()) ?? 0;
-                      final comments =
-                          int.tryParse(commentsCtrl.text.trim()) ?? 0;
-                      final shares = int.tryParse(sharesCtrl.text.trim()) ?? 0;
-                      final inquiries =
-                          int.tryParse(inquiriesCtrl.text.trim()) ?? 0;
-
-                      if (existingLog == null) {
-                        await service.createEngagementLog(
-                          storeId: selectedStore,
-                          title: titleCtrl.text.trim(),
-                          actionType: selectedActionType,
-                          description: descCtrl.text.trim(),
-                          channel: selectedChannel,
-                          reachCount: reach,
-                          likesCount: likes,
-                          commentsCount: comments,
-                          sharesCount: shares,
-                          inquiriesCount: inquiries,
-                        );
-                      } else {
-                        await service.updateAssistanceLog(
-                          logId: existingLog.id,
-                          title: titleCtrl.text.trim(),
-                          actionType: selectedActionType,
-                          description: descCtrl.text.trim(),
-                          channel: selectedChannel,
-                          reachCount: reach,
-                          likesCount: likes,
-                          commentsCount: comments,
-                          sharesCount: shares,
-                          inquiriesCount: inquiries,
-                        );
-                      }
-
-                      ref.invalidate(assistanceLogsProvider(storeId));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              existingLog == null
-                                  ? 'Data engagement berhasil ditambahkan.'
-                                  : 'Data engagement berhasil diperbarui.',
-                            ),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Gagal menyimpan engagement: $e'),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('Simpan'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _confirmDeleteLog(
-    BuildContext context,
-    WidgetRef ref,
-    AssistanceLogModel log,
-  ) {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Hapus Catatan Engagement'),
-        content: Text('Hapus catatan "${log.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(dialogCtx);
-              try {
-                await ref
-                    .read(assistantServiceProvider)
-                    .deleteAssistanceLog(log.id);
-                ref.invalidate(assistanceLogsProvider(storeId));
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Catatan berhasil dihapus.')),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal menghapus: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 }

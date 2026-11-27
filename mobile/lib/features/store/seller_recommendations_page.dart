@@ -179,6 +179,7 @@ class _SellerRecommendationsPageState
           ),
           ElevatedButton(
             onPressed: () async {
+              final badgeText = textController.text.trim();
               Navigator.pop(dialogCtx);
               setState(() => _isProcessing = true);
               try {
@@ -186,9 +187,7 @@ class _SellerRecommendationsPageState
                 await service.saveProductRecommendation(
                   productId: item['product_id'],
                   priority: item['priority'] ?? 1,
-                  badgeText: textController.text.trim().isEmpty
-                      ? null
-                      : textController.text.trim(),
+                  badgeText: badgeText.isEmpty ? null : badgeText,
                   isActive: true,
                 );
                 ref.invalidate(storeRecommendationMetricsProvider(targetStoreId));
@@ -212,7 +211,9 @@ class _SellerRecommendationsPageState
           ),
         ],
       ),
-    );
+    ).whenComplete(() {
+      textController.dispose();
+    });
   }
 
   @override

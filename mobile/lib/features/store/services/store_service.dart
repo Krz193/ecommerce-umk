@@ -14,6 +14,9 @@ class StoreException implements Exception {
 class StoreService {
   final SupabaseClient _supabase = supabase;
 
+  static const String storeSelectColumns =
+      'id, owner_id, name, slug, description, phone, address, province, city, district, postal_code, notes, biteship_area_id, latitude, longitude, local_ojek_enabled, local_ojek_rates, local_ekspedisi_enabled, local_ekspedisi_rates, status';
+
   Future<StoreModel?> getMyStore() async {
     final user = _supabase.auth.currentUser;
 
@@ -23,7 +26,7 @@ class StoreService {
 
     final response = await _supabase
         .from('stores')
-        .select('id, owner_id, name, slug, description, phone, address, status')
+        .select(storeSelectColumns)
         .eq('owner_id', user.id)
         .maybeSingle();
 
@@ -37,7 +40,7 @@ class StoreService {
   Future<StoreModel?> getStoreById(String storeId) async {
     final response = await _supabase
         .from('stores')
-        .select('id, owner_id, name, slug, description, phone, address, status')
+        .select(storeSelectColumns)
         .eq('id', storeId)
         .maybeSingle();
 
@@ -54,6 +57,14 @@ class StoreService {
     String? description,
     String? phone,
     String? address,
+    String? province,
+    String? city,
+    String? district,
+    String? postalCode,
+    String? notes,
+    String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
   }) async {
     final response = await _supabase
         .from('stores')
@@ -62,10 +73,18 @@ class StoreService {
           'description': description,
           'phone': phone,
           'address': address,
+          'province': ?province,
+          'city': ?city,
+          'district': ?district,
+          'postal_code': ?postalCode,
+          'notes': notes,
+          'biteship_area_id': ?biteshipAreaId,
+          'latitude': ?latitude,
+          'longitude': ?longitude,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', storeId)
-        .select('id, owner_id, name, slug, description, phone, address, status')
+        .select(storeSelectColumns)
         .single();
 
     return StoreModel.fromMap(response);
@@ -77,6 +96,14 @@ class StoreService {
     String? description,
     String? phone,
     String? address,
+    String? province,
+    String? city,
+    String? district,
+    String? postalCode,
+    String? notes,
+    String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
   }) async {
     final user = _supabase.auth.currentUser;
 
@@ -94,11 +121,17 @@ class StoreService {
             'description': description,
             'phone': phone,
             'address': address,
+            'province': ?province,
+            'city': ?city,
+            'district': ?district,
+            'postal_code': ?postalCode,
+            'notes': ?notes,
+            'biteship_area_id': ?biteshipAreaId,
+            'latitude': ?latitude,
+            'longitude': ?longitude,
             'status': 'pending',
           })
-          .select(
-            'id, owner_id, name, slug, description, phone, address, status',
-          )
+          .select(storeSelectColumns)
           .single();
 
       return StoreModel.fromMap(response);
@@ -250,5 +283,67 @@ class StoreService {
       return (res['applied_count'] as num?)?.toInt() ?? 0;
     }
     return 0;
+  }
+
+  Future<StoreModel> updateLocalShippingSettings({
+    required String storeId,
+    required bool localOjekEnabled,
+    required List<LocalShippingRateTier> localOjekRates,
+    required bool localEkspedisiEnabled,
+    required List<LocalShippingRateTier> localEkspedisiRates,
+  }) async {
+    final response = await _supabase
+        .from('stores')
+        .update({
+          'local_ojek_enabled': localOjekEnabled,
+          'local_ojek_rates': localOjekRates.map((e) => e.toMap()).toList(),
+          'local_ekspedisi_enabled': localEkspedisiEnabled,
+          'local_ekspedisi_rates': localEkspedisiRates
+              .map((e) => e.toMap())
+              .toList(),
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', storeId)
+        .select(storeSelectColumns)
+        .single();
+
+    return StoreModel.fromMap(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getStoreCouriers(String storeId) async {
+    final res = await _supabase.rpc(
+      'get_store_couriers',
+      params: {'p_store_id': storeId},
+    );
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> assignStoreCourierByEmail({
+    required String storeId,
+    required String email,
+    required String courierType,
+  }) async {
+    final res = await _supabase.rpc(
+      'assign_store_courier_by_email',
+      params: {
+        'p_store_id': storeId,
+        'p_email': email.trim().toLowerCase(),
+        'p_courier_type': courierType,
+      },
+    );
+    return Map<String, dynamic>.from(res as Map);
+  }
+
+  Future<void> removeStoreCourier(String assignmentId) async {
+    await _supabase.rpc(
+      'remove_store_courier',
+      params: {'p_assignment_id': assignmentId},
+    );
   }
 }

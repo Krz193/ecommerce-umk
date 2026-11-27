@@ -60,4 +60,14 @@ class AssignedStoreInfo {
           : DateTime.now(),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AssignedStoreInfo &&
+          runtimeType == other.runtimeType &&
+          storeId == other.storeId;
+
+  @override
+  int get hashCode => storeId.hashCode;
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/config/supabase_provider.dart';
 import 'package:mobile/core/router/customer_shell.dart';
@@ -10,6 +11,7 @@ import 'package:mobile/features/address/address_list_page.dart';
 import 'package:mobile/features/assistant/models/store_content_model.dart';
 import 'package:mobile/features/assistant/screens/assistance_log_page.dart';
 import 'package:mobile/features/assistant/screens/assistant_dashboard_page.dart';
+import 'package:mobile/features/assistant/screens/assistant_donations_page.dart';
 import 'package:mobile/features/assistant/screens/assistant_profile_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_form_page.dart';
 import 'package:mobile/features/assistant/screens/store_content_list_page.dart';
@@ -17,10 +19,13 @@ import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/auth/register_page.dart';
 import 'package:mobile/features/cart/cart_page.dart';
 import 'package:mobile/features/donation/screens/buyer_donations_page.dart';
-import 'package:mobile/features/explore/explore_page.dart';
+import 'package:mobile/features/donation/screens/donation_payment_page.dart';
+import 'package:mobile/features/donation/services/buyer_donation_service.dart';
 import 'package:mobile/features/feedback/screens/feedback_page.dart';
+import 'package:mobile/features/flash_sale/screens/seller_flash_sale_page.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/logistics/logistics_partner_dashboard_page.dart';
+import 'package:mobile/features/notification/screens/notification_list_page.dart';
 import 'package:mobile/features/order/order_detail_page.dart';
 import 'package:mobile/features/order/orders_page.dart';
 import 'package:mobile/features/order/seller_order_detail_page.dart';
@@ -33,6 +38,7 @@ import 'package:mobile/features/product/seller_products_page.dart';
 import 'package:mobile/features/store/models/store_model.dart';
 import 'package:mobile/features/store/seller_buyer_carts_page.dart';
 import 'package:mobile/features/store/seller_edit_store_page.dart';
+import 'package:mobile/features/store/seller_local_shipping_page.dart';
 import 'package:mobile/features/store/seller_onboarding_page.dart';
 import 'package:mobile/features/store/seller_recommendations_page.dart';
 import 'package:mobile/features/store/seller_reviews_page.dart';
@@ -41,21 +47,75 @@ import 'package:mobile/features/store/store_public_page.dart';
 import 'package:mobile/features/training/screens/training_list_page.dart';
 import 'package:mobile/features/voucher/screens/seller_voucher_list_page.dart';
 
+String? _cachedRouterUserId;
+String? _cachedRouterRole;
+
+void clearRouterRoleCache() {
+  _cachedRouterUserId = null;
+  _cachedRouterRole = null;
+}
+
+bool _isRoleAllowedForLocation(String location, String? role) {
+  if (role == 'admin') return true;
+
+  if (location == '/logistics/ekspedisi') {
+    return role == 'ekspedisi';
+  }
+  if (location == '/logistics/ojek') {
+    return role == 'ojek';
+  }
+  if (location.startsWith('/assistant')) {
+    return role == 'assistant';
+  }
+  if (location == '/seller/onboarding') {
+    return role == 'buyer' || role == 'seller';
+  }
+  if (location.startsWith('/seller')) {
+    return role == 'seller' || role == 'assistant';
+  }
+
+  return true;
+}
+
+Future<String?> _resolveUserRole(String userId, {bool forceRefresh = false}) async {
+  if (!forceRefresh && _cachedRouterUserId == userId && _cachedRouterRole != null) {
+    return _cachedRouterRole;
+  }
+
+  try {
+    final row = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+    final role = row?['role']?.toString();
+    _cachedRouterUserId = userId;
+    _cachedRouterRole = role;
+    return role;
+  } catch (_) {
+    return _cachedRouterUserId == userId ? _cachedRouterRole : null;
+  }
+}
+
 final appRouter = GoRouter(
   initialLocation: '/login',
 
   refreshListenable: RouterRefreshStream(supabase.auth.onAuthStateChange),
 
-  redirect: (context, state) {
+  redirect: (context, state) async {
     final session = supabase.auth.currentSession;
 
     final isLoggedIn = session != null;
 
-    final isAuthRoute =
-        state.matchedLocation == '/login' ||
-        state.matchedLocation == '/register';
+    if (!isLoggedIn) {
+      clearRouterRoleCache();
+    }
 
-    if (state.matchedLocation == '/') {
+    final loc = state.matchedLocation;
+
+    final isAuthRoute = loc == '/login' || loc == '/register';
+
+    if (loc == '/') {
       return isLoggedIn ? '/home' : '/login';
     }
 
@@ -65,6 +125,22 @@ final appRouter = GoRouter(
 
     if (isLoggedIn && isAuthRoute) {
       return '/home';
+    }
+
+    final requiresRoleCheck =
+        loc.startsWith('/logistics') ||
+        loc.startsWith('/assistant') ||
+        loc.startsWith('/seller');
+
+    if (isLoggedIn && requiresRoleCheck) {
+      var role = await _resolveUserRole(session.user.id);
+      if (!_isRoleAllowedForLocation(loc, role)) {
+        // Re-fetch once in case user just completed legitimate role onboarding
+        role = await _resolveUserRole(session.user.id, forceRefresh: true);
+        if (!_isRoleAllowedForLocation(loc, role)) {
+          return '/home';
+        }
+      }
     }
 
     return null;
@@ -86,13 +162,6 @@ final appRouter = GoRouter(
       },
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomePage()),
-
-        GoRoute(
-          path: '/explore',
-          builder: (context, state) {
-            return const ExplorePage();
-          },
-        ),
 
         GoRoute(
           path: '/orders',
@@ -134,6 +203,24 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/donations',
       builder: (context, state) => const BuyerDonationsPage(),
+    ),
+    GoRoute(
+      path: '/donations/pay',
+      builder: (context, state) {
+        final qp = state.uri.queryParameters;
+        final initialDonation = state.extra is BuyerDonationRecord
+            ? state.extra as BuyerDonationRecord
+            : null;
+        return DonationPaymentPage(
+          storeId: qp['storeId'] ?? initialDonation?.storeId ?? '',
+          storeName: qp['storeName'] ?? initialDonation?.storeName,
+          contentId: qp['contentId'] ?? initialDonation?.contentId,
+          contentTitle: qp['contentTitle'] ?? initialDonation?.contentTitle,
+          donationId: qp['donationId'] ?? initialDonation?.id,
+          editMode: qp['edit'] == '1',
+          initialDonation: initialDonation,
+        );
+      },
     ),
 
     GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
@@ -184,7 +271,25 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/seller/edit-store',
       builder: (context, state) {
-        final store = state.extra as StoreModel;
+        final store = state.extra is StoreModel ? state.extra as StoreModel : null;
+        if (store == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Edit Toko')),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Data toko tidak ditemukan.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => context.go('/seller/store'),
+                    child: const Text('Kembali ke Toko'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return SellerEditStorePage(store: store);
       },
     ),
@@ -231,6 +336,40 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final storeId = state.uri.queryParameters['storeId'];
         return SellerVoucherListPage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/seller/flash-sales',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return SellerFlashSalePage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/seller/local-shipping',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return SellerLocalShippingPage(storeId: storeId);
+      },
+    ),
+
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationListPage(),
+    ),
+
+    GoRoute(
+      path: '/seller/content-monitoring',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'] ?? '';
+        final storeName = state.uri.queryParameters['storeName'];
+        return StoreContentListPage(
+          storeId: storeId,
+          storeName: storeName,
+          isReadOnly: true,
+        );
       },
     ),
 
@@ -297,11 +436,32 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/payment',
       builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>;
+        final extra = state.extra;
+        if (extra is! Map<String, dynamic> ||
+            extra['order'] is! Map<String, dynamic> ||
+            extra['payment'] is! Map<String, dynamic> ||
+            extra['midtrans'] is! Map<String, dynamic>) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Pembayaran')),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Sesi pembayaran tidak ditemukan.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => context.go('/orders'),
+                    child: const Text('Lihat Pesanan'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return PaymentPage(
-          order: extra['order'],
-          payment: extra['payment'],
-          midtrans: extra['midtrans'],
+          order: extra['order'] as Map<String, dynamic>,
+          payment: extra['payment'] as Map<String, dynamic>,
+          midtrans: extra['midtrans'] as Map<String, dynamic>,
         );
       },
     ),
@@ -309,6 +469,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/assistant/dashboard',
       builder: (context, state) => const AssistantDashboardPage(),
+    ),
+    GoRoute(
+      path: '/assistant/donations',
+      builder: (context, state) {
+        final storeId = state.uri.queryParameters['storeId'];
+        return AssistantDonationsPage(storeId: storeId);
+      },
     ),
     GoRoute(
       path: '/assistant/profile',
@@ -340,7 +507,9 @@ final appRouter = GoRouter(
       path: '/assistant/contents/edit/:id',
       builder: (context, state) {
         final storeId = state.uri.queryParameters['storeId'] ?? '';
-        final existingContent = state.extra as StoreContentModel?;
+        final existingContent = state.extra is StoreContentModel
+            ? state.extra as StoreContentModel
+            : null;
         return StoreContentFormPage(
           storeId: storeId,
           existingContent: existingContent,

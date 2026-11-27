@@ -9,6 +9,7 @@ use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -45,8 +46,8 @@ class DonationController extends Controller
             'total_distributed' => (float)(clone $distributed)->sum(DB::raw('coalesce(distributed_amount, amount)')),
             'total_pending' => (float)Donation::where('status', 'paid')->sum('amount'),
             'distributed_count' => (clone $distributed)->count(),
-            'total_donors' => Donation::count(),
-            'total_stores_supported' => Donation::distinct('store_id')->count('store_id'),
+            'total_donors' => Donation::whereIn('status', ['paid', 'distributed'])->count(),
+            'total_stores_supported' => Donation::whereIn('status', ['paid', 'distributed'])->distinct('store_id')->count('store_id'),
         ];
 
         return Inertia::render('admin/donations/index', [
@@ -71,9 +72,18 @@ class DonationController extends Controller
 
         $isDistributed = $validated['status'] === 'distributed';
 
+        if ($isDistributed && !in_array($donation->status, ['paid', 'distributed'], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'Hanya donasi yang sudah dibayar (lunas) yang dapat disalurkan.',
+            ]);
+        }
+
         // Distribution date/amount only apply to distributed donations; default to now / full amount.
         $validated['distributed_at'] = $isDistributed ? ($validated['distributed_at'] ?? now()) : null;
         $validated['distributed_amount'] = $isDistributed ? ($validated['distributed_amount'] ?? $donation->amount) : null;
+        if ($validated['status'] === 'paid') {
+            $validated['paid_at'] = $donation->paid_at ?? now();
+        }
 
         $oldStatus = $donation->status;
         $donation->update($validated);
@@ -97,6 +107,12 @@ class DonationController extends Controller
 
     public function destroy(Request $request, Donation $donation, AdminAuditLogger $auditLogger): RedirectResponse
     {
+        if (in_array($donation->status, ['paid', 'distributed'], true)) {
+            throw ValidationException::withMessages([
+                'donation' => 'Donasi yang sudah lunas atau disalurkan tidak dapat dihapus.',
+            ]);
+        }
+
         $id = $donation->id;
         $amount = $donation->amount;
         $donation->delete();

@@ -1,6 +1,7 @@
-import { FormEvent, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Plus, Search, Star } from 'lucide-react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { Pagination } from '@/components/admin/pagination';
 import { StatusBadge } from '@/components/admin/status-badge';

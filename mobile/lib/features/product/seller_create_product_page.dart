@@ -97,7 +97,7 @@ class _SellerCreateProductPageState
     });
 
     try {
-      final store = await ref.read(myStoreProvider.future);
+      final store = await ref.read(managedStoreProvider.future);
 
       if (store == null) {
         throw Exception('Buka toko terlebih dahulu sebelum menambahkan produk');
@@ -144,7 +144,7 @@ class _SellerCreateProductPageState
         ),
       );
 
-      context.go('/seller/products/${product.id}/edit');
+      context.push('/seller/products/${product.id}/edit');
     } catch (error) {
       if (!mounted) {
         return;

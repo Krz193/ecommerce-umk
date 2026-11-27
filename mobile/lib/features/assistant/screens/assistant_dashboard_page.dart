@@ -6,6 +6,7 @@ import 'package:mobile/core/utils/currency_formatter.dart';
 import 'package:mobile/core/utils/error_formatter.dart';
 import 'package:mobile/features/assistant/models/assistant_profile_model.dart';
 import 'package:mobile/features/assistant/providers/assistant_providers.dart';
+import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/store/providers/store_provider.dart';
 
@@ -19,8 +20,13 @@ class AssistantDashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard Asisten UMK'),
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text('Dashboard Asisten UMK'),
+        ),
         actions: [
+          const NotificationBellButton(),
           IconButton(
             icon: const Icon(Icons.person),
             tooltip: 'Profil Asisten',
@@ -58,8 +64,11 @@ class AssistantDashboardPage extends ConsumerWidget {
           }
 
           final stores = profile.assignedStores;
-          final activeStore =
-              selectedStore ?? (stores.isNotEmpty ? stores.first : null);
+          final activeStore = stores.isEmpty
+              ? null
+              : (selectedStore != null && stores.contains(selectedStore)
+                    ? selectedStore
+                    : stores.first);
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -83,7 +92,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                        colors: [AppColors.primaryHover, AppColors.primary],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -201,21 +210,32 @@ class AssistantDashboardPage extends ConsumerWidget {
                                     Icon(Icons.store, color: AppColors.primary),
                                     const SizedBox(width: 10),
                                     Expanded(
-                                      child: Text(
-                                        store.storeName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            store.storeName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          if (store.storeCity != null)
+                                            Text(
+                                              store.storeCity!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                    if (store.storeCity != null)
-                                      Text(
-                                        store.storeCity!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
                                   ],
                                 ),
                               );
@@ -255,12 +275,12 @@ class AssistantDashboardPage extends ConsumerWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 1.25,
+                    childAspectRatio: 1.08,
                     children: [
                       _buildMenuCard(
                         context,
-                        title: 'Konten Promosi',
-                        subtitle: 'Medsos, Video & Gambar',
+                        title: 'Konten & Engagement',
+                        subtitle: 'Upload Link Bukti & Metrik',
                         icon: Icons.article_outlined,
                         color: Colors.orange.shade700,
                         onTap: activeStore == null
@@ -271,10 +291,22 @@ class AssistantDashboardPage extends ConsumerWidget {
                       ),
                       _buildMenuCard(
                         context,
+                        title: 'Monitoring Donasi',
+                        subtitle: 'Pantau Donasi & Penyaluran',
+                        icon: Icons.volunteer_activism_outlined,
+                        color: AppColors.primaryHover,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/assistant/donations?storeId=${activeStore.storeId}',
+                              ),
+                      ),
+                      _buildMenuCard(
+                        context,
                         title: 'CRUD Engagement',
                         subtitle: 'Reach, Likes & Aktivitas',
                         icon: Icons.insights_outlined,
-                        color: Colors.purple.shade700,
+                        color: AppColors.primary,
                         onTap: () => context.push(
                           '/assistant/logs${activeStore != null ? '?storeId=${activeStore.storeId}' : ''}',
                         ),
@@ -284,7 +316,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Rekomendasi Produk',
                         subtitle: 'Pilihan Produk Unggulan',
                         icon: Icons.auto_awesome_outlined,
-                        color: Colors.amber.shade800,
+                        color: Colors.orange.shade800,
                         onTap: activeStore == null
                             ? null
                             : () => context.push(
@@ -296,7 +328,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Keranjang Pembeli',
                         subtitle: 'Pantau Keranjang Aktif',
                         icon: Icons.shopping_cart_checkout,
-                        color: Colors.blue.shade800,
+                        color: const Color(0xFFC2410C),
                         onTap: activeStore == null
                             ? null
                             : () => context.push(
@@ -308,7 +340,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Laporan UKM Binaan',
                         subtitle: 'Penjualan & Ekspor CSV',
                         icon: Icons.analytics_outlined,
-                        color: Colors.green.shade700,
+                        color: AppColors.primaryHover,
                         onTap: activeStore == null
                             ? null
                             : () => context.push('/seller/reports'),
@@ -318,7 +350,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Profil Toko UMK',
                         subtitle: 'Kelola Informasi Toko',
                         icon: Icons.storefront_outlined,
-                        color: Colors.deepOrange.shade700,
+                        color: AppColors.primary,
                         onTap: () async {
                           final targetStoreId = activeStore?.storeId;
                           if (targetStoreId == null) {
@@ -348,23 +380,49 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Produk UMK',
                         subtitle: 'Kelola Produk & Stok',
                         icon: Icons.inventory_2_outlined,
-                        color: Colors.teal.shade700,
-                        onTap: () => context.push('/seller/products'),
+                        color: Colors.orange.shade800,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push('/seller/products'),
+                      ),
+                      _buildMenuCard(
+                        context,
+                        title: 'Flash Sale Toko',
+                        subtitle: 'Promo & Event Diskon',
+                        icon: Icons.bolt_outlined,
+                        color: AppColors.primaryHover,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/seller/flash-sales?storeId=${activeStore.storeId}',
+                              ),
                       ),
                       _buildMenuCard(
                         context,
                         title: 'Pesanan UMK',
                         subtitle: 'Kelola Pengiriman',
                         icon: Icons.local_shipping_outlined,
-                        color: Colors.indigo.shade700,
+                        color: const Color(0xFFC2410C),
                         onTap: () => context.push('/seller/orders'),
+                      ),
+                      _buildMenuCard(
+                        context,
+                        title: 'Ongkir Lokal',
+                        subtitle: 'Tarif Ojek & Kurir Toko',
+                        icon: Icons.two_wheeler_outlined,
+                        color: AppColors.primary,
+                        onTap: activeStore == null
+                            ? null
+                            : () => context.push(
+                                '/seller/local-shipping?storeId=${activeStore.storeId}',
+                              ),
                       ),
                       _buildMenuCard(
                         context,
                         title: 'Ulasan Produk',
                         subtitle: 'Respon Ulasan Pembeli',
                         icon: Icons.rate_review_outlined,
-                        color: Colors.teal.shade700,
+                        color: Colors.orange.shade800,
                         onTap: () => context.push('/seller/reviews'),
                       ),
                       _buildMenuCard(
@@ -372,7 +430,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                         title: 'Profil Asisten',
                         subtitle: 'Lihat Akun Asisten',
                         icon: Icons.badge_outlined,
-                        color: Colors.blueGrey.shade700,
+                        color: AppColors.primaryHover,
                         onTap: () => context.push('/assistant/profile'),
                       ),
                     ],
@@ -424,7 +482,7 @@ class AssistantDashboardPage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.teal.shade100),
+        border: Border.all(color: Colors.orange.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(10),
@@ -442,9 +500,9 @@ class AssistantDashboardPage extends ConsumerWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.volunteer_activism_outlined,
-                      color: Colors.teal.shade700,
+                      color: AppColors.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -461,8 +519,10 @@ class AssistantDashboardPage extends ConsumerWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => context.push('/seller/reports'),
-                child: const Text('Detail >'),
+                onPressed: () => context.push(
+                  '/assistant/donations?storeId=${activeStore.storeId}',
+                ),
+                child: const Text('Lihat Donasi >'),
               ),
             ],
           ),
@@ -475,6 +535,7 @@ class AssistantDashboardPage extends ConsumerWidget {
                   value: CurrencyFormatter.format(totalSalesRevenue),
                   sub: '${paidOrders.length} transaksi',
                   color: Colors.green.shade700,
+                  onTap: () => context.push('/seller/reports'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -483,7 +544,10 @@ class AssistantDashboardPage extends ConsumerWidget {
                   label: 'Donasi Terkumpul',
                   value: CurrencyFormatter.format(totalDonationsCollected),
                   sub: '$donorCount donatur',
-                  color: Colors.pink.shade700,
+                  color: AppColors.primaryHover,
+                  onTap: () => context.push(
+                    '/assistant/donations?storeId=${activeStore.storeId}',
+                  ),
                 ),
               ),
             ],
@@ -496,7 +560,10 @@ class AssistantDashboardPage extends ConsumerWidget {
                   label: 'Donasi Disalurkan',
                   value: CurrencyFormatter.format(totalDonationsDistributed),
                   sub: 'Diterima UKM Binaan',
-                  color: Colors.indigo.shade700,
+                  color: AppColors.primary,
+                  onTap: () => context.push(
+                    '/assistant/donations?storeId=${activeStore.storeId}',
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -505,7 +572,8 @@ class AssistantDashboardPage extends ConsumerWidget {
                   label: 'Total Pesanan',
                   value: '${orders.length} Pesanan',
                   sub: 'Semua status order',
-                  color: Colors.blue.shade700,
+                  color: Colors.orange.shade800,
+                  onTap: () => context.push('/seller/orders'),
                 ),
               ),
             ],
@@ -520,35 +588,40 @@ class AssistantDashboardPage extends ConsumerWidget {
     required String value,
     required String sub,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withAlpha(16),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: color,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withAlpha(16),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            sub,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              sub,
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
       ),
     );
   }

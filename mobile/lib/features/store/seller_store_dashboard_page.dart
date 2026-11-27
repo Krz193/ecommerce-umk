@@ -1,10 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/utils/csv_exporter.dart';
 import 'package:mobile/core/utils/currency_formatter.dart';
+import 'package:mobile/features/notification/widgets/notification_bell_button.dart';
 import 'package:mobile/features/order/models/order_model.dart';
 import 'package:mobile/features/order/providers/seller_order_provider.dart';
 import 'package:mobile/features/product/models/product_model.dart';
@@ -23,6 +24,7 @@ class SellerStoreDashboardPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Toko Saya'),
+        actions: const [NotificationBellButton()],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -154,10 +156,13 @@ class SellerStoreDashboardPage extends ConsumerWidget {
 
                 _buildActionTile(
                   icon: Icons.campaign_outlined,
-                  title: 'Konten Promosi & Media Sosial',
-                  subtitle: 'Kelola promosi, kisah produk, video, gambar, dan link medsos',
+                  title: 'Monitoring Konten & Engagement',
+                  subtitle:
+                      'Pantau bukti link konten eksternal & performa engagement dari Asisten UMK',
                   onTap: () {
-                    context.push('/assistant/contents?storeId=${store.id}&storeName=${Uri.encodeComponent(store.name)}');
+                    context.push(
+                      '/seller/content-monitoring?storeId=${store.id}&storeName=${Uri.encodeComponent(store.name)}',
+                    );
                   },
                 ),
 
@@ -169,6 +174,29 @@ class SellerStoreDashboardPage extends ConsumerWidget {
                   subtitle: 'Buat harga spesial kenalan, diskon nominal/persen, atau 1x pakai',
                   onTap: () {
                     context.push('/seller/vouchers?storeId=${store.id}');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.bolt_outlined,
+                  title: 'Flash Sale & Promo Event',
+                  subtitle: 'Buat event Flash Sale toko atau daftarkan produk ke event Admin',
+                  onTap: () {
+                    context.push('/seller/flash-sales?storeId=${store.id}');
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _buildActionTile(
+                  icon: Icons.two_wheeler_outlined,
+                  title: 'Pengiriman Lokal Toko',
+                  subtitle:
+                      'Atur opsional ongkir Ojek Lokal, Ekspedisi Lokal, range jarak, & kurir toko',
+                  onTap: () {
+                    context.push('/seller/local-shipping?storeId=${store.id}');
                   },
                 ),
               ],
@@ -329,23 +357,23 @@ class SellerStoreReportsPage extends ConsumerWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            color: AppColors.primaryLight,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.blue.shade100),
+            border: Border.all(color: Colors.orange.shade200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              const Row(
                 children: [
-                  const Icon(Icons.shopping_cart_checkout, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  const Text(
+                  Icon(Icons.shopping_cart_checkout, color: AppColors.primaryHover),
+                  SizedBox(width: 8),
+                  Text(
                     'Potensi Keranjang Pembeli',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                      color: AppColors.primaryHover,
                     ),
                   ),
                 ],
@@ -357,7 +385,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
                   _buildMetricItem(
                     title: 'Total Barang',
                     value: totalItems.toString(),
-                    color: Colors.blue.shade900,
+                    color: const Color(0xFF9A3412),
                   ),
                   _buildMetricItem(
                     title: 'Potensi Nilai',
@@ -367,13 +395,13 @@ class SellerStoreReportsPage extends ConsumerWidget {
                   _buildMetricItem(
                     title: 'Calon Pembeli',
                     value: uniqueBuyers.toString(),
-                    color: Colors.purple.shade700,
+                    color: AppColors.primary,
                   ),
                 ],
               ),
               if (totalItems > 0 && breakdown.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Divider(color: Colors.blue.shade100, height: 1),
+                Divider(color: Colors.orange.shade200, height: 1),
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: () => _showProductBreakdownSheet(context, breakdown),
@@ -385,21 +413,21 @@ class SellerStoreReportsPage extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.inventory_2_outlined,
-                                size: 16, color: Colors.blue.shade800),
+                            const Icon(Icons.inventory_2_outlined,
+                                size: 16, color: AppColors.primaryHover),
                             const SizedBox(width: 6),
                             Text(
                               'Lihat Rincian ${breakdown.length} Produk di Keranjang',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.blue.shade900,
+                                color: Color(0xFF9A3412),
                               ),
                             ),
                           ],
                         ),
-                        Icon(Icons.arrow_forward_ios_rounded,
-                            size: 13, color: Colors.blue.shade800),
+                        const Icon(Icons.arrow_forward_ios_rounded,
+                            size: 13, color: AppColors.primaryHover),
                       ],
                     ),
                   ),
@@ -450,11 +478,11 @@ class SellerStoreReportsPage extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          color: AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.shopping_cart_outlined,
-                            color: Colors.blue),
+                            color: AppColors.primaryHover),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -568,15 +596,15 @@ class SellerStoreReportsPage extends ConsumerWidget {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 7, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.blue.shade100,
+                                          color: AppColors.primaryLight,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           '$totalQty di keranjang',
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.blue.shade900,
+                                            color: AppColors.primaryHover,
                                           ),
                                         ),
                                       ),
@@ -584,7 +612,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 7, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.purple.shade50,
+                                          color: Colors.orange.shade50,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
@@ -592,7 +620,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.purple.shade800,
+                                            color: Colors.orange.shade900,
                                           ),
                                         ),
                                       ),
@@ -881,34 +909,17 @@ class SellerStoreReportsPage extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final directory = _exportDirectory();
       final filename =
           '${_safeFileName(storeName)}-$reportName-${_dateStamp()}.csv';
-      final file = File('${directory.path}${Platform.pathSeparator}$filename');
-
-      await directory.create(recursive: true);
-      await file.writeAsString(_toCsv(rows));
-
-      messenger.showSnackBar(
-        SnackBar(content: Text('Export saved: ${file.path}')),
+      final message = await saveOrShareCsvReport(
+        filename: filename,
+        csvContent: _toCsv(rows),
       );
+
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $error')));
     }
-  }
-
-  Directory _exportDirectory() {
-    final userProfile = Platform.environment['USERPROFILE'];
-    if (Platform.isWindows && userProfile != null && userProfile.isNotEmpty) {
-      return Directory('$userProfile${Platform.pathSeparator}Downloads');
-    }
-
-    final home = Platform.environment['HOME'];
-    if (home != null && home.isNotEmpty) {
-      return Directory('$home${Platform.pathSeparator}Downloads');
-    }
-
-    return Directory.systemTemp;
   }
 
   String _toCsv(List<List<String>> rows) {
@@ -920,16 +931,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
   }
 
   String _escapeCsvValue(String value) {
-    final escaped = value.replaceAll('"', '""');
-
-    if (escaped.contains(',') ||
-        escaped.contains('\n') ||
-        escaped.contains('\r') ||
-        escaped.contains('"')) {
-      return '"$escaped"';
-    }
-
-    return escaped;
+    return escapeCsvCell(value);
   }
 
   String _safeFileName(String value) {
@@ -969,7 +971,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Total Produk',
           value: products.length.toString(),
           icon: Icons.inventory_2_outlined,
-          color: Colors.blue,
+          color: AppColors.primary,
         ),
         _DashboardMetric(
           label: 'Aktif / Tayang',
@@ -1015,13 +1017,13 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Siap Kirim',
           value: processing.toString(),
           icon: Icons.local_shipping_outlined,
-          color: processing > 0 ? Colors.blue : Colors.grey,
+          color: processing > 0 ? AppColors.primary : Colors.grey,
         ),
         _DashboardMetric(
           label: 'Dikirim',
           value: shipped.toString(),
           icon: Icons.inventory_outlined,
-          color: shipped > 0 ? Colors.deepPurple : Colors.grey,
+          color: shipped > 0 ? AppColors.primaryHover : Colors.grey,
         ),
         _DashboardMetric(
           label: 'Selesai',
@@ -1076,7 +1078,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Pesanan Selesai',
           value: _compactRupiah(completedRevenue),
           icon: Icons.verified_outlined,
-          color: Colors.teal,
+          color: AppColors.primaryHover,
           tooltip: CurrencyFormatter.format(completedRevenue),
         ),
         _DashboardMetric(
@@ -1090,7 +1092,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Transaksi Lunas',
           value: paidOrders.length.toString(),
           icon: Icons.receipt_long_outlined,
-          color: Colors.blue,
+          color: AppColors.primary,
         ),
       ],
     );
@@ -1127,7 +1129,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Total Pembeli',
           value: uniqueBuyers.toString(),
           icon: Icons.people_alt_outlined,
-          color: Colors.indigo,
+          color: AppColors.primary,
         ),
         _DashboardMetric(
           label: 'Pembeli Lunas',
@@ -1139,13 +1141,13 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Pelanggan Setia',
           value: repeatBuyers.toString(),
           icon: Icons.repeat_outlined,
-          color: repeatBuyers > 0 ? Colors.deepPurple : Colors.grey,
+          color: repeatBuyers > 0 ? AppColors.primaryHover : Colors.grey,
         ),
         _DashboardMetric(
           label: 'Total Transaksi',
           value: orders.length.toString(),
           icon: Icons.shopping_bag_outlined,
-          color: Colors.blueGrey,
+          color: Colors.orange.shade800,
         ),
       ],
     );
@@ -1185,7 +1187,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Dalam Perjalanan',
           value: shipped.toString(),
           icon: Icons.local_shipping_outlined,
-          color: shipped > 0 ? Colors.blue : Colors.grey,
+          color: shipped > 0 ? AppColors.primaryHover : Colors.grey,
         ),
         _DashboardMetric(
           label: 'Terkirim',
@@ -1197,7 +1199,7 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Ada Nomor Resi',
           value: withTracking.toString(),
           icon: Icons.confirmation_number_outlined,
-          color: withTracking > 0 ? Colors.deepPurple : Colors.grey,
+          color: withTracking > 0 ? AppColors.primary : Colors.grey,
         ),
       ],
     );
@@ -1226,13 +1228,13 @@ class SellerStoreReportsPage extends ConsumerWidget {
           label: 'Total Stok',
           value: totalStock.toString(),
           icon: Icons.warehouse_outlined,
-          color: Colors.teal,
+          color: AppColors.primary,
         ),
         _DashboardMetric(
           label: 'Nilai Aset Barang',
           value: _compactRupiah(inventoryValue),
           icon: Icons.account_balance_wallet_outlined,
-          color: Colors.indigo,
+          color: AppColors.primaryHover,
         ),
         _DashboardMetric(
           label: 'Siap Dijual',

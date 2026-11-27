@@ -1,6 +1,7 @@
-import { ChangeEvent, FormEvent, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { CheckCircle2, Clock, Inbox, MessageSquareText, Search, Trash2 } from 'lucide-react';
+import type { ChangeEvent, FormEvent} from 'react';
+import { useState } from 'react';
 import { Pagination } from '@/components/admin/pagination';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +82,10 @@ export default function FeedbacksIndex({ feedbacks, stats, filters }: FeedbacksI
 
     function handleSaveReview(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (!selectedItem) return;
+
+        if (!selectedItem) {
+return;
+}
 
         setIsUpdating(true);
         router.patch(
@@ -103,7 +107,9 @@ export default function FeedbacksIndex({ feedbacks, stats, filters }: FeedbacksI
     }
 
     function handleDelete() {
-        if (!deletingId) return;
+        if (!deletingId) {
+return;
+}
 
         setIsDeleting(true);
         router.delete(`/system-feedbacks/${deletingId}`, {

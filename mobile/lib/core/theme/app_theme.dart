@@ -36,18 +36,17 @@ class AppTheme {
       bodySmall: TextStyle(color: AppColors.textSecondary),
     ),
 
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
       backgroundColor: AppColors.surface,
       foregroundColor: AppColors.textPrimary,
-      iconTheme: IconThemeData(color: AppColors.textPrimary),
-      titleTextStyle: TextStyle(
+      iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      titleTextStyle: GoogleFonts.poppins(
         color: AppColors.textPrimary,
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        fontFamily: 'Poppins',
       ),
     ),
 
@@ -89,10 +88,9 @@ class AppTheme {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        textStyle: const TextStyle(
+        textStyle: GoogleFonts.poppins(
           fontSize: 15,
           fontWeight: FontWeight.bold,
-          fontFamily: 'Poppins',
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -103,10 +101,9 @@ class AppTheme {
         minimumSize: const Size(0, 48),
         foregroundColor: AppColors.primary,
         side: const BorderSide(color: AppColors.primary, width: 1.5),
-        textStyle: const TextStyle(
+        textStyle: GoogleFonts.poppins(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          fontFamily: 'Poppins',
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -115,10 +112,9 @@ class AppTheme {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primary,
-        textStyle: const TextStyle(
+        textStyle: GoogleFonts.poppins(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          fontFamily: 'Poppins',
         ),
       ),
     ),

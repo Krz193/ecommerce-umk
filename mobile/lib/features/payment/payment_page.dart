@@ -36,6 +36,7 @@ class PaymentPage extends ConsumerStatefulWidget {
 class _PaymentPageState extends ConsumerState<PaymentPage> {
   Timer? countdownTimer;
   Timer? paymentPollingTimer;
+  bool _isCheckingStatus = false;
 
   late String transactionStatus;
 
@@ -80,7 +81,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   }
 
   void updateRemainingTime() {
-    final expiredAt = DateTime.parse(widget.payment['expired_at']).toLocal();
+    final rawExpiredAt = widget.payment['expired_at']?.toString();
+    if (rawExpiredAt == null || rawExpiredAt.isEmpty) return;
+
+    final expiredAt = DateTime.tryParse(rawExpiredAt)?.toLocal();
+    if (expiredAt == null) return;
+
     final now = DateTime.now();
     final difference = expiredAt.difference(now);
 
@@ -98,10 +104,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         countdownTimer?.cancel();
       }
     });
-
-    // debugPrint("now: $now");
-    // debugPrint("exp: $expiredAt");
-    // debugPrint("remaining: $remainingTime");
   }
 
   String formatRemainingTime() {
@@ -159,17 +161,28 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   }
 
   Future<void> checkPaymentStatus() async {
-    if (transactionStatus == 'expired') {
+    if (_isCheckingStatus ||
+        transactionStatus == 'expired' ||
+        transactionStatus == 'paid' ||
+        transactionStatus == 'failed') {
       return;
     }
+
+    final orderId = widget.order['id']?.toString();
+    if (orderId == null || orderId.isEmpty) {
+      return;
+    }
+
+    _isCheckingStatus = true;
     try {
       final paymentService = ref.read(paymentServiceProvider);
 
-      final result = await paymentService.checkPaymentStatus(
-        orderId: widget.order['id'],
-      );
+      final result = await paymentService
+          .checkPaymentStatus(orderId: orderId)
+          .timeout(const Duration(seconds: 10));
 
-      final status = result['payment_status'];
+      final status = result['payment_status']?.toString();
+      if (status == null || status.isEmpty) return;
 
       if (!mounted) return;
 
@@ -183,7 +196,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         paymentPollingTimer?.cancel();
 
         ref.invalidate(ordersProvider);
-        ref.invalidate(orderDetailProvider(widget.order['id']));
+        ref.invalidate(orderDetailProvider(orderId));
 
         if (status == 'paid') {
           ref.invalidate(cartProvider);
@@ -198,6 +211,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       }
     } catch (error) {
       debugPrint(error.toString());
+    } finally {
+      _isCheckingStatus = false;
     }
   }
 
@@ -231,14 +246,27 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    final vaNumber = widget.midtrans['permata_va_number'];
+    final vaNumber = widget.midtrans['permata_va_number']?.toString() ?? '';
+    final expiredAtRaw = widget.payment['expired_at']?.toString();
+    final isLockedStatus =
+        transactionStatus == 'paid' || transactionStatus == 'pending';
 
     return PopScope(
-      canPop: transactionStatus != 'paid',
+      canPop: !isLockedStatus,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && transactionStatus == 'pending') {
+          final orderId = widget.order['id']?.toString();
+          if (orderId != null && orderId.isNotEmpty) {
+            context.go('/orders/$orderId');
+          } else {
+            context.go('/orders');
+          }
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Payment'),
-          automaticallyImplyLeading: transactionStatus != 'paid',
+          automaticallyImplyLeading: !isLockedStatus,
         ),
 
         body: SingleChildScrollView(
@@ -403,7 +431,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                             children: [
                               Expanded(
                                 child: SelectableText(
-                                  vaNumber,
+                                  vaNumber.isNotEmpty ? vaNumber : '-',
 
                                   style: const TextStyle(
                                     fontSize: 20,
@@ -413,19 +441,25 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                               ),
 
                               IconButton(
-                                onPressed: () async {
-                                  await Clipboard.setData(
-                                    ClipboardData(text: vaNumber),
-                                  );
+                                onPressed: vaNumber.isEmpty
+                                    ? null
+                                    : () async {
+                                        await Clipboard.setData(
+                                          ClipboardData(text: vaNumber),
+                                        );
 
-                                  if (!context.mounted) {
-                                    return;
-                                  }
+                                        if (!context.mounted) {
+                                          return;
+                                        }
 
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('VA copied')),
-                                  );
-                                },
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('VA copied'),
+                                          ),
+                                        );
+                                      },
 
                                 icon: const Icon(Icons.copy),
                               ),
@@ -468,7 +502,26 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                           const SizedBox(height: 16),
 
                           Text(
-                            'Expired: ${DateFormatter.formatDateTime(widget.payment['expired_at'])} WIB (UTC+7)',
+                            expiredAtRaw != null && expiredAtRaw.isNotEmpty
+                                ? 'Expired: ${DateFormatter.formatDateTime(expiredAtRaw)} WIB (UTC+7)'
+                                : 'Expired: -',
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () {
+                                final orderId = widget.order['id']?.toString();
+                                if (orderId != null && orderId.isNotEmpty) {
+                                  context.go('/orders/$orderId');
+                                } else {
+                                  context.go('/orders');
+                                }
+                              },
+                              child: const Text('Lihat Detail Pesanan'),
+                            ),
                           ),
                         ],
                       ),

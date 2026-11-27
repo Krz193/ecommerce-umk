@@ -27,7 +27,9 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
   }
 
   void startPolling() {
-    refreshTimer?.cancel();
+    if (refreshTimer?.isActive == true) {
+      return;
+    }
 
     refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       debugPrint('refreshing orders page');
@@ -38,6 +40,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
   void stopPolling() {
     refreshTimer?.cancel();
+    refreshTimer = null;
   }
 
   @override
@@ -81,15 +84,22 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
   Color getStatusColor(String status) {
     switch (status) {
       case 'paid':
+      case 'completed':
+      case 'delivered':
         return Colors.green;
+
+      case 'shipped':
+        return Colors.blue;
+
+      case 'processing':
+        return Colors.teal;
 
       case 'pending':
         return Colors.orange;
 
       case 'expired':
-        return Colors.red;
-
       case 'failed':
+      case 'cancelled':
         return Colors.red;
 
       default:
@@ -97,7 +107,33 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
     }
   }
 
+  Color getOrderChipColor(dynamic order) {
+    if (order.status == 'cancelled') {
+      return Colors.red;
+    }
+    if (order.paymentStatus == 'expired' || order.paymentStatus == 'failed') {
+      return Colors.red;
+    }
+    if (order.paymentStatus == 'pending') {
+      return Colors.orange;
+    }
+    if (order.status == 'completed' || order.status == 'delivered') {
+      return Colors.green;
+    }
+    if (order.status == 'shipped') {
+      return Colors.blue;
+    }
+    if (order.status == 'processing') {
+      return Colors.teal;
+    }
+    return getStatusColor(order.paymentStatus);
+  }
+
   String notificationText(dynamic order) {
+    if (order.status == 'cancelled') {
+      return 'Pesanan ${order.orderNumber} dibatalkan';
+    }
+
     if (order.paymentStatus == 'pending') {
       return 'Selesaikan pembayaran untuk pesanan ${order.orderNumber}';
     }
@@ -108,6 +144,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
     if (order.status == 'shipped') {
       return 'Pesanan ${order.orderNumber} sedang dalam pengiriman';
+    }
+
+    if (order.status == 'delivered') {
+      return 'Pesanan ${order.orderNumber} telah tiba di tujuan';
     }
 
     if (order.status == 'completed') {
@@ -122,6 +162,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
   }
 
   String displayStatus(dynamic order) {
+    if (order.status == 'cancelled') {
+      return 'Dibatalkan';
+    }
+
     if (order.paymentStatus == 'pending') {
       return 'Menunggu Pembayaran';
     }
@@ -132,6 +176,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
     if (order.status == 'shipped') {
       return 'Dikirim';
+    }
+
+    if (order.status == 'delivered') {
+      return 'Tiba di Tujuan';
     }
 
     if (order.status == 'completed') {
@@ -151,6 +199,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<dynamic>>>(ordersProvider, (_, next) {
+      next.whenData((orders) {
+        if (hasPendingOrders(orders)) {
+          startPolling();
+        } else {
+          stopPolling();
+        }
+      });
+    });
+
     final ordersAsync = ref.watch(ordersProvider);
 
     return Scaffold(
@@ -158,20 +216,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
 
       body: ordersAsync.when(
         data: (orders) {
-          if (hasPendingOrders(orders)) {
-            startPolling();
-          } else {
-            stopPolling();
-          }
-
           if (orders.isEmpty) {
             return const Center(child: Text('Belum ada pesanan'));
           }
 
           return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(ordersProvider);
-            },
+            onRefresh: () => ref.refresh(ordersProvider.future),
 
             child: ListView.separated(
               padding: const EdgeInsets.all(24),
@@ -236,9 +286,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                           ),
 
                           decoration: BoxDecoration(
-                            color: getStatusColor(
-                              order.paymentStatus,
-                            ).withValues(alpha: 0.15),
+                            color: getOrderChipColor(order)
+                                .withValues(alpha: 0.15),
 
                             borderRadius: BorderRadius.circular(999),
                           ),
@@ -247,7 +296,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                             displayStatus(order),
 
                             style: TextStyle(
-                              color: getStatusColor(order.paymentStatus),
+                              color: getOrderChipColor(order),
 
                               fontWeight: FontWeight.bold,
                             ),

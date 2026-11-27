@@ -36,6 +36,8 @@ class AddressService {
           full_address,
           notes,
           biteship_area_id,
+          latitude,
+          longitude,
           is_default
         ''')
         .eq('user_id', user.id)
@@ -58,6 +60,8 @@ class AddressService {
     String? postalCode,
     String? notes,
     String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
     bool isDefault = false,
   }) async {
     final user = _supabase.auth.currentUser;
@@ -68,10 +72,6 @@ class AddressService {
 
     final addresses = await getAddresses();
     final shouldBeDefault = isDefault || addresses.isEmpty;
-
-    if (shouldBeDefault) {
-      await clearDefaultAddress(user.id);
-    }
 
     try {
       final response = await _supabase
@@ -88,12 +88,19 @@ class AddressService {
             'full_address': fullAddress,
             'notes': blankToNull(notes),
             'biteship_area_id': blankToNull(biteshipAreaId),
+            'latitude': ?latitude,
+            'longitude': ?longitude,
             'is_default': shouldBeDefault,
           })
           .select()
           .single();
 
-      return AddressModel.fromMap(response);
+      final created = AddressModel.fromMap(response);
+      if (shouldBeDefault) {
+        await clearOtherDefaultAddresses(user.id, created.id);
+      }
+
+      return created;
     } on PostgrestException catch (error) {
       throw AddressException(error.message);
     }
@@ -111,16 +118,14 @@ class AddressService {
     String? postalCode,
     String? notes,
     String? biteshipAreaId,
+    double? latitude,
+    double? longitude,
     bool isDefault = false,
   }) async {
     final user = _supabase.auth.currentUser;
 
     if (user == null) {
       throw AddressException('User not logged in');
-    }
-
-    if (isDefault) {
-      await clearDefaultAddress(user.id);
     }
 
     try {
@@ -137,12 +142,18 @@ class AddressService {
             'full_address': fullAddress,
             'notes': blankToNull(notes),
             'biteship_area_id': blankToNull(biteshipAreaId),
+            'latitude': ?latitude,
+            'longitude': ?longitude,
             'is_default': isDefault,
           })
           .eq('id', addressId)
           .eq('user_id', user.id)
           .select()
           .single();
+
+      if (isDefault) {
+        await clearOtherDefaultAddresses(user.id, addressId);
+      }
 
       return AddressModel.fromMap(response);
     } on PostgrestException catch (error) {
@@ -193,7 +204,16 @@ class AddressService {
       throw AddressException('User not logged in');
     }
 
-    await clearDefaultAddress(user.id);
+    try {
+      await _supabase.rpc(
+        'set_default_address',
+        params: {'p_address_id': addressId},
+      );
+      return;
+    } on PostgrestException {
+      // Fallback when RPC is not yet deployed: set target default first so
+      // a failure never leaves the user with zero default addresses.
+    }
 
     try {
       await _supabase
@@ -201,16 +221,19 @@ class AddressService {
           .update({'is_default': true})
           .eq('id', addressId)
           .eq('user_id', user.id);
+
+      await clearOtherDefaultAddresses(user.id, addressId);
     } on PostgrestException catch (error) {
       throw AddressException(error.message);
     }
   }
 
-  Future<void> clearDefaultAddress(String userId) async {
+  Future<void> clearOtherDefaultAddresses(String userId, String keepId) async {
     await _supabase
         .from('addresses')
         .update({'is_default': false})
         .eq('user_id', userId)
+        .neq('id', keepId)
         .eq('is_default', true);
   }
 
@@ -238,9 +261,11 @@ class AddressService {
             .toList();
       }
 
-      return [];
-    } catch (_) {
-      return [];
+      throw AddressException('Respons pencarian area tidak valid');
+    } on AddressException {
+      rethrow;
+    } catch (error) {
+      throw AddressException(error.toString());
     }
   }
 
